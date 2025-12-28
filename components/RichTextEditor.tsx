@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { 
   Bold, Italic, Underline, Heading1, Heading2, Quote, 
   List, ListOrdered, Link as LinkIcon, Image as ImageIcon,
-  AlignLeft, AlignCenter, AlignRight, Undo, Redo, Loader2
+  AlignLeft, AlignCenter, AlignRight, Undo, Redo, Loader2,
+  Trash2
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -15,19 +16,31 @@ interface RichTextEditorProps {
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onImageUpload, placeholder, className }) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
 
-  // Sync content updates from parent only if editor is empty or significantly different
-  // to avoid cursor jumping issues during typing
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== content) {
-       // Only update if the content is truly different (e.g. loading a saved draft)
-       // This checks prevents loop where typing updates state -> state updates innerHTML -> cursor moves to start
        if (content === '' && editorRef.current.innerHTML === '<br>') return;
        editorRef.current.innerHTML = content;
     }
   }, [content]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (editorRef.current && !editorRef.current.contains(event.target as Node)) {
+        const target = event.target as HTMLElement;
+        if (target.closest('[data-image-delete-button]')) return;
+        setSelectedImg(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const exec = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
@@ -59,17 +72,51 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
         alert("Failed to upload image into content.");
       } finally {
         setIsUploading(false);
-        // Reset file input
         if (e.target) e.target.value = '';
       }
     }
+  };
+
+  const handleEditorClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'IMG') {
+        setSelectedImg(target as HTMLImageElement);
+    } else if (selectedImg) {
+        setSelectedImg(null);
+    }
+  };
+
+  const handleDeleteImage = () => {
+    if (selectedImg && editorRef.current) {
+      selectedImg.remove();
+      onChange(editorRef.current.innerHTML);
+      setSelectedImg(null);
+    }
+  };
+
+  const getButtonPosition = () => {
+    if (!selectedImg || !wrapperRef.current) {
+      return { display: 'none' };
+    }
+    const wrapperRect = wrapperRef.current.getBoundingClientRect();
+    const imgRect = selectedImg.getBoundingClientRect();
+    
+    const top = imgRect.top - wrapperRect.top;
+    const left = imgRect.right - wrapperRect.left;
+    
+    return {
+      position: 'absolute' as const,
+      top: `${top}px`,
+      left: `${left}px`,
+      transform: 'translate(-50%, -50%)',
+    };
   };
 
   const ToolbarButton = ({ icon: Icon, command, value, title }: any) => (
     <button
       type="button"
       onMouseDown={(e) => {
-        e.preventDefault(); // Prevent focus loss
+        e.preventDefault();
         if (command === 'createLink') {
             const url = prompt('Enter link URL:');
             if (url) exec(command, url);
@@ -85,32 +132,27 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
   );
 
   return (
-    <div className={`flex flex-col border border-gray-300 rounded-lg overflow-hidden bg-white ${className}`}>
-      {/* Toolbar */}
+    <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg overflow-hidden bg-white ${className}`}>
       <div className="flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
         <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
             <ToolbarButton icon={Bold} command="bold" title="Bold" />
             <ToolbarButton icon={Italic} command="italic" title="Italic" />
             <ToolbarButton icon={Underline} command="underline" title="Underline" />
         </div>
-        
         <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
             <ToolbarButton icon={Heading1} command="formatBlock" value="H2" title="Heading 1" />
             <ToolbarButton icon={Heading2} command="formatBlock" value="H3" title="Heading 2" />
             <ToolbarButton icon={Quote} command="formatBlock" value="blockquote" title="Quote" />
         </div>
-
         <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
             <ToolbarButton icon={List} command="insertUnorderedList" title="Bullet List" />
             <ToolbarButton icon={ListOrdered} command="insertOrderedList" title="Numbered List" />
         </div>
-
         <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
             <ToolbarButton icon={AlignLeft} command="justifyLeft" title="Align Left" />
             <ToolbarButton icon={AlignCenter} command="justifyCenter" title="Align Center" />
             <ToolbarButton icon={AlignRight} command="justifyRight" title="Align Right" />
         </div>
-
         <div className="flex gap-0.5">
              <ToolbarButton icon={LinkIcon} command="createLink" title="Insert Link" />
              <button
@@ -132,18 +174,32 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
         </div>
       </div>
 
-      {/* Editor Area */}
       <div
         ref={editorRef}
         contentEditable
         onInput={handleInput}
+        onClick={handleEditorClick}
         className="flex-1 p-4 overflow-y-auto outline-none prose prose-lg max-w-none min-h-[300px] font-serif text-gray-800"
         style={{ whiteSpace: 'pre-wrap' }}
       />
-      {content === '' && (
-          <div className="absolute top-[100px] left-4 text-gray-300 pointer-events-none font-serif text-lg">
+      
+      {content === '' && !editorRef.current?.innerHTML && (
+          <div className="absolute top-[60px] left-4 text-gray-300 pointer-events-none font-serif text-lg">
               {placeholder || 'Start writing...'}
           </div>
+      )}
+
+      {selectedImg && (
+        <button
+          type="button"
+          data-image-delete-button
+          onClick={handleDeleteImage}
+          style={getButtonPosition()}
+          className="z-20 p-1.5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-transform hover:scale-110"
+          title="Delete Image"
+        >
+          <Trash2 size={14} />
+        </button>
       )}
     </div>
   );

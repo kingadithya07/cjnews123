@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { EPaperPage, Article, EPaperRegion, ArticleStatus, ClassifiedAd, Advertisement, AdSize, AdPlacement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
 import { 
   Trash2, Upload, Plus, Save, FileText, Image as ImageIcon, 
-  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2, Lock
+  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2, Lock, Library
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -11,6 +11,7 @@ import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import ImageTools from '../components/ImageTools';
 import { generateId, getDeviceId } from '../utils';
 import { supabase } from '../supabaseClient';
+import ImageGalleryModal from '../components/ImageGalleryModal';
 
 interface EditorDashboardProps {
   articles: Article[];
@@ -71,10 +72,22 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
   const [isUploading, setIsUploading] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
+  const [showImageGallery, setShowImageGallery] = useState(false);
 
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [editingRegionId, setEditingRegionId] = useState<string | null>(null);
   const [regionInput, setRegionInput] = useState({ x: '', y: '', w: '', h: '', articleId: '' });
+
+  useEffect(() => {
+    if (modalContent) {
+      const text = modalContent.replace(/<[^>]*>/g, '').trim();
+      const count = text ? text.split(/\s+/).length : 0;
+      setWordCount(count);
+    } else {
+      setWordCount(0);
+    }
+  }, [modalContent]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,7 +132,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     return data.publicUrl;
   };
 
-
   const handleArticleModalSubmit = () => {
     if (!modalTitle) { alert("Headline is required"); return; }
     const articleData: Article = { 
@@ -144,6 +156,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const openEditArticleModal = (article: Article) => { 
       setModalMode('edit'); setEditArticleId(article.id); setModalTitle(article.title); setModalSubline(article.subline || ''); setModalContent(article.content); setModalCategory(article.category); setModalImageUrl(article.imageUrl); setModalAuthor(article.author); setModalStatus(article.status); setShowArticleModal(true); 
   };
+  
+  const handleSelectFromGallery = (url: string) => {
+    setModalImageUrl(url);
+    setShowImageGallery(false);
+  };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
     <button 
@@ -156,6 +173,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   );
 
   return (
+    <>
+    <ImageGalleryModal
+        isOpen={showImageGallery}
+        onClose={() => setShowImageGallery(false)}
+        onSelectImage={handleSelectFromGallery}
+    />
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
           <div className="flex justify-between items-center p-6 border-b border-gray-800">
@@ -231,7 +254,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">
                         <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline"/>
-                        <input type="text" value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic" placeholder="Summary / Sub-headline"/>
+                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px]" placeholder="Summary / Sub-headline..."></textarea>
                         <div className="grid grid-cols-2 gap-4">
                             <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
                             <select value={modalCategory} onChange={(e) => setModalCategory(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
@@ -240,35 +263,41 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                         </div>
                     </div>
                     <div className="md:col-span-1">
-                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-center">
-                             {modalImageUrl ? (
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-between">
+                            {modalImageUrl ? (
                                 <div className="relative group aspect-video">
                                     <img src={modalImageUrl} className="w-full h-full object-cover rounded shadow" />
                                     <button onClick={() => setModalImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
                                         <Trash2 size={14} />
                                     </button>
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <label className="cursor-pointer text-white text-xs font-bold uppercase">Change Image</label>
-                                    </div>
                                 </div>
                             ) : (
-                                <div className="py-4 text-gray-400">
+                                <div className="py-4 text-gray-400 flex flex-col items-center justify-center h-full">
                                     <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
                                     <p className="text-xs font-bold uppercase">Featured Image</p>
                                 </div>
                             )}
-                            <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
-                            {isUploading && (
-                                <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-2">
-                                    <Loader2 size={24} className="animate-spin text-news-gold" />
-                                    <span className="text-xs font-bold uppercase">Uploading...</span>
-                                </div>
-                            )}
+                             <div className="flex gap-2 mt-2">
+                                <label className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors relative">
+                                    {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                    <span>{isUploading ? '...' : 'Upload'}</span>
+                                    <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0" disabled={isUploading} />
+                                </label>
+                                <button type="button" onClick={() => setShowImageGallery(true)} className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                                    <Library size={14} />
+                                    <span>Gallery</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]"/>
+                <div className="relative">
+                    <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]"/>
+                    <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded">
+                        {wordCount} Words
+                    </div>
+                </div>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
               <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>
@@ -280,6 +309,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         </div>
       )}
     </div>
+    </>
   );
 };
 

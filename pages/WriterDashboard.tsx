@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User, BarChart3, Loader2, Lock } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User, BarChart3, Loader2, Lock, Library } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import ImageTools from '../components/ImageTools';
 import { supabase } from '../supabaseClient';
+import ImageGalleryModal from '../components/ImageGalleryModal';
 
 interface WriterDashboardProps {
   onSave: (article: Article) => void;
@@ -29,6 +30,18 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
   const [isUploading, setIsUploading] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
+  const [showImageGallery, setShowImageGallery] = useState(false);
+
+  useEffect(() => {
+    if (content) {
+      const text = content.replace(/<[^>]*>/g, '').trim();
+      const count = text ? text.split(/\s+/).length : 0;
+      setWordCount(count);
+    } else {
+      setWordCount(0);
+    }
+  }, [content]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -98,6 +111,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setCategory(article.category); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setShowEditorModal(true);
   };
 
+  const handleSelectFromGallery = (url: string) => {
+    setImageUrl(url);
+    setShowImageGallery(false);
+  };
+
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
     <button 
         onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
@@ -109,6 +127,12 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   );
 
   return (
+    <>
+    <ImageGalleryModal 
+        isOpen={showImageGallery}
+        onClose={() => setShowImageGallery(false)}
+        onSelectImage={handleSelectFromGallery}
+    />
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
           <div className="flex justify-between items-center p-6 border-b border-gray-800">
@@ -182,6 +206,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline"/>
+                        <textarea value={subline} onChange={(e) => setSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px]" placeholder="Summary / Sub-headline..."></textarea>
                         <div className="grid grid-cols-2 gap-4">
                             <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
                             <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
@@ -190,35 +215,41 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                         </div>
                     </div>
                     <div className="md:col-span-1">
-                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-center">
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-between">
                             {imageUrl ? (
                                 <div className="relative group aspect-video">
                                     <img src={imageUrl} className="w-full h-full object-cover rounded shadow" />
                                     <button onClick={() => setImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
                                         <Trash2 size={14} />
                                     </button>
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <label className="cursor-pointer text-white text-xs font-bold uppercase">Change Image</label>
-                                    </div>
                                 </div>
                             ) : (
-                                <div className="py-4 text-gray-400">
+                                <div className="py-4 text-gray-400 flex flex-col items-center justify-center h-full">
                                     <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
                                     <p className="text-xs font-bold uppercase">Featured Image</p>
                                 </div>
                             )}
-                            <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
-                            {isUploading && (
-                                <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-2">
-                                    <Loader2 size={24} className="animate-spin text-news-accent" />
-                                    <span className="text-xs font-bold uppercase text-news-accent">Uploading...</span>
-                                </div>
-                            )}
+                             <div className="flex gap-2 mt-2">
+                                <label className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors relative">
+                                    {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                    <span>{isUploading ? '...' : 'Upload'}</span>
+                                    <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0" disabled={isUploading} />
+                                </label>
+                                <button type="button" onClick={() => setShowImageGallery(true)} className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                                    <Library size={14} />
+                                    <span>Gallery</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <RichTextEditor content={content} onChange={setContent} className="min-h-[400px]" onImageUpload={handleContentImageUpload} />
+                <div className="relative">
+                  <RichTextEditor content={content} onChange={setContent} className="min-h-[400px]" onImageUpload={handleContentImageUpload} />
+                  <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded">
+                      {wordCount} Words
+                  </div>
+                </div>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
               <button onClick={() => setShowEditorModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>
@@ -230,6 +261,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
         </div>
       )}
     </div>
+    </>
   );
 };
 
