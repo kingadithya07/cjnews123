@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { EPaperPage, Article, EPaperRegion, ArticleStatus, ClassifiedAd, Advertisement, AdSize, AdPlacement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
 import { 
   Trash2, Upload, Plus, Save, FileText, Image as ImageIcon, 
-  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2
+  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2, Lock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -120,6 +120,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [editingRegionId, setEditingRegionId] = useState<string | null>(null);
   const [regionInput, setRegionInput] = useState<{ x: string, y: string, w: string, h: string, articleId: string }>({ x: '', y: '', w: '', h: '', articleId: '' });
+
+  // --- Password Reset State ---
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // Current user primary check
   const myCurrentDeviceId = getDeviceId();
@@ -298,6 +304,33 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       
       setEditingRegionId(null);
       setRegionInput({ x: '', y: '', w: '', h: '', articleId: '' });
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmNewPassword) {
+        setPasswordStatus({type: 'error', message: "Passwords do not match"});
+        return;
+    }
+    if (newPassword.length < 6) {
+        setPasswordStatus({type: 'error', message: "Password must be at least 6 characters"});
+        return;
+    }
+
+    setIsUpdatingPassword(true);
+    setPasswordStatus(null);
+
+    try {
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (error) throw error;
+        setPasswordStatus({type: 'success', message: "Password updated successfully"});
+        setNewPassword('');
+        setConfirmNewPassword('');
+    } catch (err: any) {
+        setPasswordStatus({type: 'error', message: err.message || "Failed to update password"});
+    } finally {
+        setIsUpdatingPassword(false);
+    }
   };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
@@ -519,7 +552,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
 
-                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-12">
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                           <div className="p-6 border-b border-gray-100 bg-gray-50">
                               <h3 className="font-bold text-gray-800 text-lg mb-1 flex items-center gap-2"><ShieldCheck size={20} className="text-news-accent"/> Trusted Devices</h3>
                               <p className="text-sm text-gray-500">Security history of Administrative sessions.</p>
@@ -546,6 +579,56 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     </div>
                                 ))}
                           </div>
+                      </div>
+
+                       {/* Security Credentials Section */}
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-12">
+                            <h3 className="font-bold text-gray-800 text-lg mb-6 flex items-center gap-2">
+                                <Lock size={20} className="text-news-gold" /> Security Credentials
+                            </h3>
+                            <div className="max-w-md">
+                                <p className="text-sm text-gray-500 mb-4">
+                                    Update your password. Ensure you use a strong, unique password for your staff account.
+                                </p>
+                                <form onSubmit={handlePasswordReset} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">New Password</label>
+                                        <input 
+                                            type="password" 
+                                            value={newPassword} 
+                                            onChange={e => setNewPassword(e.target.value)}
+                                            className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:border-news-black outline-none transition-colors"
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Confirm Password</label>
+                                        <input 
+                                            type="password" 
+                                            value={confirmNewPassword} 
+                                            onChange={e => setConfirmNewPassword(e.target.value)}
+                                            className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:border-news-black outline-none transition-colors"
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+                                    
+                                    {passwordStatus && (
+                                        <div className={`p-3 rounded text-xs font-bold flex items-center gap-2 ${passwordStatus.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                                            {passwordStatus.type === 'success' ? <CheckCircle size={14}/> : <AlertCircle size={14}/>}
+                                            {passwordStatus.message}
+                                        </div>
+                                    )}
+
+                                    <button 
+                                        type="submit" 
+                                        disabled={isUpdatingPassword}
+                                        className="px-6 py-2 bg-news-black text-white text-xs font-bold uppercase tracking-widest rounded hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {isUpdatingPassword && <Loader2 size={14} className="animate-spin"/>}
+                                        {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                                    </button>
+                                </form>
+                            </div>
                       </div>
                   </div>
               )}
