@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Shield, Feather, Lock, User, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, RotateCw, KeyRound, Copy } from 'lucide-react';
+import { Shield, Feather, Lock, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, RotateCw, Mail } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
-import { getDeviceId, getDeviceMetadata, generateVerificationCode } from '../utils';
+import { getDeviceId, getDeviceMetadata } from '../utils';
 
 interface StaffLoginProps {
   onLogin: (role: UserRole, name: string, avatar?: string) => void;
@@ -20,20 +20,20 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
   const [activeTab, setActiveTab] = useState<StaffType>('admin');
   const [isRegistering, setIsRegistering] = useState(false);
   const [isAwaitingApproval, setIsAwaitingApproval] = useState(false);
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const isMounted = useRef(true);
 
-  // Username instead of email
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<string | null>(null);
-  const [pendingUser, setPendingUser] = useState<any>(null);
+  const [otp, setOtp] = useState('');
   
-  // Generated Code
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [pendingUser, setPendingUser] = useState<any>(null);
 
   useEffect(() => {
     return () => { isMounted.current = false; };
@@ -133,11 +133,6 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     }
   };
 
-  const constructEmail = (u: string) => {
-      const cleanUser = u.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      return `${cleanUser}@internal.news`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -145,47 +140,30 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     setMessage(null);
 
     const role = activeTab === 'admin' ? UserRole.EDITOR : UserRole.WRITER;
-    const dummyEmail = constructEmail(username);
 
     try {
       if (isRegistering) {
-        const recoveryCode = generateVerificationCode();
-        
         const { data, error: signUpErr } = await supabase.auth.signUp({
-          email: dummyEmail,
+          email,
           password,
           options: {
             data: { 
                 full_name: name, 
                 role: role, 
-                avatar_url: avatar,
-                recovery_code: recoveryCode 
+                avatar_url: avatar
             }
           }
         });
         if (signUpErr) throw signUpErr;
 
-        setGeneratedCode(recoveryCode);
-        setMessage("Staff ID Registered.");
-
-        if (data.user) {
-            const meta = getDeviceMetadata();
-            onAddDevice({
-                id: getDeviceId(),
-                userId: data.user.id,
-                deviceName: meta.name,
-                deviceType: meta.type,
-                location: 'Station Primary',
-                lastActive: 'Active Now',
-                isCurrent: true,
-                isPrimary: true,
-                status: 'approved',
-                browser: meta.browser
-            });
+        if (data.session) {
+            handleSessionFound(data.session);
+        } else {
+            setIsVerifyingEmail(true);
         }
 
       } else {
-        const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email: dummyEmail, password });
+        const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
         if (signInErr) throw signInErr;
         handleSessionFound({ user: data.user });
       }
@@ -196,44 +174,57 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     }
   };
 
-  // Show Code Modal for Staff
-  if (generatedCode) {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+        const { data, error } = await supabase.auth.verifyOtp({
+            email,
+            token: otp,
+            type: 'signup'
+        });
+        if (error) throw error;
+        if (data.session) {
+            handleSessionFound(data.session);
+        }
+    } catch (err: any) {
+        setError(err.message || "Invalid code.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  if (isVerifyingEmail) {
       return (
         <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
              <div className="bg-[#141414] rounded-2xl p-10 max-w-lg w-full text-center border border-white/5 shadow-2xl space-y-6 animate-in zoom-in-95">
                   <div className="w-16 h-16 bg-news-gold text-black rounded-full flex items-center justify-center mx-auto">
-                      <KeyRound size={32} />
+                      <Mail size={32} />
                   </div>
                   <div>
-                      <h2 className="text-3xl font-black text-white mb-2">Secure Credential Generated</h2>
-                      <p className="text-gray-400 text-sm">Save your recovery key. This 8-digit code is the ONLY way to recover this administrative account.</p>
+                      <h2 className="text-3xl font-black text-white mb-2">Verify Credential</h2>
+                      <p className="text-gray-400 text-sm">A verification code has been sent to {email}. Enter it to finalize staff registration.</p>
                   </div>
                   
-                  <div className="bg-black/50 border border-news-gold/30 text-news-gold p-6 rounded-xl font-mono text-4xl font-black tracking-widest relative group">
-                      {generatedCode}
+                  <form onSubmit={handleVerifyOtp} className="space-y-4">
+                      <input 
+                          type="text" 
+                          placeholder="000000" 
+                          value={otp} 
+                          onChange={e => setOtp(e.target.value)}
+                          className="w-full bg-black/50 border border-news-gold/30 text-news-gold text-center text-4xl font-mono tracking-widest p-4 rounded-xl focus:outline-none focus:border-news-gold"
+                      />
                       <button 
-                        onClick={() => navigator.clipboard.writeText(generatedCode)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-white/10 rounded text-white"
-                        title="Copy Code"
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-4 bg-news-gold text-black rounded-xl font-bold uppercase tracking-widest hover:bg-yellow-500 transition-colors"
                       >
-                          <Copy size={16} />
+                          {loading ? <Loader2 className="animate-spin inline mr-2"/> : null} Verify Identity
                       </button>
-                  </div>
-
-                  <button 
-                    onClick={() => {
-                        setGeneratedCode(null);
-                        // Force refresh or re-login flow to get session
-                        if (pendingUser) finalizeLogin(pendingUser);
-                        else {
-                            setIsRegistering(false);
-                            window.location.reload();
-                        }
-                    }} 
-                    className="w-full py-4 bg-news-gold text-black rounded-xl font-bold uppercase tracking-widest hover:bg-yellow-500 transition-colors"
-                  >
-                      I have archived this code
-                  </button>
+                  </form>
+                  
+                  <button onClick={() => setIsVerifyingEmail(false)} className="text-xs text-gray-500 hover:text-white">Go Back</button>
              </div>
         </div>
       );
@@ -320,7 +311,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
                   <>
                       <div className="flex items-center gap-6 mb-2 p-4 bg-white/5 rounded-2xl border border-white/5">
                            <div className="w-16 h-16 rounded-full bg-black border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                               {avatar ? <img src={avatar} className="w-full h-full object-cover" /> : <User size={24} className="text-gray-700" />}
+                               {avatar ? <img src={avatar} className="w-full h-full object-cover" /> : <Lock size={24} className="text-gray-700" />}
                            </div>
                            <div className="flex-1">
                                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="staff-id-up" />
@@ -332,14 +323,14 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
               )}
               
               <div className="relative">
-                <User className="absolute left-4 top-4.5 text-gray-500" size={18}/>
+                <Mail className="absolute left-4 top-4.5 text-gray-500" size={18}/>
                 <input 
-                    type="text" 
+                    type="email" 
                     required 
-                    value={username} 
-                    onChange={e => setUsername(e.target.value.replace(/\s/g, ''))} 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
                     className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" 
-                    placeholder="Username" 
+                    placeholder="staff@internal.news" 
                 />
               </div>
 
@@ -356,7 +347,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
               </div>
               
               <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${activeTab === 'admin' ? 'bg-news-gold text-black hover:bg-yellow-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>
-                {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'INITIALIZE CREDENTIALS' : 'REQUEST HANDSHAKE'} <ArrowRight size={18}/></>}
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'REGISTER CREDENTIALS' : 'REQUEST HANDSHAKE'} <ArrowRight size={18}/></>}
               </button>
               
               <div className="text-center pt-4">

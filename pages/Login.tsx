@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, Upload, X, AlertCircle, Loader2, Smartphone, Monitor, RotateCw, KeyRound, Copy } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, KeyRound, Copy, RotateCw } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
-import { getDeviceId, getDeviceMetadata, generateVerificationCode } from '../utils';
+import { getDeviceId, getDeviceMetadata } from '../utils';
 
 interface LoginProps {
   onLogin: (role: UserRole, name: string, avatar?: string) => void;
@@ -15,21 +15,19 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onAddDevice, onEmergencyReset }) => {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'awaiting_approval'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'verify_email' | 'awaiting_approval'>('signin');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const isMounted = useRef(true);
 
-  // Replaced Email with Username
-  const [username, setUsername] = useState('');
+  // Email Based Auth
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.READER);
   const [avatar, setAvatar] = useState<string | null>(null);
-  
-  // New: Recovery Code State
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [otp, setOtp] = useState('');
   
   const [pendingUser, setPendingUser] = useState<any>(null);
 
@@ -122,119 +120,104 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     else onNavigate('/');
   };
 
-  const constructEmail = (u: string) => {
-      // Create a clean dummy email for backend storage
-      const cleanUser = u.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      return `${cleanUser}@internal.news`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setMessage(null);
 
-    const dummyEmail = constructEmail(username);
-
     try {
       if (mode === 'signup') {
-        const recoveryCode = generateVerificationCode();
-        
         const { data, error } = await supabase.auth.signUp({
-          email: dummyEmail,
+          email,
           password,
           options: {
             data: { 
                 full_name: name, 
                 role: selectedRole, 
-                avatar_url: avatar,
-                recovery_code: recoveryCode // Store internally
+                avatar_url: avatar
             }
           }
         });
         if (error) throw error;
         
-        // Show success with code
-        setGeneratedCode(recoveryCode);
-        setMessage("Account created successfully.");
-        
-        // Auto-register device
-        if (data.user) {
-            const meta = getDeviceMetadata();
-            onAddDevice({
-                id: getDeviceId(),
-                userId: data.user.id,
-                deviceName: meta.name,
-                deviceType: meta.type,
-                location: 'Station Alpha',
-                lastActive: 'Active Now',
-                isCurrent: true,
-                isPrimary: true,
-                status: 'approved',
-                browser: meta.browser
-            });
+        // If a session exists immediately, email confirmation is off
+        if (data.session) {
+             handleSessionFound(data.session);
+        } else {
+             // Email confirmation required
+             setMode('verify_email');
+             setMessage(`Verification code sent to ${email}`);
         }
 
       } else if (mode === 'signin') {
-        const { data, error } = await supabase.auth.signInWithPassword({ email: dummyEmail, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         handleSessionFound({ user: data.user });
       }
     } catch (err: any) {
-      if (err.message.includes("Invalid login")) {
-          setError("Invalid username or password.");
-      } else {
-          setError(err.message || "An authentication error occurred.");
-      }
+      setError(err.message || "An authentication error occurred.");
     } finally {
       if (isMounted.current) setLoading(false);
     }
   };
 
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
+      setError(null);
+      try {
+          const { data, error } = await supabase.auth.verifyOtp({
+              email,
+              token: otp,
+              type: 'signup'
+          });
+          if (error) throw error;
+          if (data.session) {
+              handleSessionFound(data.session);
+          }
+      } catch (err: any) {
+          setError(err.message || "Invalid code.");
+      } finally {
+          setLoading(false);
+      }
+  };
+
   // Render the "Verification Code" screen after signup
-  if (generatedCode) {
+  if (mode === 'verify_email') {
       return (
           <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-4 bg-news-paper">
               <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center space-y-6 border border-gray-200 animate-in zoom-in-95">
-                  <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <KeyRound size={32} />
+                  <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Mail size={32} />
                   </div>
                   <div>
-                      <h2 className="text-2xl font-serif font-black text-gray-900 mb-2">Account Initialized</h2>
-                      <p className="text-gray-500 text-sm">Your account has been created with the following verification code.</p>
+                      <h2 className="text-2xl font-serif font-black text-gray-900 mb-2">Verify Email Address</h2>
+                      <p className="text-gray-500 text-sm">We've sent a code to <b>{email}</b>. Enter it below to complete registration.</p>
                   </div>
                   
-                  <div className="bg-news-black text-news-gold p-6 rounded-xl font-mono text-3xl font-bold tracking-widest relative group">
-                      {generatedCode}
+                  <form onSubmit={handleVerifyOtp} className="space-y-4">
+                      <input 
+                          type="text" 
+                          placeholder="Enter 6-digit code" 
+                          value={otp} 
+                          onChange={e => setOtp(e.target.value)}
+                          className="w-full text-center text-2xl font-mono tracking-widest p-3 border border-gray-300 rounded-lg focus:border-news-black outline-none"
+                      />
                       <button 
-                        onClick={() => navigator.clipboard.writeText(generatedCode)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-white/10 rounded"
-                        title="Copy Code"
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-3 bg-news-black text-white rounded-xl font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors flex justify-center items-center gap-2"
                       >
-                          <Copy size={16} />
+                          {loading ? <Loader2 className="animate-spin" /> : "Verify & Login"}
                       </button>
-                  </div>
-
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-100 text-left">
-                      <p className="text-xs text-green-800 font-bold flex items-start gap-2">
-                          <CheckCircle size={14} className="shrink-0 mt-0.5" />
-                          <span>This code is required if you ever need to reset your password.</span>
-                      </p>
-                  </div>
+                  </form>
 
                   <button 
-                    onClick={() => {
-                        setGeneratedCode(null);
-                        if (pendingUser) finalizeLogin(pendingUser);
-                        else {
-                            // If auto-login happened in background, just refresh or redirect
-                            setMode('signin');
-                            window.location.reload(); 
-                        }
-                    }} 
-                    className="w-full py-3 bg-news-black text-white rounded-xl font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors"
+                    onClick={() => setMode('signin')}
+                    className="text-xs text-gray-400 hover:text-black underline"
                   >
-                      I have saved my code
+                      Back to Sign In
                   </button>
               </div>
           </div>
@@ -336,16 +319,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  )}
 
                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Username</label>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
                     <div className="relative">
-                        <User className="absolute left-3 top-3.5 text-gray-400" size={16}/>
+                        <Mail className="absolute left-3 top-3.5 text-gray-400" size={16}/>
                         <input 
-                            type="text" 
+                            type="email" 
                             required 
-                            value={username} 
-                            onChange={e => setUsername(e.target.value.replace(/\s/g, ''))} 
+                            value={email} 
+                            onChange={e => setEmail(e.target.value)} 
                             className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all font-medium" 
-                            placeholder="jdoe24"
+                            placeholder="you@company.com"
                         />
                     </div>
                  </div>

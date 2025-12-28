@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, User, HelpCircle, RefreshCw, Copy } from 'lucide-react';
-import { generateVerificationCode } from '../utils';
+import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, Mail, RefreshCw, Copy } from 'lucide-react';
 
 interface ResetPasswordProps {
     onNavigate: (path: string) => void;
@@ -10,39 +9,39 @@ interface ResetPasswordProps {
 
 const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
     const [step, setStep] = useState<'identify' | 'verify'>('identify');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [username, setUsername] = useState('');
     const [inputCode, setInputCode] = useState('');
-    
-    // The code generated during this session
-    const [sessionCode, setSessionCode] = useState<string | null>(null);
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
-    const handleGenerateCode = (e: React.FormEvent) => {
+    const handleSendResetCode = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!username.trim()) {
-            setError("Please enter your username first.");
+        if (!email.trim() || !email.includes('@')) {
+            setError("Please enter a valid email address.");
             return;
         }
         
         setLoading(true);
         setError(null);
 
-        // Simulate secure code generation handshake
-        // In a real app with backend, this would check if the user exists first
-        setTimeout(() => {
-            const newCode = generateVerificationCode();
-            setSessionCode(newCode);
-            setLoading(false);
+        try {
+            // Trigger Supabase to send a recovery email (Link or OTP depending on settings)
+            const { error } = await supabase.auth.resetPasswordForEmail(email);
+            if (error) throw error;
+            
             setStep('verify');
-        }, 1000);
+        } catch (err: any) {
+            setError(err.message || "Failed to send verification code.");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleUpdatePassword = async (e: React.FormEvent) => {
+    const handleVerifyAndUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         
         if (password !== confirmPassword) {
@@ -53,8 +52,8 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
             setError("Password must be at least 6 characters.");
             return;
         }
-        if (inputCode !== sessionCode) {
-            setError("Invalid verification code. Please try again.");
+        if (inputCode.length < 6) {
+            setError("Please enter the complete verification code sent to your email.");
             return;
         }
         
@@ -62,22 +61,25 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
         setError(null);
 
         try {
-            // Attempt to update the password in Supabase Real-time
-            const { data, error } = await supabase.auth.updateUser({ 
+            // 1. Verify the OTP (Recovery Token)
+            const { data, error: verifyError } = await supabase.auth.verifyOtp({
+                email,
+                token: inputCode,
+                type: 'recovery'
+            });
+
+            if (verifyError) throw verifyError;
+
+            // 2. If verification successful, the user is now logged in. Update the password.
+            const { error: updateError } = await supabase.auth.updateUser({ 
                 password: password 
             });
 
-            if (error) {
-                // Handle specific Supabase auth errors
-                if (error.status === 401 || error.message.includes("session")) {
-                    throw new Error("Security Restriction: You are not currently logged in. To reset a password without the old one, you must use an Email Magic Link or contact an Admin. (Client-side API limitation)");
-                }
-                throw error;
-            }
+            if (updateError) throw updateError;
 
             setSuccess(true);
         } catch (err: any) {
-            setError(err.message || "Failed to update password in database.");
+            setError(err.message || "Invalid code or expired session. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -90,7 +92,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-news-gold/10 text-news-gold rounded-full mb-6">
                         <KeyRound size={32} />
                     </div>
-                    <h2 className="text-3xl font-serif font-black text-gray-900">Secure Account Recovery</h2>
+                    <h2 className="text-3xl font-serif font-black text-gray-900">Account Recovery</h2>
                     <div className="flex items-center justify-center gap-2 mt-3 text-news-accent font-bold text-[10px] uppercase tracking-[0.2em]">
                         <ShieldCheck size={14} /> Identity Verification
                     </div>
@@ -101,7 +103,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                         <CheckCircle size={48} />
                         <div>
                             <p className="font-black uppercase tracking-widest text-xs mb-2">Success</p>
-                            <p className="text-sm font-medium mb-4">Your password has been updated in the database.</p>
+                            <p className="text-sm font-medium mb-4">Your password has been updated securely.</p>
                         </div>
                         <button 
                             onClick={() => onNavigate('/login')}
@@ -120,20 +122,20 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                         )}
 
                         {step === 'identify' && (
-                            <form onSubmit={handleGenerateCode} className="space-y-6">
+                            <form onSubmit={handleSendResetCode} className="space-y-6">
                                 <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Username</label>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
                                     <div className="relative">
-                                        <User className="absolute left-3 top-3.5 text-gray-400" size={16}/>
+                                        <Mail className="absolute left-3 top-3.5 text-gray-400" size={16}/>
                                         <input 
-                                            type="text" required value={username} onChange={e => setUsername(e.target.value)}
+                                            type="email" required value={email} onChange={e => setEmail(e.target.value)}
                                             className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
-                                            placeholder="Enter your username"
+                                            placeholder="you@example.com"
                                             autoFocus
                                         />
                                     </div>
                                     <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
-                                        Enter your registered username. We will generate a secure one-time verification code to prove your identity.
+                                        Enter your registered email address. We will send a verification code to reset your password.
                                     </p>
                                 </div>
                                 
@@ -142,41 +144,34 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                                     disabled={loading}
                                     className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 disabled:opacity-30 shadow-xl transition-all flex items-center justify-center gap-3"
                                 >
-                                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Generate Verification Code"}
+                                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Send Verification Code"}
                                     {!loading && <ArrowRight size={18} />}
                                 </button>
                             </form>
                         )}
 
                         {step === 'verify' && (
-                            <form onSubmit={handleUpdatePassword} className="space-y-5 animate-in fade-in slide-in-from-right-4">
+                            <form onSubmit={handleVerifyAndUpdate} className="space-y-5 animate-in fade-in slide-in-from-right-4">
                                 
-                                {/* SIMULATION BOX: SHOWING THE CODE */}
-                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center space-y-2 relative group">
-                                     <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Simulated Secure Channel</span>
-                                     <div className="text-3xl font-mono font-bold text-blue-900 tracking-[0.2em]">{sessionCode}</div>
-                                     <p className="text-[10px] text-blue-600/70">
-                                        (In production, this code would be sent via Email/SMS)
-                                     </p>
-                                     <button 
-                                        type="button"
-                                        onClick={() => navigator.clipboard.writeText(sessionCode || '')}
-                                        className="absolute right-2 top-2 p-2 text-blue-300 hover:text-blue-600 transition-colors"
-                                        title="Copy Code"
-                                     >
-                                         <Copy size={14} />
-                                     </button>
+                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3 items-start">
+                                     <div className="bg-blue-100 p-2 rounded-full text-blue-600 mt-1"><Mail size={16} /></div>
+                                     <div>
+                                        <p className="text-xs text-blue-900 font-bold mb-1">Check your email</p>
+                                        <p className="text-[10px] text-blue-700 leading-relaxed">
+                                            We've sent a 6-digit verification code to <b>{email}</b>. Enter it below to proceed.
+                                        </p>
+                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Verification Code</label>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Verification Code (OTP)</label>
                                     <input 
                                         type="text" 
                                         required 
                                         value={inputCode} 
-                                        onChange={e => setInputCode(e.target.value.replace(/[^0-9]/g, '').substring(0, 8))}
+                                        onChange={e => setInputCode(e.target.value.replace(/[^0-9]/g, ''))}
                                         className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all font-mono tracking-widest text-center text-lg"
-                                        placeholder="00000000"
+                                        placeholder="000000"
                                     />
                                 </div>
                                 
@@ -211,10 +206,10 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                                 <div className="text-center pt-2">
                                     <button 
                                         type="button" 
-                                        onClick={() => { setStep('identify'); setError(null); setSessionCode(null); }}
+                                        onClick={() => { setStep('identify'); setError(null); }}
                                         className="text-[10px] font-bold text-gray-400 hover:text-news-black uppercase tracking-widest"
                                     >
-                                        Start Over
+                                        Change Email
                                     </button>
                                 </div>
                             </form>
