@@ -73,8 +73,6 @@ function App() {
   
   const navigate = (path: string) => {
     try {
-        // In some restricted environments (sandboxes, blobs), pushState is blocked.
-        // We wrap it to ensure the app doesn't crash, allowing the internal React state (setCurrentPath) to still handle navigation.
         window.history.pushState({}, '', path);
     } catch (e) {
         console.warn('History API restricted, falling back to memory routing.');
@@ -93,27 +91,33 @@ function App() {
 
     // Immediate check for session (crucial for mobile persistence)
     const checkInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const profile = session.user.user_metadata;
-        setUserId(session.user.id);
-        setUserName(profile.full_name || 'Staff');
-        setUserRole(profile.role || UserRole.READER);
-        setUserAvatar(profile.avatar_url || null);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) console.error("Session check error:", error);
         
-        // Handle deep-link recovery that might have happened before listener was ready
-        if (window.location.hash.includes('type=recovery') || window.location.hash.includes('access_token=')) {
-          setIsRecovering(true);
-          navigate('/reset-password');
+        if (session) {
+          const profile = session.user.user_metadata;
+          setUserId(session.user.id);
+          setUserName(profile.full_name || 'Staff');
+          setUserRole(profile.role || UserRole.READER);
+          setUserAvatar(profile.avatar_url || null);
+          
+          // Handle deep-link recovery that might have happened before listener was ready
+          if (window.location.hash.includes('type=recovery') || window.location.hash.includes('access_token=')) {
+            setIsRecovering(true);
+            navigate('/reset-password');
+          }
         }
+      } catch (err) {
+        console.warn("Auth initialization warning:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     checkInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth Event:', event);
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecovering(true);
         navigate('/reset-password');
@@ -149,9 +153,7 @@ function App() {
       if (avatar) setUserAvatar(avatar);
   };
 
-  // Emergency Reset for Admin Panel
   const handleEmergencyReset = async () => {
-    // Note: window.confirm might also be blocked in some sandboxes, but usually it returns false or works.
     if (window.confirm("EMERGENCY RESET: This will clear all trusted devices and log you out. You will need to re-authorize this device as the Primary. Continue?")) {
         try {
             localStorage.removeItem('dn_devices');
@@ -162,18 +164,15 @@ function App() {
     }
   };
 
-  // Device Security Check
   const isDeviceAuthorized = () => {
     if (!userId) return false;
-    const currentDeviceId = getDeviceId(); // This is now safe due to utils.ts update
+    const currentDeviceId = getDeviceId();
     const myDevices = devices.filter(d => d.userId === userId);
-    // If user has zero devices registered, the login screen logic will handle making the current one primary.
     if (myDevices.length === 0) return true; 
     const currentEntry = myDevices.find(d => d.id === currentDeviceId);
     return currentEntry?.status === 'approved';
   };
 
-  // Device Handlers
   const handleApproveDevice = (deviceId: string) => {
     setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, status: 'approved' } : d));
   };
@@ -193,31 +192,43 @@ function App() {
     });
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-news-paper"><div className="w-10 h-10 border-4 border-news-accent border-t-transparent rounded-full animate-spin"></div></div>;
+  if (loading) {
+      return (
+          <div className="h-screen flex items-center justify-center bg-news-paper">
+              <div className="flex flex-col items-center gap-4">
+                  <div className="w-12 h-12 border-4 border-news-accent border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-news-black font-serif font-bold animate-pulse">Initializing Newsroom...</p>
+              </div>
+          </div>
+      );
+  }
+
+  // Normalize path to handle trailing slashes
+  const path = currentPath.endsWith('/') && currentPath.length > 1 ? currentPath.slice(0, -1) : currentPath;
 
   let content;
   
-  // Route Handling
-  if (currentPath === '/reset-password') {
+  if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} />;
-  } else if (currentPath === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
+  } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
     content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={d => setDevices(prev => [...prev, d])} onEmergencyReset={handleEmergencyReset} />;
-  } else if (currentPath === '/staff/login') {
+  } else if (path === '/staff/login') {
     content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={d => setDevices(prev => [...prev, d])} onEmergencyReset={handleEmergencyReset} />;
-  } else if (currentPath === '/editor' && userRole === UserRole.EDITOR && isDeviceAuthorized()) {
+  } else if (path === '/editor' && userRole === UserRole.EDITOR && isDeviceAuthorized()) {
     content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={setWatermarkSettings} onUpdatePage={p => setEPaperPages(prev => prev.map(old => old.id === p.id ? p : old))} onAddPage={p => setEPaperPages(prev => [...prev, p])} onDeletePage={id => setEPaperPages(prev => prev.filter(p => p.id !== id))} onDeleteArticle={id => setArticles(prev => prev.filter(a => a.id !== id))} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={c => {}} onDeleteAdCategory={c => {}} onAddClassified={c => {}} onDeleteClassified={id => {}} onAddAdvertisement={a => {}} onDeleteAdvertisement={id => {}} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={handleApproveDevice} onRejectDevice={handleRejectDevice} onRevokeDevice={handleRevokeDevice} />;
-  } else if (currentPath === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
+  } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard onSave={handleSaveArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} />;
-  } else if (currentPath === '/' || currentPath === '/home') {
+  } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
-  } else if (currentPath.startsWith('/article/')) {
-    const id = currentPath.split('/article/')[1];
+  } else if (path.startsWith('/article/')) {
+    const id = path.split('/article/')[1];
     content = <ArticleView articles={articles} articleId={id} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
-  } else if (currentPath === '/epaper') {
+  } else if (path === '/epaper') {
     content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} />;
-  } else if (currentPath === '/classifieds') {
+  } else if (path === '/classifieds') {
     content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />;
   } else {
+    // 404 Fallback - redirect to home or show ReaderHome
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   }
 
