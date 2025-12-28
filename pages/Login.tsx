@@ -67,7 +67,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
             setPendingUser(session.user);
             setMode('awaiting_approval');
         } else {
-            // New device found for existing user
+            // New device found for existing user -> It's secondary
             const meta = getDeviceMetadata();
             onAddDevice({
                 id: currentId,
@@ -85,7 +85,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
             setMode('awaiting_approval');
         }
     } else {
-        // First device
+        // First device ever seen for this user -> Make it PRIMARY
         const meta = getDeviceMetadata();
         onAddDevice({
             id: currentId,
@@ -115,7 +115,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   const finalizeLogin = (user: any) => {
     const role = user.user_metadata.role || UserRole.READER;
     onLogin(role as UserRole, user.user_metadata.full_name, user.user_metadata.avatar_url);
-    if (role === UserRole.EDITOR) onNavigate('/editor');
+    if (role === UserRole.EDITOR || role === UserRole.ADMIN) onNavigate('/editor');
     else if (role === UserRole.WRITER) onNavigate('/writer');
     else onNavigate('/');
   };
@@ -270,7 +270,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                       
                       <div className="pt-4 border-t border-gray-100">
                         <button onClick={onEmergencyReset} className="text-[10px] font-black text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-red-100 uppercase tracking-widest">
-                            Emergency: Reset Trusted Devices
+                            Factory Reset: Reclaim Primary Access
                         </button>
                       </div>
                       
@@ -300,7 +300,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
            </div>
            <div className="relative z-10 pt-8 border-t border-white/10">
                <button onClick={onEmergencyReset} className="text-[10px] text-gray-500 hover:text-white font-bold uppercase tracking-[0.3em] transition-colors">
-                   Reset Admin Panel Security
+                   Factory Reset System
                </button>
            </div>
         </div>

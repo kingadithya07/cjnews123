@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Shield, Feather, Lock, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, RotateCw, Mail } from 'lucide-react';
+import { Shield, Feather, Lock, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, RotateCw, Mail, Server } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
 import { getDeviceId, getDeviceMetadata } from '../utils';
@@ -14,7 +14,7 @@ interface StaffLoginProps {
   onEmergencyReset: () => void;
 }
 
-type StaffType = 'admin' | 'publisher';
+type StaffType = 'admin' | 'editor' | 'publisher';
 
 const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDevices, onAddDevice, onEmergencyReset }) => {
   const [activeTab, setActiveTab] = useState<StaffType>('admin');
@@ -82,7 +82,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
                 location: 'New Detected Station',
                 lastActive: 'Just Now',
                 isCurrent: true,
-                isPrimary: false,
+                isPrimary: false, // Not primary because user has existing devices
                 status: 'pending',
                 browser: meta.browser
             });
@@ -90,6 +90,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
             setIsAwaitingApproval(true);
         }
     } else {
+        // No devices found for this user, so this is the First Device -> Make Primary
         const meta = getDeviceMetadata();
         onAddDevice({
             id: currentId,
@@ -99,7 +100,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
             location: 'Primary Station',
             lastActive: 'Active Now',
             isCurrent: true,
-            isPrimary: true,
+            isPrimary: true, // PRIMARY
             status: 'approved',
             browser: meta.browser
         });
@@ -117,9 +118,21 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
   };
 
   const finalizeLogin = (user: any) => {
-    const role = user.user_metadata.role || (activeTab === 'admin' ? UserRole.EDITOR : UserRole.WRITER);
-    onLogin(role as UserRole, user.user_metadata.full_name, user.user_metadata.avatar_url);
-    if (role === UserRole.EDITOR) onNavigate('/editor');
+    const metaRole = user.user_metadata.role;
+    let role = UserRole.READER;
+
+    if (metaRole) {
+        role = metaRole as UserRole;
+    } else {
+        // Fallback based on current tab selection if metadata missing (edge case)
+        if (activeTab === 'admin') role = UserRole.ADMIN;
+        else if (activeTab === 'editor') role = UserRole.EDITOR;
+        else role = UserRole.WRITER;
+    }
+
+    onLogin(role, user.user_metadata.full_name, user.user_metadata.avatar_url);
+    
+    if (role === UserRole.ADMIN || role === UserRole.EDITOR) onNavigate('/editor');
     else if (role === UserRole.WRITER) onNavigate('/writer');
     else onNavigate('/');
   };
@@ -139,7 +152,10 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     setError(null);
     setMessage(null);
 
-    const role = activeTab === 'admin' ? UserRole.EDITOR : UserRole.WRITER;
+    let role = UserRole.READER;
+    if (activeTab === 'admin') role = UserRole.ADMIN;
+    else if (activeTab === 'editor') role = UserRole.EDITOR;
+    else role = UserRole.WRITER;
 
     try {
       if (isRegistering) {
@@ -257,7 +273,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
 
                   <div className="pt-6 border-t border-white/5 flex flex-col gap-4">
                       <button onClick={onEmergencyReset} className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-[0.2em] transition-colors py-2 px-4 border border-red-900/30 rounded-lg">
-                          Emergency Reset: Reclaim Primary Access
+                          Factory Reset: Reclaim Primary Access
                       </button>
                       <button onClick={async () => { await supabase.auth.signOut(); setIsAwaitingApproval(false); setPendingUser(null); }} className="text-gray-600 hover:text-white text-[10px] font-bold uppercase tracking-widest">Sign Out & Disconnect</button>
                   </div>
@@ -281,9 +297,13 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
               </div>
               <p className="text-news-gold text-[10px] font-bold uppercase tracking-[0.3em] mb-12">Staff Secure Portal</p>
               <div className="space-y-4">
-                 <button onClick={() => { setActiveTab('admin'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'admin' ? 'bg-white/5 border-news-gold/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
-                    <Shield size={22} className={activeTab === 'admin' ? 'text-news-gold' : ''} />
-                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'admin' ? 'text-white' : ''}`}>Editor Admin</span></div>
+                 <button onClick={() => { setActiveTab('admin'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'admin' ? 'bg-white/5 border-red-500/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
+                    <Server size={22} className={activeTab === 'admin' ? 'text-red-500' : ''} />
+                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'admin' ? 'text-white' : ''}`}>Administrator</span></div>
+                 </button>
+                 <button onClick={() => { setActiveTab('editor'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'editor' ? 'bg-white/5 border-news-gold/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
+                    <Shield size={22} className={activeTab === 'editor' ? 'text-news-gold' : ''} />
+                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'editor' ? 'text-white' : ''}`}>Editor Admin</span></div>
                  </button>
                  <button onClick={() => { setActiveTab('publisher'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'publisher' ? 'bg-white/5 border-blue-500/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
                     <Feather size={22} className={activeTab === 'publisher' ? 'text-blue-500' : ''} />
@@ -330,7 +350,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
                     value={email} 
                     onChange={e => setEmail(e.target.value)} 
                     className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" 
-                    placeholder="staff@internal.news" 
+                    placeholder={activeTab === 'admin' ? "admin@newsroom.com" : "staff@internal.news"}
                 />
               </div>
 
@@ -346,7 +366,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
                 />
               </div>
               
-              <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${activeTab === 'admin' ? 'bg-news-gold text-black hover:bg-yellow-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>
+              <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${activeTab === 'admin' ? 'bg-red-600 text-white hover:bg-red-500' : activeTab === 'editor' ? 'bg-news-gold text-black hover:bg-yellow-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'REGISTER CREDENTIALS' : 'REQUEST HANDSHAKE'} <ArrowRight size={18}/></>}
               </button>
               

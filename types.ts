@@ -2,7 +2,8 @@
 export enum UserRole {
   READER = 'READER',
   WRITER = 'WRITER',
-  EDITOR = 'EDITOR'
+  EDITOR = 'EDITOR',
+  ADMIN = 'ADMIN'
 }
 
 export enum ArticleStatus {

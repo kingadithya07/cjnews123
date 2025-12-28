@@ -176,7 +176,7 @@ function App() {
   };
 
   const handleEmergencyReset = async () => {
-    if (window.confirm("EMERGENCY RESET: This will clear all trusted devices and log you out. You will need to re-authorize this device as the Primary. Continue?")) {
+    if (window.confirm("FACTORY RESET: This will clear all trusted devices from this browser and log you out. The next login will be treated as a Primary Device. Continue?")) {
         try {
             localStorage.removeItem('dn_devices');
         } catch(e) {}
@@ -190,7 +190,11 @@ function App() {
     if (!userId) return false;
     const currentDeviceId = getDeviceId();
     const myDevices = devices.filter(d => d.userId === userId);
+    
+    // If no devices exist for this user, we treat this first login as authorized (Primary)
+    // This logic allows the "First device = Primary" rule.
     if (myDevices.length === 0) return true; 
+    
     const currentEntry = myDevices.find(d => d.id === currentDeviceId);
     return currentEntry?.status === 'approved';
   };
@@ -249,7 +253,8 @@ function App() {
     content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={d => setDevices(prev => [...prev, d])} onEmergencyReset={handleEmergencyReset} />;
   } else if (path === '/staff/login') {
     content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={d => setDevices(prev => [...prev, d])} onEmergencyReset={handleEmergencyReset} />;
-  } else if (path === '/editor' && userRole === UserRole.EDITOR && isDeviceAuthorized()) {
+  } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
+    // Both Editor and Admin share the dashboard, Admin can have extra rights if implemented
     content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={setWatermarkSettings} onUpdatePage={p => setEPaperPages(prev => prev.map(old => old.id === p.id ? p : old))} onAddPage={p => setEPaperPages(prev => [...prev, p])} onDeletePage={id => setEPaperPages(prev => prev.filter(p => p.id !== id))} onDeleteArticle={id => setArticles(prev => prev.filter(a => a.id !== id))} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={c => {}} onDeleteAdCategory={c => {}} onAddClassified={c => {}} onDeleteClassified={id => {}} onAddAdvertisement={a => {}} onDeleteAdvertisement={id => {}} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={handleApproveDevice} onRejectDevice={handleRejectDevice} onRevokeDevice={handleRevokeDevice} />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard onSave={handleSaveArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} />;
