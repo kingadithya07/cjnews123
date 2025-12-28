@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, Mail, RefreshCw, Copy } from 'lucide-react';
 
@@ -8,7 +8,7 @@ interface ResetPasswordProps {
 }
 
 const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
-    const [step, setStep] = useState<'identify' | 'verify'>('identify');
+    const [step, setStep] = useState<'identify' | 'verify' | 'reset'>('identify');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,6 +17,19 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+
+    useEffect(() => {
+        // If user arrives via Email Link (type=recovery), Supabase auto-logs them in.
+        // We detect this session and switch directly to password update mode.
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                setStep('reset'); // Skip OTP, go straight to new password
+                setEmail(session.user.email || '');
+            }
+        };
+        checkSession();
+    }, []);
 
     const handleSendResetCode = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,8 +42,10 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
         setError(null);
 
         try {
-            // Trigger Supabase to send a recovery email (Link or OTP depending on settings)
-            const { error } = await supabase.auth.resetPasswordForEmail(email);
+            // Trigger Supabase to send a recovery email
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/#/reset-password`
+            });
             if (error) throw error;
             
             setStep('verify');
@@ -41,6 +56,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
         }
     };
 
+    // Scenario A: Manual OTP Entry
     const handleVerifyAndUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -48,12 +64,8 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
             setError("Passwords do not match.");
             return;
         }
-        if (password.length < 6) {
-            setError("Password must be at least 6 characters.");
-            return;
-        }
         if (inputCode.length < 6) {
-            setError("Please enter the complete verification code sent to your email.");
+            setError("Please enter the complete verification code.");
             return;
         }
         
@@ -61,8 +73,8 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
         setError(null);
 
         try {
-            // 1. Verify the OTP (Recovery Token)
-            const { data, error: verifyError } = await supabase.auth.verifyOtp({
+            // 1. Verify the OTP
+            const { error: verifyError } = await supabase.auth.verifyOtp({
                 email,
                 token: inputCode,
                 type: 'recovery'
@@ -70,7 +82,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
 
             if (verifyError) throw verifyError;
 
-            // 2. If verification successful, the user is now logged in. Update the password.
+            // 2. Update Password
             const { error: updateError } = await supabase.auth.updateUser({ 
                 password: password 
             });
@@ -79,7 +91,30 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
 
             setSuccess(true);
         } catch (err: any) {
-            setError(err.message || "Invalid code or expired session. Please try again.");
+            setError(err.message || "Invalid code or expired session.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Scenario B: Magic Link (Already Authenticated)
+    const handleDirectUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (password !== confirmPassword) {
+            setError("Passwords do not match.");
+            return;
+        }
+        
+        setLoading(true);
+        setError(null);
+
+        try {
+            const { error } = await supabase.auth.updateUser({ password });
+            if (error) throw error;
+            setSuccess(true);
+        } catch (err: any) {
+            setError(err.message || "Failed to update password.");
         } finally {
             setLoading(false);
         }
@@ -135,7 +170,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                                         />
                                     </div>
                                     <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
-                                        Enter your registered email address. We will send a verification code to reset your password.
+                                        Enter your registered email address. We will send a verification code or link to reset your password.
                                     </p>
                                 </div>
                                 
@@ -144,9 +179,19 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                                     disabled={loading}
                                     className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 disabled:opacity-30 shadow-xl transition-all flex items-center justify-center gap-3"
                                 >
-                                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Send Verification Code"}
+                                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Send Reset Link / Code"}
                                     {!loading && <ArrowRight size={18} />}
                                 </button>
+                                
+                                <div className="text-center pt-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setStep('verify')}
+                                        className="text-[10px] font-bold text-gray-400 hover:text-news-black uppercase tracking-widest"
+                                    >
+                                        I have a code
+                                    </button>
+                                </div>
                             </form>
                         )}
 
@@ -212,6 +257,46 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                                         Change Email
                                     </button>
                                 </div>
+                            </form>
+                        )}
+
+                        {step === 'reset' && (
+                             <form onSubmit={handleDirectUpdate} className="space-y-5 animate-in fade-in slide-in-from-right-4">
+                                <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex gap-3 items-start">
+                                     <div className="bg-green-100 p-2 rounded-full text-green-600 mt-1"><ShieldCheck size={16} /></div>
+                                     <div>
+                                        <p className="text-xs text-green-900 font-bold mb-1">Identity Verified</p>
+                                        <p className="text-[10px] text-green-700 leading-relaxed">
+                                            You are securely authenticated via the recovery link. Please set your new password below.
+                                        </p>
+                                     </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">New Secure Password</label>
+                                    <input 
+                                        type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
+                                        placeholder="••••••••"
+                                    />
+                                </div>
+                                <div className="mt-4">
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Confirm Password</label>
+                                    <input 
+                                        type="password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
+                                        placeholder="••••••••"
+                                    />
+                                </div>
+                                
+                                <button 
+                                    type="submit" 
+                                    disabled={loading}
+                                    className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 disabled:opacity-30 shadow-xl transition-all flex items-center justify-center gap-3"
+                                >
+                                    {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Update Password"}
+                                    {!loading && <CheckCircle size={18} />}
+                                </button>
                             </form>
                         )}
 
