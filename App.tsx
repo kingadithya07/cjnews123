@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -46,17 +45,10 @@ function App() {
   // --- DATA SYNC FROM SUPABASE ---
   const fetchData = async () => {
     try {
-      const [
-        { data: artData },
-        { data: pageData },
-        { data: clsData },
-        { data: adData }
-      ] = await Promise.all([
-        supabase.from('articles').select('*').order('publishedAt', { ascending: false }),
-        supabase.from('epaper_pages').select('*, epaper_regions(*)').order('date', { ascending: false }),
-        supabase.from('classifieds').select('*').order('postedAt', { ascending: false }),
-        supabase.from('advertisements').select('*')
-      ]);
+      const { data: artData } = await supabase.from('articles').select('*').order('publishedAt', { ascending: false });
+      const { data: pageData } = await supabase.from('epaper_pages').select('*, epaper_regions(*)').order('date', { ascending: false });
+      const { data: clsData } = await supabase.from('classifieds').select('*').order('postedAt', { ascending: false });
+      const { data: adData } = await supabase.from('advertisements').select('*');
 
       if (artData) setArticles(artData as Article[]);
       if (pageData) setEPaperPages(pageData.map(p => ({
@@ -158,10 +150,21 @@ function App() {
 
     // Supabase Update
     const { error } = await supabase.from('articles').upsert({
-        ...article,
+        id: article.id,
+        title: article.title,
+        subline: article.subline,
+        author: article.author,
+        content: article.content,
+        category: article.category,
+        imageUrl: article.imageUrl,
+        publishedAt: article.publishedAt,
+        status: article.status,
         user_id: userId
     });
-    if (error) alert("Failed to save to database: " + error.message);
+    if (error) {
+      console.error("Supabase Article Save Error:", error);
+      alert("Failed to save to cloud: " + error.message);
+    }
   };
 
   const handleDeleteArticle = async (id: string) => {
@@ -199,7 +202,7 @@ function App() {
   } else if (path === '/staff/login') {
     content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={(d) => persistDevicesToCloud([...devices, d])} onEmergencyReset={() => {}} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
-    content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={setWatermarkSettings} onUpdatePage={() => fetchData()} onAddPage={() => fetchData()} onDeletePage={() => fetchData()} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={() => {}} onDeleteAdCategory={() => {}} onAddClassified={() => {}} onDeleteClassified={() => {}} onAddAdvertisement={() => {}} onDeleteAdvertisement={() => {}} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} />;
+    content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={setWatermarkSettings} onUpdatePage={() => fetchData()} onAddPage={() => fetchData()} onDeletePage={() => fetchData()} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={() => {}} onDeleteAdCategory={() => {}} onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(); }} onAddAdvertisement={async (ad) => { await supabase.from('advertisements').insert(ad); fetchData(); }} onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(); }} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard onSave={handleSaveArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} />;
   } else if (path === '/' || path === '/home') {
