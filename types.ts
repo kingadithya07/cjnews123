@@ -1,0 +1,104 @@
+
+export enum UserRole {
+  READER = 'READER',
+  WRITER = 'WRITER',
+  EDITOR = 'EDITOR'
+}
+
+export enum ArticleStatus {
+  DRAFT = 'DRAFT',
+  PENDING = 'PENDING',
+  PUBLISHED = 'PUBLISHED'
+}
+
+export interface TrustedDevice {
+  id: string;
+  userId: string; // Associated user
+  deviceName: string;
+  deviceType: 'desktop' | 'mobile' | 'tablet';
+  location: string;
+  lastActive: string;
+  isCurrent: boolean;
+  isPrimary: boolean;
+  status: 'approved' | 'pending';
+  browser: string;
+}
+
+export interface Article {
+  id: string;
+  title: string;
+  subline?: string;
+  author: string;
+  content: string; // Markdown or plain text
+  category: string;
+  imageUrl: string;
+  publishedAt: string;
+  status: ArticleStatus;
+  summary?: string;
+  isPremium?: boolean;
+}
+
+export interface EPaperRegion {
+  id: string;
+  x: number; // Percentage 0-100
+  y: number; // Percentage 0-100
+  width: number; // Percentage 0-100
+  height: number; // Percentage 0-100
+  linkedArticleId?: string; // If null, maybe just a zoomed image
+}
+
+export interface EPaperPage {
+  id: string;
+  date: string;
+  pageNumber: number;
+  imageUrl: string;
+  regions: EPaperRegion[];
+}
+
+export interface Comment {
+  id: string;
+  author: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface ClassifiedAd {
+  id: string;
+  title: string;
+  category: string; // e.g., Jobs, Real Estate, For Sale, Services
+  content: string;
+  price?: string;
+  location?: string;
+  contactInfo: string;
+  postedAt: string;
+}
+
+export type AdSize = 
+  | 'BILLBOARD'       // 970x250 (Top of page)
+  | 'LEADERBOARD'     // 728x90 (Content breaks)
+  | 'RECTANGLE'       // 300x250 (Sidebar/Content)
+  | 'HALF_PAGE'       // 300x600 (Sidebar Large)
+  | 'SKYSCRAPER'      // 160x600 (Sidebar Slim)
+  | 'MOBILE_BANNER';  // 320x50 (Mobile Only)
+
+export type AdPlacement = 'GLOBAL' | 'HOME' | 'ARTICLE';
+
+export interface Advertisement {
+  id: string;
+  imageUrl: string;
+  linkUrl: string;
+  title: string; // For alt text and admin ref
+  size: AdSize;
+  placement: AdPlacement;
+  isActive: boolean;
+}
+
+export interface WatermarkSettings {
+  text: string;
+  fontSize: number; // in pixels (relative to canvas base)
+  showLogo: boolean;
+  logoUrl: string;
+  logoSize: number; // percentage width relative to footer height
+  backgroundColor: string;
+  textColor: string;
+}
