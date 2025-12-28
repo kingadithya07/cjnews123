@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { generateId } from '../utils';
@@ -25,8 +26,13 @@ const ImageTools: React.FC = () => {
             });
             if (error) throw error;
             if (data) setImages(data);
-        } catch (err: any) {
-            setError(err.message || 'Failed to fetch images.');
+        } catch (err: unknown) {
+            // Fix: Improve type safety in catch block
+            if (err instanceof Error) {
+                setError(err.message || 'Failed to fetch images.');
+            } else {
+                setError('Failed to fetch images.');
+            }
         } finally {
             setLoading(false);
         }
@@ -61,7 +67,7 @@ const ImageTools: React.FC = () => {
             await fetchImages();
 
         } catch (err: unknown) {
-            // FIX: Safely handle caught error by checking if it's an Error instance before accessing properties.
+            // FIX: Safely handle caught error by checking if it's an Error instance before accessing its properties.
             if (err instanceof Error) {
                 setError(err.message);
             } else {
@@ -80,8 +86,13 @@ const ImageTools: React.FC = () => {
             const { error } = await supabase.storage.from(BUCKET_NAME).remove([`${FOLDER_NAME}/${imageName}`]);
             if (error) throw error;
             setImages(prev => prev.filter(img => img.name !== imageName));
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete image.');
+        } catch (err: unknown) {
+            // Fix: Improve type safety in catch block
+            if (err instanceof Error) {
+                setError(err.message || 'Failed to delete image.');
+            } else {
+                setError('Failed to delete image.');
+            }
         }
     };
 

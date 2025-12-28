@@ -148,7 +148,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           onClose={() => setShowGallery(false)}
           onSelectImage={handleGallerySelect}
       />
-      <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg overflow-hidden bg-white ${className}`}>
+      <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg bg-white ${className}`}>
         <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
               <ToolbarButton icon={Bold} command="bold" title="Bold" />

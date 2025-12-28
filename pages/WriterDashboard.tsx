@@ -4,7 +4,6 @@ import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout,
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
-import ImageTools from '../components/ImageTools';
 import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
 
@@ -19,7 +18,7 @@ interface WriterDashboardProps {
 
 const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArticles, currentUserRole, categories, onNavigate, userAvatar }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'image_tools' | 'settings'>('articles');
+  const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'settings'>('articles');
   const [showEditorModal, setShowEditorModal] = useState(false);
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -142,7 +141,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
           <div className="flex-1 overflow-y-auto py-4">
               <SidebarItem id="articles" label="Articles" icon={FileText} />
               <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
-              <SidebarItem id="image_tools" label="Image Tools" icon={ImageIcon} />
               <SidebarItem id="settings" label="Settings" icon={Settings} />
           </div>
           <div className="p-6 border-t border-gray-800">
@@ -191,7 +189,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                       </div>
                   </div>
               )}
-              {activeTab === 'image_tools' && <ImageTools />}
            </div>
       </div>
 

@@ -8,7 +8,6 @@ import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
-import ImageTools from '../components/ImageTools';
 import { generateId, getDeviceId } from '../utils';
 import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
@@ -219,7 +218,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               <SidebarItem id="classifieds" label="Classifieds" icon={Tag} />
               <SidebarItem id="ads" label="Advertisements" icon={Megaphone} />
               <SidebarItem id="inbox" label="Communication" icon={Inbox} />
-              <SidebarItem id="image_tools" label="Image Tools" icon={ImageIcon} />
               <SidebarItem id="settings" label="Settings" icon={Settings} />
           </div>
           <div className="p-6 border-t border-gray-800">
@@ -341,7 +339,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       <p className="text-gray-500 mt-2">This feature is under development.</p>
                   </div>
               )}
-              {activeTab === 'image_tools' && <ImageTools />}
           </div>
       </div>
 
