@@ -191,7 +191,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     }
   };
 
-  // Render the "Save your code" screen after signup
+  // Render the "Verification Code" screen after signup
   if (generatedCode) {
       return (
           <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-4 bg-news-paper">
@@ -200,8 +200,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                       <KeyRound size={32} />
                   </div>
                   <div>
-                      <h2 className="text-2xl font-serif font-black text-gray-900 mb-2">Account Secure</h2>
-                      <p className="text-gray-500 text-sm">Save your personal recovery code. You will need this to reset your password if you lose access.</p>
+                      <h2 className="text-2xl font-serif font-black text-gray-900 mb-2">Account Initialized</h2>
+                      <p className="text-gray-500 text-sm">Your account has been created with the following verification code.</p>
                   </div>
                   
                   <div className="bg-news-black text-news-gold p-6 rounded-xl font-mono text-3xl font-bold tracking-widest relative group">
@@ -215,10 +215,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                       </button>
                   </div>
 
-                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 text-left">
-                      <p className="text-xs text-yellow-800 font-bold flex items-start gap-2">
-                          <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                          <span>This code is only shown once. We cannot recover it for you if lost.</span>
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-100 text-left">
+                      <p className="text-xs text-green-800 font-bold flex items-start gap-2">
+                          <CheckCircle size={14} className="shrink-0 mt-0.5" />
+                          <span>This code is required if you ever need to reset your password.</span>
                       </p>
                   </div>
 
