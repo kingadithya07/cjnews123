@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User, BarChart3 } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User, BarChart3, Loader2 } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -31,6 +31,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   const [author, setAuthor] = useState('Staff Writer');
   const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
+  const [isUploading, setIsUploading] = useState(false);
   
   const [wordCount, setWordCount] = useState(0);
 
@@ -56,14 +57,28 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       setWordCount(count);
   }, [content]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+      setImageUrl(data.publicUrl);
+    } catch (error: any) {
+      alert('Error uploading image: ' + error.message);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -460,6 +475,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                                                 accept="image/*"
                                                 onChange={handleImageUpload}
                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                disabled={isUploading}
                                             />
                                             <button className="bg-white text-black px-4 py-2 rounded text-xs font-bold uppercase tracking-wide flex items-center gap-2">
                                                 <Upload size={14} /> Change Image
@@ -469,15 +485,24 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                                 </div>
                             ) : (
                                 <div className="text-center py-8 relative w-full">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*"
-                                        onChange={handleImageUpload}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                    />
-                                    <ImageIcon size={32} className="mx-auto text-gray-300 mb-2" />
-                                    <p className="text-xs text-gray-500 font-medium">Click to upload or drag and drop</p>
-                                    <p className="text-[10px] text-gray-400 mt-1">SVG, PNG, JPG or GIF</p>
+                                    {isUploading ? (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <Loader2 size={32} className="animate-spin text-news-gold" />
+                                            <span className="text-xs font-bold text-gray-400 uppercase">Uploading...</span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <input 
+                                                type="file" 
+                                                accept="image/*"
+                                                onChange={handleImageUpload}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                            />
+                                            <ImageIcon size={32} className="mx-auto text-gray-300 mb-2" />
+                                            <p className="text-xs text-gray-500 font-medium">Click to upload or drag and drop</p>
+                                            <p className="text-[10px] text-gray-400 mt-1">SVG, PNG, JPG or GIF</p>
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -496,7 +521,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
               <button onClick={() => setShowEditorModal(false)} className="px-5 py-2 text-gray-600 hover:bg-gray-200 rounded text-sm font-bold">Discard</button>
-              <button onClick={handleSave} className="px-6 py-2 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700">Save</button>
+              <button onClick={handleSave} disabled={isUploading} className="px-6 py-2 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700 disabled:opacity-50">Save</button>
             </div>
           </div>
         </div>

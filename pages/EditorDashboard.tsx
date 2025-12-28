@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { EPaperPage, Article, EPaperRegion, ArticleStatus, ClassifiedAd, Advertisement, AdSize, AdPlacement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
 import { 
   Trash2, Upload, Plus, Save, FileText, Image as ImageIcon, 
-  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink
+  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -89,6 +89,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalCategory, setModalCategory] = useState(categories[0] || 'General');
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
+  const [isUploading, setIsUploading] = useState(false);
 
   // --- Classified Form State ---
   const [clsTitle, setClsTitle] = useState('');
@@ -149,6 +150,31 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setModalImageUrl(article.imageUrl); 
       setModalStatus(article.status); 
       setShowArticleModal(true); 
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+      setModalImageUrl(data.publicUrl);
+    } catch (error: any) {
+      alert('Error uploading image: ' + error.message);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleArticleModalSubmit = () => {
@@ -587,9 +613,56 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Author</label><input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm"/></div>
                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label><select value={modalCategory} onChange={(e) => setModalCategory(e.target.value)} className="w-full p-2 border rounded bg-white">{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                 </div>
+
+                {/* Added Image Upload for Editors */}
+                <div>
+                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Featured Image</label>
+                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors relative group">
+                        {modalImageUrl ? (
+                            <div className="relative w-full h-48 rounded-md overflow-hidden bg-gray-200">
+                                <img src={modalImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                    <div className="relative">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            disabled={isUploading}
+                                        />
+                                        <button className="bg-white text-black px-4 py-2 rounded text-xs font-bold uppercase tracking-wide flex items-center gap-2">
+                                            <Upload size={14} /> Change Image
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 relative w-full">
+                                {isUploading ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Loader2 size={32} className="animate-spin text-news-gold" />
+                                        <span className="text-xs font-bold text-gray-400 uppercase">Uploading...</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        />
+                                        <ImageIcon size={32} className="mx-auto text-gray-300 mb-2" />
+                                        <p className="text-xs text-gray-500 font-medium">Click to upload or drag and drop</p>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                   </div>
+                </div>
+
                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Content</label><div className="h-64 border rounded"><RichTextEditor content={modalContent} onChange={setModalContent} className="h-full border-none"/></div></div>
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3"><button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-gray-600 font-bold">Cancel</button><button onClick={handleArticleModalSubmit} className="px-6 py-2 bg-green-600 text-white rounded font-bold">Save Article</button></div>
+            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3"><button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-gray-600 font-bold">Cancel</button><button onClick={handleArticleModalSubmit} disabled={isUploading} className="px-6 py-2 bg-green-600 text-white rounded font-bold disabled:opacity-50">Save Article</button></div>
           </div>
         </div>
       )}
