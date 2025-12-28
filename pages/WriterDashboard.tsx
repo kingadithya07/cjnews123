@@ -82,7 +82,15 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       const { data } = supabase.storage.from('images').getPublicUrl(filePath);
       setImageUrl(data.publicUrl);
     } catch (error: any) {
-      alert('Error uploading image: ' + error.message);
+      console.warn('Storage upload failed, falling back to local base64:', error.message);
+      // Fallback: Read as Data URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+              setImageUrl(reader.result);
+          }
+      };
+      reader.readAsDataURL(file);
     } finally {
       setIsUploading(false);
     }

@@ -35,7 +35,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     return () => { isMounted.current = false; };
   }, []);
 
-  // Check for existing session on mount
+  // Check for existing session on mount AND when devices prop updates
+  // This is crucial: When App.tsx detects a cloud update (Desktop approved Mobile), 
+  // existingDevices changes, triggering this effect, which calls finalizeLogin.
   useEffect(() => {
     const checkExistingSession = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -45,15 +47,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     };
     checkExistingSession();
   }, [existingDevices]);
-
-  // Poll for device approval
-  useEffect(() => {
-    let interval: any;
-    if (mode === 'awaiting_approval' && pendingUser) {
-        interval = setInterval(() => checkApprovalStatus(), 3000);
-    }
-    return () => clearInterval(interval);
-  }, [mode, existingDevices, pendingUser]);
 
   const handleSessionFound = (session: any) => {
     const currentId = getDeviceId();
@@ -69,6 +62,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
         } else {
             // New device found for existing user -> It's secondary
             const meta = getDeviceMetadata();
+            // Call parent to sync "pending" status to cloud
             onAddDevice({
                 id: currentId,
                 userId: session.user.id,
@@ -103,13 +97,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     }
   };
 
-  const checkApprovalStatus = () => {
-    if (!pendingUser) return;
-    const currentId = getDeviceId();
-    const deviceEntry = existingDevices.find(d => d.id === currentId && d.userId === pendingUser.id && d.status === 'approved');
-    if (deviceEntry) {
-        finalizeLogin(pendingUser);
-    }
+  const manualRefresh = async () => {
+      // Force a session refresh to pull latest metadata immediately
+      await supabase.auth.refreshSession();
   };
 
   const finalizeLogin = (user: any) => {
@@ -264,7 +254,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                       <div className="flex items-center justify-center gap-3 text-news-accent font-bold text-xs animate-pulse">
                           <Loader2 size={14} className="animate-spin" /> Awaiting Handshake...
                       </div>
-                      <button onClick={checkApprovalStatus} className="flex items-center justify-center gap-2 text-news-gold font-bold text-[10px] uppercase tracking-[0.2em] hover:text-news-black transition-colors">
+                      <button onClick={manualRefresh} className="flex items-center justify-center gap-2 text-news-gold font-bold text-[10px] uppercase tracking-[0.2em] hover:text-news-black transition-colors">
                           <RotateCw size={14} /> Manually Refresh Status
                       </button>
                       

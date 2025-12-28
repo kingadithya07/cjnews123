@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
 import ArticleView from './pages/ArticleView';
@@ -41,12 +41,14 @@ function App() {
       }
   };
 
-  // Persistence states
+  // Persistence states (Content remains local for mock purposes, Devices move to Cloud)
   const [articles, setArticles] = useState<Article[]>(() => safeJsonParse('dn_articles', MOCK_ARTICLES));
   const [ePaperPages, setEPaperPages] = useState<EPaperPage[]>(() => safeJsonParse('dn_epaper', MOCK_EPAPER));
   const [categories, setCategories] = useState<string[]>(() => safeJsonParse('dn_categories', ['General', 'World', 'Technology', 'Politics', 'Lifestyle', 'Business', 'Culture', 'Sports', 'Local']));
   const [tags, setTags] = useState<string[]>(() => safeJsonParse('dn_tags', ['Breaking', 'Live', 'Exclusive', 'Opinion', 'Video', 'Podcast', 'Analysis']));
-  const [devices, setDevices] = useState<TrustedDevice[]>(() => safeJsonParse('dn_devices', []));
+  
+  // DEVICES are now synced from Supabase Metadata, defaulting to empty
+  const [devices, setDevices] = useState<TrustedDevice[]>([]);
 
   const [adCategories, setAdCategories] = useState<string[]>(['Jobs', 'Real Estate', 'For Sale', 'Services', 'Community', 'Automotive', 'Events']);
   const [classifieds, setClassifieds] = useState<ClassifiedAd[]>([]);
@@ -62,23 +64,19 @@ function App() {
     textColor: '#bfa17b'
   });
 
-  // Sync to LocalStorage
+  // Sync Content to LocalStorage
   useEffect(() => safeJsonSave('dn_articles', articles), [articles]);
   useEffect(() => safeJsonSave('dn_epaper', ePaperPages), [ePaperPages]);
   useEffect(() => safeJsonSave('dn_categories', categories), [categories]);
   useEffect(() => safeJsonSave('dn_tags', tags), [tags]);
-  useEffect(() => safeJsonSave('dn_devices', devices), [devices]);
+  // We no longer sync devices to localStorage to avoid conflicts with cloud state
 
   // --- ROUTING LOGIC (Hash Based) ---
   const getPathFromHash = () => {
      const hash = window.location.hash;
-     
-     // Handle Supabase Auth Redirects which come as #access_token=... or #type=recovery...
      if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('error=')) {
          return '/auth-callback'; 
      }
-     
-     // Standard Routing
      if (!hash || hash === '#') return '/';
      return hash.startsWith('#') ? hash.slice(1) : hash;
   };
@@ -91,11 +89,10 @@ function App() {
     window.scrollTo(0, 0);
   };
 
-  // Listen for hash changes (Browser Back/Forward)
   useEffect(() => {
     const handleHashChange = () => {
         const newPath = getPathFromHash();
-        if (newPath !== '/auth-callback') { // Don't override auth processing
+        if (newPath !== '/auth-callback') {
              setCurrentPath(newPath);
         }
     };
@@ -103,7 +100,43 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Auth Listener
+  // --- CLOUD SYNC HELPER ---
+  // Saves the current device list to Supabase User Metadata
+  const persistDevicesToCloud = async (newDevices: TrustedDevice[]) => {
+      setDevices(newDevices); // Optimistic UI update
+      const { error } = await supabase.auth.updateUser({
+          data: { trusted_devices: newDevices }
+      });
+      if (error) console.error("Cloud Sync Failed:", error);
+  };
+
+  // --- CLOUD POLLING ---
+  // Checks for updates from other devices (e.g., Mobile waiting for Desktop approval)
+  useEffect(() => {
+      if (!userId) return;
+
+      const pollInterval = setInterval(async () => {
+          // We use refreshSession to ensure we get the absolute latest metadata from the server
+          const { data: { session } } = await supabase.auth.refreshSession();
+          if (session) {
+              const cloudDevices = session.user.user_metadata.trusted_devices || [];
+              
+              // Only update state if different to prevent re-renders
+              // Simple JSON stringify comparison is sufficient for this data size
+              setDevices(prev => {
+                  if (JSON.stringify(prev) !== JSON.stringify(cloudDevices)) {
+                      return cloudDevices;
+                  }
+                  return prev;
+              });
+          }
+      }, 4000); // Check every 4 seconds
+
+      return () => clearInterval(pollInterval);
+  }, [userId]);
+
+
+  // --- AUTH INITIALIZATION ---
   useEffect(() => {
     const safetyTimer = setTimeout(() => setLoading(false), 2000);
 
@@ -118,7 +151,6 @@ function App() {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        // Handle Hash Recovery parameters manually if needed
         const hash = window.location.hash;
         if (hash.includes('type=recovery')) {
              setIsRecovering(true);
@@ -131,6 +163,11 @@ function App() {
           setUserName(profile.full_name || 'Staff');
           setUserRole(profile.role || UserRole.READER);
           setUserAvatar(profile.avatar_url || null);
+          
+          // Load Trusted Devices from Cloud
+          if (profile.trusted_devices && Array.isArray(profile.trusted_devices)) {
+              setDevices(profile.trusted_devices);
+          }
         }
       } catch (err) {
         console.warn("Auth initialization warning:", err);
@@ -154,11 +191,17 @@ function App() {
         setUserName(profile.full_name || 'Staff');
         setUserRole(profile.role || UserRole.READER);
         setUserAvatar(profile.avatar_url || null);
+        
+        // Sync devices on login/update
+        if (profile.trusted_devices && Array.isArray(profile.trusted_devices)) {
+            setDevices(profile.trusted_devices);
+        }
       } else {
         setUserId(null);
         setUserName(null);
         setUserRole(UserRole.READER);
         setUserAvatar(null);
+        setDevices([]); // Clear devices on logout
         setIsRecovering(false);
       }
     });
@@ -176,10 +219,11 @@ function App() {
   };
 
   const handleEmergencyReset = async () => {
-    if (window.confirm("FACTORY RESET: This will clear all trusted devices from this browser and log you out. The next login will be treated as a Primary Device. Continue?")) {
-        try {
-            localStorage.removeItem('dn_devices');
-        } catch(e) {}
+    if (window.confirm("FACTORY RESET: This will clear all trusted devices from the cloud and log you out. The next login will be treated as a Primary Device. Continue?")) {
+        // Clear cloud metadata
+        await supabase.auth.updateUser({
+            data: { trusted_devices: [] }
+        });
         setDevices([]);
         await supabase.auth.signOut();
         navigate('/login');
@@ -191,12 +235,21 @@ function App() {
     const currentDeviceId = getDeviceId();
     const myDevices = devices.filter(d => d.userId === userId);
     
-    // If no devices exist for this user, we treat this first login as authorized (Primary)
-    // This logic allows the "First device = Primary" rule.
+    // First device rule
     if (myDevices.length === 0) return true; 
     
     const currentEntry = myDevices.find(d => d.id === currentDeviceId);
     return currentEntry?.status === 'approved';
+  };
+
+  const handleAddDevice = (device: TrustedDevice) => {
+      // Logic to add device, but using persistDevicesToCloud
+      // Check if it already exists to avoid dupes
+      const exists = devices.some(d => d.id === device.id);
+      if (!exists) {
+          const newDeviceList = [...devices, device];
+          persistDevicesToCloud(newDeviceList);
+      }
   };
 
   const handleApproveDevice = (deviceId: string) => {
@@ -211,15 +264,18 @@ function App() {
         return;
     }
 
-    setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, status: 'approved' } : d));
+    const updatedList = devices.map(d => d.id === deviceId ? { ...d, status: 'approved' as const } : d);
+    persistDevicesToCloud(updatedList);
   };
 
   const handleRejectDevice = (deviceId: string) => {
-    setDevices(prev => prev.filter(d => d.id !== deviceId));
+    const updatedList = devices.filter(d => d.id !== deviceId);
+    persistDevicesToCloud(updatedList);
   };
 
   const handleRevokeDevice = (deviceId: string) => {
-    setDevices(prev => prev.filter(d => d.id !== deviceId));
+    const updatedList = devices.filter(d => d.id !== deviceId);
+    persistDevicesToCloud(updatedList);
   };
 
   const handleSaveArticle = (article: Article) => {
@@ -247,28 +303,25 @@ function App() {
   let content;
   
   if (path === '/reset-password') {
-    // Pass devices to allow checking trusted status before reset
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
-    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={d => setDevices(prev => [...prev, d])} onEmergencyReset={handleEmergencyReset} />;
+    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={handleEmergencyReset} />;
   } else if (path === '/staff/login') {
-    content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={d => setDevices(prev => [...prev, d])} onEmergencyReset={handleEmergencyReset} />;
+    content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={handleEmergencyReset} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
-    // Both Editor and Admin share the dashboard, Admin can have extra rights if implemented
     content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={setWatermarkSettings} onUpdatePage={p => setEPaperPages(prev => prev.map(old => old.id === p.id ? p : old))} onAddPage={p => setEPaperPages(prev => [...prev, p])} onDeletePage={id => setEPaperPages(prev => prev.filter(p => p.id !== id))} onDeleteArticle={id => setArticles(prev => prev.filter(a => a.id !== id))} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={c => {}} onDeleteAdCategory={c => {}} onAddClassified={c => {}} onDeleteClassified={id => {}} onAddAdvertisement={a => {}} onDeleteAdvertisement={id => {}} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={handleApproveDevice} onRejectDevice={handleRejectDevice} onRevokeDevice={handleRevokeDevice} />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard onSave={handleSaveArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} />;
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path.startsWith('/article/')) {
-    const id = currentPath.split('/article/')[1]; // Use original case from currentPath, not path (which is lowercase)
+    const id = currentPath.split('/article/')[1];
     content = <ArticleView articles={articles} articleId={id} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path === '/epaper') {
     content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} />;
   } else if (path === '/classifieds') {
     content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />;
   } else {
-    // 404 Fallback - show home to avoid dead ends in hash routing
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   }
 

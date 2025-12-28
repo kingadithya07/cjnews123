@@ -177,7 +177,15 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       const { data } = supabase.storage.from('images').getPublicUrl(filePath);
       setModalImageUrl(data.publicUrl);
     } catch (error: any) {
-      alert('Error uploading image: ' + error.message);
+      console.warn('Storage upload failed, falling back to local base64:', error.message);
+      // Fallback: Read as Data URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+              setModalImageUrl(reader.result);
+          }
+      };
+      reader.readAsDataURL(file);
     } finally {
       setIsUploading(false);
     }
