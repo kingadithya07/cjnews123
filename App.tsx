@@ -69,21 +69,42 @@ function App() {
   useEffect(() => safeJsonSave('dn_tags', tags), [tags]);
   useEffect(() => safeJsonSave('dn_devices', devices), [devices]);
 
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  // --- ROUTING LOGIC (Hash Based) ---
+  const getPathFromHash = () => {
+     const hash = window.location.hash;
+     
+     // Handle Supabase Auth Redirects which come as #access_token=... or #type=recovery...
+     if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('error=')) {
+         return '/auth-callback'; 
+     }
+     
+     // Standard Routing
+     if (!hash || hash === '#') return '/';
+     return hash.startsWith('#') ? hash.slice(1) : hash;
+  };
+
+  const [currentPath, setCurrentPath] = useState(getPathFromHash());
   
   const navigate = (path: string) => {
-    try {
-        window.history.pushState({}, '', path);
-    } catch (e) {
-        console.warn('History API restricted, falling back to memory routing.');
-    }
+    window.location.hash = path;
     setCurrentPath(path);
     window.scrollTo(0, 0);
   };
 
+  // Listen for hash changes (Browser Back/Forward)
+  useEffect(() => {
+    const handleHashChange = () => {
+        const newPath = getPathFromHash();
+        if (newPath !== '/auth-callback') { // Don't override auth processing
+             setCurrentPath(newPath);
+        }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   // Auth Listener
   useEffect(() => {
-    // Safety timeout to prevent infinite loading screen
     const safetyTimer = setTimeout(() => setLoading(false), 2000);
 
     const isConfigured = !supabase.supabaseUrl.includes('placeholder-project');
@@ -96,17 +117,20 @@ function App() {
     const checkInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
+        
+        // Handle Hash Recovery parameters manually if needed
+        const hash = window.location.hash;
+        if (hash.includes('type=recovery')) {
+             setIsRecovering(true);
+             navigate('/reset-password');
+        }
+
         if (session) {
           const profile = session.user.user_metadata;
           setUserId(session.user.id);
           setUserName(profile.full_name || 'Staff');
           setUserRole(profile.role || UserRole.READER);
           setUserAvatar(profile.avatar_url || null);
-          
-          if (window.location.hash.includes('type=recovery') || window.location.hash.includes('access_token=')) {
-            setIsRecovering(true);
-            navigate('/reset-password');
-          }
         }
       } catch (err) {
         console.warn("Auth initialization warning:", err);
@@ -143,12 +167,6 @@ function App() {
         subscription.unsubscribe();
         clearTimeout(safetyTimer);
     };
-  }, []);
-
-  useEffect(() => {
-    const handlePopState = () => setCurrentPath(window.location.pathname);
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const handleLogin = (role: UserRole, name: string, avatar?: string) => {
@@ -196,7 +214,7 @@ function App() {
     });
   };
 
-  if (loading) {
+  if (loading || currentPath === '/auth-callback') {
       return (
           <div className="h-screen flex items-center justify-center bg-news-paper">
               <div className="flex flex-col items-center gap-4">
@@ -207,7 +225,7 @@ function App() {
       );
   }
 
-  // Robust path normalization
+  // Normalize path
   const rawPath = currentPath.toLowerCase();
   const path = rawPath.endsWith('/') && rawPath.length > 1 ? rawPath.slice(0, -1) : rawPath;
 
@@ -226,14 +244,14 @@ function App() {
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path.startsWith('/article/')) {
-    const id = currentPath.split('/article/')[1]; // Use original case for IDs
+    const id = currentPath.split('/article/')[1]; // Use original case from currentPath, not path (which is lowercase)
     content = <ArticleView articles={articles} articleId={id} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path === '/epaper') {
     content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} />;
   } else if (path === '/classifieds') {
     content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />;
   } else {
-    // 404 Fallback
+    // 404 Fallback - show home to avoid dead ends in hash routing
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   }
 
