@@ -23,7 +23,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isRecovering, setIsRecovering] = useState(false);
   
-  // Safe Storage Access Helper to prevent crashes in restricted iframes
+  // Safe Storage Access Helper
   const safeJsonParse = (key: string, fallback: any) => {
       try {
           const item = localStorage.getItem(key);
@@ -81,20 +81,21 @@ function App() {
     window.scrollTo(0, 0);
   };
 
-  // Auth Listener and Mobile Recovery Handler
+  // Auth Listener
   useEffect(() => {
+    // Safety timeout to prevent infinite loading screen
+    const safetyTimer = setTimeout(() => setLoading(false), 2000);
+
     const isConfigured = !supabase.supabaseUrl.includes('placeholder-project');
     if (!isConfigured) {
       setLoading(false);
+      clearTimeout(safetyTimer);
       return;
     }
 
-    // Immediate check for session (crucial for mobile persistence)
     const checkInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) console.error("Session check error:", error);
-        
         if (session) {
           const profile = session.user.user_metadata;
           setUserId(session.user.id);
@@ -102,7 +103,6 @@ function App() {
           setUserRole(profile.role || UserRole.READER);
           setUserAvatar(profile.avatar_url || null);
           
-          // Handle deep-link recovery that might have happened before listener was ready
           if (window.location.hash.includes('type=recovery') || window.location.hash.includes('access_token=')) {
             setIsRecovering(true);
             navigate('/reset-password');
@@ -112,6 +112,7 @@ function App() {
         console.warn("Auth initialization warning:", err);
       } finally {
         setLoading(false);
+        clearTimeout(safetyTimer);
       }
     };
 
@@ -138,7 +139,10 @@ function App() {
       }
     });
     
-    return () => subscription.unsubscribe();
+    return () => {
+        subscription.unsubscribe();
+        clearTimeout(safetyTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -203,8 +207,9 @@ function App() {
       );
   }
 
-  // Normalize path to handle trailing slashes
-  const path = currentPath.endsWith('/') && currentPath.length > 1 ? currentPath.slice(0, -1) : currentPath;
+  // Robust path normalization
+  const rawPath = currentPath.toLowerCase();
+  const path = rawPath.endsWith('/') && rawPath.length > 1 ? rawPath.slice(0, -1) : rawPath;
 
   let content;
   
@@ -221,14 +226,14 @@ function App() {
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path.startsWith('/article/')) {
-    const id = path.split('/article/')[1];
+    const id = currentPath.split('/article/')[1]; // Use original case for IDs
     content = <ArticleView articles={articles} articleId={id} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path === '/epaper') {
     content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} />;
   } else if (path === '/classifieds') {
     content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />;
   } else {
-    // 404 Fallback - redirect to home or show ReaderHome
+    // 404 Fallback
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   }
 
