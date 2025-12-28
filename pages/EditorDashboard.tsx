@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
+import ImageTools from '../components/ImageTools';
 import { generateId, getDeviceId } from '../utils';
 import { supabase } from '../supabaseClient';
 
@@ -56,7 +57,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   devices, onApproveDevice, onRejectDevice, onRevokeDevice
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'users' | 'idcards' | 'classifieds' | 'categories' | 'ads' | 'analytics' | 'settings' | 'inbox' | 'approvals'>('articles');
+  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'image_tools' | 'users' | 'idcards' | 'classifieds' | 'categories' | 'ads' | 'analytics' | 'settings' | 'inbox' | 'approvals'>('articles');
 
   const [statusFilter, setStatusFilter] = useState<'ALL' | ArticleStatus>('ALL');
   const [showArticleModal, setShowArticleModal] = useState(false);
@@ -100,6 +101,24 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setIsUploading(false);
     }
   };
+
+  const handleContentImageUpload = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${generateId()}.${fileExt}`;
+    const filePath = `content/${fileName}`; // Use a different folder for content images
+
+    const { error: uploadError } = await supabase.storage
+      .from('images')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
 
   const handleArticleModalSubmit = () => {
     if (!modalTitle) { alert("Headline is required"); return; }
@@ -147,6 +166,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
               <SidebarItem id="articles" label="Articles" icon={FileText} />
               <SidebarItem id="epaper" label="E-Paper" icon={Newspaper} />
+              <SidebarItem id="image_tools" label="Image Tools" icon={ImageIcon} />
               <SidebarItem id="settings" label="Settings" icon={Settings} />
           </div>
           <div className="p-6 border-t border-gray-800">
@@ -196,6 +216,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                   </div>
               )}
+              {activeTab === 'image_tools' && <ImageTools />}
           </div>
       </div>
 
@@ -239,7 +260,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
-                <RichTextEditor content={modalContent} onChange={setModalContent} className="h-64"/>
+                <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="h-64"/>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
               <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>

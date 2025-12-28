@@ -1,19 +1,22 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Bold, Italic, Underline, Heading1, Heading2, Quote, 
   List, ListOrdered, Link as LinkIcon, Image as ImageIcon,
-  AlignLeft, AlignCenter, AlignRight, Undo, Redo
+  AlignLeft, AlignCenter, AlignRight, Undo, Redo, Loader2
 } from 'lucide-react';
 
 interface RichTextEditorProps {
   content: string;
   onChange: (html: string) => void;
+  onImageUpload: (file: File) => Promise<string>;
   placeholder?: string;
   className?: string;
 }
 
-const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, placeholder, className }) => {
+const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onImageUpload, placeholder, className }) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Sync content updates from parent only if editor is empty or significantly different
   // to avoid cursor jumping issues during typing
@@ -39,6 +42,28 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, plac
       onChange(editorRef.current.innerHTML);
     }
   };
+  
+  const handleImageButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setIsUploading(true);
+      try {
+        const url = await onImageUpload(file);
+        exec('insertImage', url);
+      } catch (error) {
+        console.error("Content image upload failed:", error);
+        alert("Failed to upload image into content.");
+      } finally {
+        setIsUploading(false);
+        // Reset file input
+        if (e.target) e.target.value = '';
+      }
+    }
+  };
 
   const ToolbarButton = ({ icon: Icon, command, value, title }: any) => (
     <button
@@ -47,9 +72,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, plac
         e.preventDefault(); // Prevent focus loss
         if (command === 'createLink') {
             const url = prompt('Enter link URL:');
-            if (url) exec(command, url);
-        } else if (command === 'insertImage') {
-            const url = prompt('Enter image URL:');
             if (url) exec(command, url);
         } else {
             exec(command, value);
@@ -91,7 +113,22 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, plac
 
         <div className="flex gap-0.5">
              <ToolbarButton icon={LinkIcon} command="createLink" title="Insert Link" />
-             <ToolbarButton icon={ImageIcon} command="insertImage" title="Insert Image" />
+             <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); handleImageButtonClick(); }}
+              className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors relative"
+              title="Upload & Insert Image"
+              disabled={isUploading}
+            >
+              {isUploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              className="hidden"
+            />
         </div>
       </div>
 

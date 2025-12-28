@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Article, Advertisement } from '../types';
 import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft } from 'lucide-react';
@@ -129,7 +128,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 <img 
                     src={article.imageUrl} 
                     alt={article.title} 
-                    className="w-full h-[300px] md:h-[500px] object-cover md:rounded-sm shadow-sm"
+                    className="w-full h-auto md:rounded-sm shadow-sm"
                 />
                 <figcaption className="text-xs md:text-sm text-gray-500 mt-2 italic text-center px-4">
                     Featured image for {article.category} section.
@@ -225,11 +224,11 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
                     {relatedArticles.map(rel => (
                         <Link to={`/article/${rel.id}`} onNavigate={onNavigate} key={rel.id} className="group block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-                            <div className="overflow-hidden h-48 relative">
+                            <div className="overflow-hidden relative">
                                 <img 
                                     src={rel.imageUrl} 
                                     alt={rel.title}
-                                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                                    className="w-full h-auto transform group-hover:scale-105 transition-transform duration-500"
                                 />
                                 <span className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 uppercase rounded-sm backdrop-blur-sm">
                                     {rel.category}
@@ -259,11 +258,11 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                         {moreArticles.map(more => (
                              <Link to={`/article/${more.id}`} onNavigate={onNavigate} key={more.id} className="group block">
                                 <div className="flex flex-row md:flex-col gap-4 items-start">
-                                    <div className="w-24 h-24 md:w-full md:h-40 flex-shrink-0 rounded-md overflow-hidden bg-gray-200">
+                                    <div className="w-24 md:w-full flex-shrink-0 rounded-md overflow-hidden bg-gray-200">
                                         <img 
                                             src={more.imageUrl} 
                                             alt={more.title}
-                                            className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                                            className="w-full h-auto group-hover:opacity-90 transition-opacity"
                                         />
                                     </div>
                                     <div>

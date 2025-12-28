@@ -4,6 +4,7 @@ import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout,
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
+import ImageTools from '../components/ImageTools';
 import { supabase } from '../supabaseClient';
 
 interface WriterDashboardProps {
@@ -17,7 +18,7 @@ interface WriterDashboardProps {
 
 const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArticles, currentUserRole, categories, onNavigate, userAvatar }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'inbox' | 'settings'>('articles');
+  const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'image_tools' | 'settings'>('articles');
   const [showEditorModal, setShowEditorModal] = useState(false);
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -53,6 +54,23 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleContentImageUpload = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${generateId()}.${fileExt}`;
+    const filePath = `content/${fileName}`; // Use a different folder for content images
+
+    const { error: uploadError } = await supabase.storage
+      .from('images')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+    return data.publicUrl;
   };
 
   const handleSave = () => {
@@ -101,6 +119,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
           <div className="flex-1 overflow-y-auto py-4">
               <SidebarItem id="articles" label="Articles" icon={FileText} />
               <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
+              <SidebarItem id="image_tools" label="Image Tools" icon={ImageIcon} />
               <SidebarItem id="settings" label="Settings" icon={Settings} />
           </div>
           <div className="p-6 border-t border-gray-800">
@@ -149,6 +168,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                       </div>
                   </div>
               )}
+              {activeTab === 'image_tools' && <ImageTools />}
            </div>
       </div>
 
@@ -186,7 +206,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
-                <RichTextEditor content={content} onChange={setContent} className="h-64"/>
+                <RichTextEditor content={content} onChange={setContent} className="h-64" onImageUpload={handleContentImageUpload} />
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
               <button onClick={() => setShowEditorModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>

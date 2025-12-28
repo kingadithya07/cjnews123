@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Article, EPaperPage, Advertisement } from '../types';
 import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin } from 'lucide-react';
@@ -103,16 +102,16 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
               >
                   <div className="w-full h-full overflow-hidden shadow-sm md:shadow-md rounded-lg md:rounded-xl bg-gray-900 border border-gray-200">
                       <div 
-                          className="flex transition-transform duration-500 ease-in-out h-[350px] md:h-[500px]" 
+                          className="flex transition-transform duration-500 ease-in-out" 
                           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
                       >
                           {sliderArticles.map((article) => (
-                              <div key={`slide-${article.id}`} className="w-full shrink-0 h-full relative">
+                              <div key={`slide-${article.id}`} className="w-full shrink-0 relative">
                                   {/* Image Section - Full Background */}
                                   <img 
                                     src={article.imageUrl} 
                                     alt={article.title} 
-                                    className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-[2000ms]"
+                                    className="w-full h-auto object-contain"
                                   />
                                   
                                   {/* Gradient Overlay for Text Readability */}
@@ -282,11 +281,11 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
                    {secondaryArticles.map(article => (
                        <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="group block flex flex-col h-full">
-                           <div className="overflow-hidden mb-4 relative aspect-video shadow-sm">
+                           <div className="overflow-hidden mb-4 relative shadow-sm">
                                 <img 
                                     src={article.imageUrl} 
                                     alt={article.title} 
-                                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
+                                    className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700"
                                 />
                                 <span className="absolute top-0 left-0 bg-black text-white text-[10px] font-bold px-2 py-1 uppercase">
                                     {article.category}
