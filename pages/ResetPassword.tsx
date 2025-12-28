@@ -1,14 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, Mail, RefreshCw, Copy } from 'lucide-react';
+import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, Mail, RefreshCw, Smartphone, ShieldAlert } from 'lucide-react';
+import { TrustedDevice } from '../types';
+import { getDeviceId } from '../utils';
 
 interface ResetPasswordProps {
     onNavigate: (path: string) => void;
+    devices?: TrustedDevice[];
 }
 
-const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
-    const [step, setStep] = useState<'identify' | 'verify' | 'reset'>('identify');
+const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] }) => {
+    const [step, setStep] = useState<'check' | 'identify' | 'verify' | 'reset'>('check');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,19 +20,32 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-
+    
+    // Check device trust on mount
     useEffect(() => {
-        // If user arrives via Email Link (type=recovery), Supabase auto-logs them in.
-        // We detect this session and switch directly to password update mode.
-        const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                setStep('reset'); // Skip OTP, go straight to new password
-                setEmail(session.user.email || '');
-            }
+        const checkDeviceTrust = async () => {
+             const { data: { session } } = await supabase.auth.getSession();
+             if (session) {
+                 // If already logged in via magic link, skip check
+                 setStep('reset');
+                 setEmail(session.user.email || '');
+                 return;
+             }
+
+             const currentDeviceId = getDeviceId();
+             // Check if this device is approved for ANY user (proxy check since we don't know user ID yet)
+             // In a real app, you'd identify user first, then check device. 
+             // Here we enforce that the device must be known to the system.
+             const isDeviceKnownAndApproved = devices.some(d => d.id === currentDeviceId && d.status === 'approved');
+
+             if (isDeviceKnownAndApproved) {
+                 setStep('identify');
+             } else {
+                 setStep('check'); // Stays on check/block screen
+             }
         };
-        checkSession();
-    }, []);
+        checkDeviceTrust();
+    }, [devices]);
 
     const handleSendResetCode = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -138,7 +154,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                         <CheckCircle size={48} />
                         <div>
                             <p className="font-black uppercase tracking-widest text-xs mb-2">Success</p>
-                            <p className="text-sm font-medium mb-4">Your password has been updated securely.</p>
+                            <p className="text-sm font-medium mb-4">Your password has been updated.</p>
                         </div>
                         <button 
                             onClick={() => onNavigate('/login')}
@@ -156,8 +172,31 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                             </div>
                         )}
 
+                        {step === 'check' && (
+                             <div className="text-center space-y-6">
+                                <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
+                                    <ShieldAlert size={40} className="mx-auto text-red-500 mb-4" />
+                                    <h3 className="font-bold text-red-900 mb-2">Device Not Trusted</h3>
+                                    <p className="text-xs text-red-700 leading-relaxed">
+                                        You are attempting to reset a password from an unauthorized device. Security protocols require you to approve this device from your <b>Primary Device</b> first.
+                                    </p>
+                                </div>
+                                
+                                <button 
+                                    onClick={() => onNavigate('/login')}
+                                    className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 shadow-xl transition-all flex items-center justify-center gap-3"
+                                >
+                                    Log In to Register Device <ArrowRight size={18} />
+                                </button>
+                                
+                                <p className="text-[10px] text-gray-400">
+                                    Once logged in (even if password fails, device registers), ask your Primary Device admin to approve this session.
+                                </p>
+                             </div>
+                        )}
+
                         {step === 'identify' && (
-                            <form onSubmit={handleSendResetCode} className="space-y-6">
+                            <form onSubmit={handleSendResetCode} className="space-y-6 animate-in fade-in">
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
                                     <div className="relative">

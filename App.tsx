@@ -196,6 +196,17 @@ function App() {
   };
 
   const handleApproveDevice = (deviceId: string) => {
+    const targetDevice = devices.find(d => d.id === deviceId);
+    if (!targetDevice) return;
+
+    // Security: Check limit (Max 5)
+    const approvedCount = devices.filter(d => d.userId === targetDevice.userId && d.status === 'approved').length;
+    
+    if (approvedCount >= 5) {
+        alert("Security Alert: Trusted device limit reached (5 Max). Please remove an existing device before approving this one.");
+        return;
+    }
+
     setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, status: 'approved' } : d));
   };
 
@@ -232,7 +243,8 @@ function App() {
   let content;
   
   if (path === '/reset-password') {
-    content = <ResetPassword onNavigate={navigate} />;
+    // Pass devices to allow checking trusted status before reset
+    content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
     content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={d => setDevices(prev => [...prev, d])} onEmergencyReset={handleEmergencyReset} />;
   } else if (path === '/staff/login') {

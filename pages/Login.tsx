@@ -183,6 +183,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
       }
   };
 
+  const handleRecoveryClick = () => {
+      const currentId = getDeviceId();
+      const isApproved = existingDevices.some(d => d.id === currentId && d.status === 'approved');
+      
+      if (!isApproved && existingDevices.length > 0) {
+          alert("Security Notice: This device is not currently trusted. You must log in (even if password fails) to register this device request, then approve it from your Primary Device before you can reset your password.");
+      }
+      onNavigate('/reset-password');
+  };
+
   // Render the "Verification Code" screen after signup
   if (mode === 'verify_email') {
       return (
@@ -349,7 +359,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
 
                  {mode === 'signin' && (
                     <div className="text-right">
-                       <button type="button" onClick={() => onNavigate('/reset-password')} className="text-[10px] text-news-accent hover:underline font-black uppercase tracking-widest">Recover Account</button>
+                       <button type="button" onClick={handleRecoveryClick} className="text-[10px] text-news-accent hover:underline font-black uppercase tracking-widest">Recover Account</button>
                     </div>
                  )}
 
