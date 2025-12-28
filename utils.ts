@@ -15,6 +15,14 @@ export const generateId = (): string => {
   });
 };
 
+/**
+ * Generates an 8-digit numeric verification code.
+ */
+export const generateVerificationCode = (): string => {
+  // Generates a number between 10000000 and 99999999
+  return Math.floor(10000000 + Math.random() * 90000000).toString();
+};
+
 // In-memory fallback for environments where Storage is completely blocked
 const memoryStore: Record<string, string> = {};
 

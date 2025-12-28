@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, Upload, X, AlertCircle, Loader2, Smartphone, Monitor, RotateCw } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, Upload, X, AlertCircle, Loader2, Smartphone, Monitor, RotateCw, KeyRound, Copy } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
-import { getDeviceId, getDeviceMetadata } from '../utils';
+import { getDeviceId, getDeviceMetadata, generateVerificationCode } from '../utils';
 
 interface LoginProps {
   onLogin: (role: UserRole, name: string, avatar?: string) => void;
@@ -15,17 +15,21 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onAddDevice, onEmergencyReset }) => {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'awaiting_approval'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'awaiting_approval'>('signin');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const isMounted = useRef(true);
 
-  const [email, setEmail] = useState('');
+  // Replaced Email with Username
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.READER);
   const [avatar, setAvatar] = useState<string | null>(null);
+  
+  // New: Recovery Code State
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   
   const [pendingUser, setPendingUser] = useState<any>(null);
 
@@ -33,59 +37,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     return () => { isMounted.current = false; };
   }, []);
 
-  // Check for existing session on mount (Mobile/Refresh handling)
+  // Check for existing session on mount
   useEffect(() => {
     const checkExistingSession = async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && isMounted.current) {
-            const currentId = getDeviceId();
-            // Check if this device is known
-            const userDevices = existingDevices.filter(d => d.userId === session.user.id);
-            const thisDevice = userDevices.find(d => d.id === currentId);
-
-            if (userDevices.length > 0) {
-                if (thisDevice && thisDevice.status === 'approved') {
-                    // Already authorized, redirect
-                    finalizeLogin(session.user);
-                } else if (thisDevice && thisDevice.status === 'pending') {
-                    // Known but pending
-                    setPendingUser(session.user);
-                    setMode('awaiting_approval');
-                } else {
-                    // Unknown device but logged in (weird state, add as pending)
-                    const meta = getDeviceMetadata();
-                    onAddDevice({
-                        id: currentId,
-                        userId: session.user.id,
-                        deviceName: meta.name,
-                        deviceType: meta.type,
-                        location: 'New Detected Station',
-                        lastActive: 'Just Now',
-                        isCurrent: true,
-                        isPrimary: false,
-                        status: 'pending',
-                        browser: meta.browser
-                    });
-                    setPendingUser(session.user);
-                    setMode('awaiting_approval');
-                }
-            } else {
-                // First device (or reset)
-                const meta = getDeviceMetadata();
-                onAddDevice({
-                    id: currentId,
-                    userId: session.user.id,
-                    deviceName: meta.name,
-                    deviceType: meta.type,
-                    location: 'Primary Station',
-                    lastActive: 'Active Now',
-                    isCurrent: true,
-                    isPrimary: true,
-                    status: 'approved',
-                    browser: meta.browser
-                });
-                finalizeLogin(session.user);
-            }
+            handleSessionFound(session);
         }
     };
     checkExistingSession();
@@ -95,12 +52,58 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   useEffect(() => {
     let interval: any;
     if (mode === 'awaiting_approval' && pendingUser) {
-        interval = setInterval(() => {
-            checkApprovalStatus();
-        }, 3000);
+        interval = setInterval(() => checkApprovalStatus(), 3000);
     }
     return () => clearInterval(interval);
   }, [mode, existingDevices, pendingUser]);
+
+  const handleSessionFound = (session: any) => {
+    const currentId = getDeviceId();
+    const userDevices = existingDevices.filter(d => d.userId === session.user.id);
+    const thisDevice = userDevices.find(d => d.id === currentId);
+
+    if (userDevices.length > 0) {
+        if (thisDevice && thisDevice.status === 'approved') {
+            finalizeLogin(session.user);
+        } else if (thisDevice && thisDevice.status === 'pending') {
+            setPendingUser(session.user);
+            setMode('awaiting_approval');
+        } else {
+            // New device found for existing user
+            const meta = getDeviceMetadata();
+            onAddDevice({
+                id: currentId,
+                userId: session.user.id,
+                deviceName: meta.name,
+                deviceType: meta.type,
+                location: 'New Detected Station',
+                lastActive: 'Just Now',
+                isCurrent: true,
+                isPrimary: false,
+                status: 'pending',
+                browser: meta.browser
+            });
+            setPendingUser(session.user);
+            setMode('awaiting_approval');
+        }
+    } else {
+        // First device
+        const meta = getDeviceMetadata();
+        onAddDevice({
+            id: currentId,
+            userId: session.user.id,
+            deviceName: meta.name,
+            deviceType: meta.type,
+            location: 'Primary Station',
+            lastActive: 'Active Now',
+            isCurrent: true,
+            isPrimary: true,
+            status: 'approved',
+            browser: meta.browser
+        });
+        finalizeLogin(session.user);
+    }
+  };
 
   const checkApprovalStatus = () => {
     if (!pendingUser) return;
@@ -119,100 +122,124 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     else onNavigate('/');
   };
 
+  const constructEmail = (u: string) => {
+      // Create a clean dummy email for backend storage
+      const cleanUser = u.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      return `${cleanUser}@internal.news`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setMessage(null);
 
+    const dummyEmail = constructEmail(username);
+
     try {
       if (mode === 'signup') {
+        const recoveryCode = generateVerificationCode();
+        
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: dummyEmail,
           password,
           options: {
-            data: { full_name: name, role: selectedRole, avatar_url: avatar }
+            data: { 
+                full_name: name, 
+                role: selectedRole, 
+                avatar_url: avatar,
+                recovery_code: recoveryCode // Store internally
+            }
           }
         });
         if (error) throw error;
         
-        const meta = getDeviceMetadata();
-        onAddDevice({
-            id: getDeviceId(),
-            userId: data.user!.id,
-            deviceName: meta.name,
-            deviceType: meta.type,
-            location: 'Station Alpha',
-            lastActive: 'Active Now',
-            isCurrent: true,
-            isPrimary: true,
-            status: 'approved',
-            browser: meta.browser
-        });
-
-        setMessage("Success! Primary device registered.");
-        setTimeout(() => finalizeLogin(data.user), 1500);
-
-      } else if (mode === 'signin') {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        // Show success with code
+        setGeneratedCode(recoveryCode);
+        setMessage("Account created successfully.");
         
-        const currentDeviceId = getDeviceId();
-        const userDevices = existingDevices.filter(d => d.userId === data.user.id);
-        const knownDevice = userDevices.find(d => d.id === currentDeviceId);
-
-        if (userDevices.length > 0) {
-            if (knownDevice && knownDevice.status === 'approved') {
-                finalizeLogin(data.user);
-            } else {
-                if (!knownDevice) {
-                    const meta = getDeviceMetadata();
-                    onAddDevice({
-                        id: currentDeviceId,
-                        userId: data.user.id,
-                        deviceName: meta.name,
-                        deviceType: meta.type,
-                        location: 'New Station',
-                        lastActive: 'Awaiting...',
-                        isCurrent: true,
-                        isPrimary: false,
-                        status: 'pending',
-                        browser: meta.browser
-                    });
-                }
-                setPendingUser(data.user);
-                setMode('awaiting_approval');
-            }
-        } else {
-            // First device ever
+        // Auto-register device
+        if (data.user) {
             const meta = getDeviceMetadata();
             onAddDevice({
-                id: currentDeviceId,
+                id: getDeviceId(),
                 userId: data.user.id,
                 deviceName: meta.name,
                 deviceType: meta.type,
-                location: 'Primary Station',
+                location: 'Station Alpha',
                 lastActive: 'Active Now',
                 isCurrent: true,
                 isPrimary: true,
                 status: 'approved',
                 browser: meta.browser
             });
-            finalizeLogin(data.user);
         }
-      } else if (mode === 'forgot') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/reset-password`,
-        });
+
+      } else if (mode === 'signin') {
+        const { data, error } = await supabase.auth.signInWithPassword({ email: dummyEmail, password });
         if (error) throw error;
-        setMessage("Recovery link sent to your corporate email.");
+        handleSessionFound({ user: data.user });
       }
     } catch (err: any) {
-      setError(err.message || "An authentication error occurred.");
+      if (err.message.includes("Invalid login")) {
+          setError("Invalid username or password.");
+      } else {
+          setError(err.message || "An authentication error occurred.");
+      }
     } finally {
       if (isMounted.current) setLoading(false);
     }
   };
+
+  // Render the "Save your code" screen after signup
+  if (generatedCode) {
+      return (
+          <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-4 bg-news-paper">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center space-y-6 border border-gray-200 animate-in zoom-in-95">
+                  <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <KeyRound size={32} />
+                  </div>
+                  <div>
+                      <h2 className="text-2xl font-serif font-black text-gray-900 mb-2">Account Secure</h2>
+                      <p className="text-gray-500 text-sm">Save your personal recovery code. You will need this to reset your password if you lose access.</p>
+                  </div>
+                  
+                  <div className="bg-news-black text-news-gold p-6 rounded-xl font-mono text-3xl font-bold tracking-widest relative group">
+                      {generatedCode}
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(generatedCode)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-white/10 rounded"
+                        title="Copy Code"
+                      >
+                          <Copy size={16} />
+                      </button>
+                  </div>
+
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 text-left">
+                      <p className="text-xs text-yellow-800 font-bold flex items-start gap-2">
+                          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                          <span>This code is only shown once. We cannot recover it for you if lost.</span>
+                      </p>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                        setGeneratedCode(null);
+                        if (pendingUser) finalizeLogin(pendingUser);
+                        else {
+                            // If auto-login happened in background, just refresh or redirect
+                            setMode('signin');
+                            window.location.reload(); 
+                        }
+                    }} 
+                    className="w-full py-3 bg-news-black text-white rounded-xl font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors"
+                  >
+                      I have saved my code
+                  </button>
+              </div>
+          </div>
+      );
+  }
 
   if (mode === 'awaiting_approval') {
       return (
@@ -227,7 +254,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                   <div>
                       <h2 className="text-3xl font-serif font-black text-gray-900 mb-4">Authorize Device</h2>
                       <p className="text-gray-500 leading-relaxed text-sm">
-                          Credentials verified for <b>{pendingUser?.email}</b>. However, this terminal is unrecognized. Approve this session from your <b>Primary Device</b>.
+                          Credentials verified for <b>{pendingUser?.user_metadata?.full_name || 'User'}</b>. Approve this session from your <b>Primary Device</b>.
                       </p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 space-y-3">
@@ -274,7 +301,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  <span className="font-serif text-3xl font-bold tracking-tight text-white uppercase">{APP_NAME}</span>
               </div>
               <h2 className="text-4xl font-serif font-bold leading-tight mb-6">
-                {mode === 'signup' ? "Publisher Registration" : mode === 'forgot' ? "Reset Account" : "Staff Access"}
+                {mode === 'signup' ? "Publisher Registration" : "Staff Access"}
               </h2>
               <p className="text-gray-400 text-lg leading-relaxed font-light">Secure gateway to the Digital Newsroom publishing suite.</p>
            </div>
@@ -309,25 +336,42 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  )}
 
                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Corporate Email</label>
-                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all" placeholder="name@digitalnewsroom.com"/>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Username</label>
+                    <div className="relative">
+                        <User className="absolute left-3 top-3.5 text-gray-400" size={16}/>
+                        <input 
+                            type="text" 
+                            required 
+                            value={username} 
+                            onChange={e => setUsername(e.target.value.replace(/\s/g, ''))} 
+                            className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all font-medium" 
+                            placeholder="jdoe24"
+                        />
+                    </div>
                  </div>
 
-                 {mode !== 'forgot' && (
-                    <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Password</label>
-                        <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"/>
+                 <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Password</label>
+                    <div className="relative">
+                        <Lock className="absolute left-3 top-3.5 text-gray-400" size={16}/>
+                        <input 
+                            type="password" 
+                            required 
+                            value={password} 
+                            onChange={e => setPassword(e.target.value)} 
+                            className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
+                        />
                     </div>
-                 )}
+                 </div>
 
                  {mode === 'signin' && (
                     <div className="text-right">
-                       <button type="button" onClick={() => setMode('forgot')} className="text-[10px] text-news-accent hover:underline font-black uppercase tracking-widest">Forgot password?</button>
+                       <button type="button" onClick={() => onNavigate('/reset-password')} className="text-[10px] text-news-accent hover:underline font-black uppercase tracking-widest">Recover Account</button>
                     </div>
                  )}
 
                  <button type="submit" disabled={loading} className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 flex justify-center items-center gap-3 shadow-xl transition-all">
-                    {loading ? <Loader2 className="animate-spin" size={20}/> : (mode === 'signup' ? "Initialize ID" : mode === 'forgot' ? "Recover Account" : "Secure Sign In")}
+                    {loading ? <Loader2 className="animate-spin" size={20}/> : (mode === 'signup' ? "Create Account" : "Secure Sign In")}
                     {!loading && <ArrowRight size={18} />}
                  </button>
               </form>

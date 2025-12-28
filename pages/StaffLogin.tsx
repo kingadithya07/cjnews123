@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Shield, Feather, Lock, Mail, User, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, Smartphone, Monitor, RotateCw } from 'lucide-react';
+import { Shield, Feather, Lock, User, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, RotateCw, KeyRound, Copy } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
-import { getDeviceId, getDeviceMetadata } from '../utils';
+import { getDeviceId, getDeviceMetadata, generateVerificationCode } from '../utils';
 
 interface StaffLoginProps {
   onLogin: (role: UserRole, name: string, avatar?: string) => void;
@@ -25,11 +25,15 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
   const [message, setMessage] = useState<string | null>(null);
   const isMounted = useRef(true);
 
-  const [email, setEmail] = useState('');
+  // Username instead of email
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<string | null>(null);
   const [pendingUser, setPendingUser] = useState<any>(null);
+  
+  // Generated Code
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
 
   useEffect(() => {
     return () => { isMounted.current = false; };
@@ -40,54 +44,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     const checkExistingSession = async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && isMounted.current) {
-            const currentId = getDeviceId();
-            // Check if this device is known
-            const userDevices = existingDevices.filter(d => d.userId === session.user.id);
-            const thisDevice = userDevices.find(d => d.id === currentId);
-
-            if (userDevices.length > 0) {
-                if (thisDevice && thisDevice.status === 'approved') {
-                    // Already authorized
-                    finalizeLogin(session.user);
-                } else if (thisDevice && thisDevice.status === 'pending') {
-                    // Known but pending
-                    setPendingUser(session.user);
-                    setIsAwaitingApproval(true);
-                } else {
-                    // Unknown device but logged in
-                    const meta = getDeviceMetadata();
-                    onAddDevice({
-                        id: currentId,
-                        userId: session.user.id,
-                        deviceName: meta.name,
-                        deviceType: meta.type,
-                        location: 'New Detected Station',
-                        lastActive: 'Just Now',
-                        isCurrent: true,
-                        isPrimary: false,
-                        status: 'pending',
-                        browser: meta.browser
-                    });
-                    setPendingUser(session.user);
-                    setIsAwaitingApproval(true);
-                }
-            } else {
-                // First device (or reset)
-                const meta = getDeviceMetadata();
-                onAddDevice({
-                    id: currentId,
-                    userId: session.user.id,
-                    deviceName: meta.name,
-                    deviceType: meta.type,
-                    location: 'Primary Station',
-                    lastActive: 'Active Now',
-                    isCurrent: true,
-                    isPrimary: true,
-                    status: 'approved',
-                    browser: meta.browser
-                });
-                finalizeLogin(session.user);
-            }
+            handleSessionFound(session);
         }
     };
     checkExistingSession();
@@ -103,6 +60,52 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     }
     return () => clearInterval(interval);
   }, [isAwaitingApproval, existingDevices, pendingUser]);
+
+  const handleSessionFound = (session: any) => {
+    const currentId = getDeviceId();
+    const userDevices = existingDevices.filter(d => d.userId === session.user.id);
+    const thisDevice = userDevices.find(d => d.id === currentId);
+
+    if (userDevices.length > 0) {
+        if (thisDevice && thisDevice.status === 'approved') {
+            finalizeLogin(session.user);
+        } else if (thisDevice && thisDevice.status === 'pending') {
+            setPendingUser(session.user);
+            setIsAwaitingApproval(true);
+        } else {
+            const meta = getDeviceMetadata();
+            onAddDevice({
+                id: currentId,
+                userId: session.user.id,
+                deviceName: meta.name,
+                deviceType: meta.type,
+                location: 'New Detected Station',
+                lastActive: 'Just Now',
+                isCurrent: true,
+                isPrimary: false,
+                status: 'pending',
+                browser: meta.browser
+            });
+            setPendingUser(session.user);
+            setIsAwaitingApproval(true);
+        }
+    } else {
+        const meta = getDeviceMetadata();
+        onAddDevice({
+            id: currentId,
+            userId: session.user.id,
+            deviceName: meta.name,
+            deviceType: meta.type,
+            location: 'Primary Station',
+            lastActive: 'Active Now',
+            isCurrent: true,
+            isPrimary: true,
+            status: 'approved',
+            browser: meta.browser
+        });
+        finalizeLogin(session.user);
+    }
+  };
 
   const checkApprovalStatus = () => {
     if (!pendingUser) return;
@@ -130,6 +133,11 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     }
   };
 
+  const constructEmail = (u: string) => {
+      const cleanUser = u.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      return `${cleanUser}@internal.news`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -137,82 +145,49 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     setMessage(null);
 
     const role = activeTab === 'admin' ? UserRole.EDITOR : UserRole.WRITER;
+    const dummyEmail = constructEmail(username);
 
     try {
       if (isRegistering) {
+        const recoveryCode = generateVerificationCode();
+        
         const { data, error: signUpErr } = await supabase.auth.signUp({
-          email,
+          email: dummyEmail,
           password,
           options: {
-            data: { full_name: name, role: role, avatar_url: avatar }
+            data: { 
+                full_name: name, 
+                role: role, 
+                avatar_url: avatar,
+                recovery_code: recoveryCode 
+            }
           }
         });
         if (signUpErr) throw signUpErr;
 
-        const meta = getDeviceMetadata();
-        onAddDevice({
-            id: getDeviceId(),
-            userId: data.user!.id,
-            deviceName: meta.name,
-            deviceType: meta.type,
-            location: 'Station Primary',
-            lastActive: 'Active Now',
-            isCurrent: true,
-            isPrimary: true,
-            status: 'approved',
-            browser: meta.browser
-        });
+        setGeneratedCode(recoveryCode);
+        setMessage("Staff ID Registered.");
 
-        setMessage("Staff ID Registered. Handshake Authorized.");
-        setTimeout(() => finalizeLogin(data.user), 1500);
-
-      } else {
-        const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInErr) throw signInErr;
-
-        const currentDeviceId = getDeviceId();
-        const userDevices = existingDevices.filter(d => d.userId === data.user.id);
-        const knownDevice = userDevices.find(d => d.id === currentDeviceId);
-
-        if (userDevices.length > 0) {
-            if (knownDevice && knownDevice.status === 'approved') {
-                finalizeLogin(data.user);
-            } else {
-                if (!knownDevice) {
-                    const meta = getDeviceMetadata();
-                    onAddDevice({
-                        id: currentDeviceId,
-                        userId: data.user.id,
-                        deviceName: meta.name,
-                        deviceType: meta.type,
-                        location: 'Remote Access Point',
-                        lastActive: 'Awaiting...',
-                        isCurrent: true,
-                        isPrimary: false,
-                        status: 'pending',
-                        browser: meta.browser
-                    });
-                }
-                setPendingUser(data.user);
-                setIsAwaitingApproval(true);
-            }
-        } else {
-            // First ever login for existing user from legacy
+        if (data.user) {
             const meta = getDeviceMetadata();
             onAddDevice({
-                id: currentDeviceId,
+                id: getDeviceId(),
                 userId: data.user.id,
                 deviceName: meta.name,
                 deviceType: meta.type,
-                location: 'Initial Terminal',
+                location: 'Station Primary',
                 lastActive: 'Active Now',
                 isCurrent: true,
                 isPrimary: true,
                 status: 'approved',
                 browser: meta.browser
             });
-            finalizeLogin(data.user);
         }
+
+      } else {
+        const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email: dummyEmail, password });
+        if (signInErr) throw signInErr;
+        handleSessionFound({ user: data.user });
       }
     } catch (err: any) {
       setError(err.message || "Access denied.");
@@ -220,6 +195,49 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
       if (isMounted.current) setLoading(false);
     }
   };
+
+  // Show Code Modal for Staff
+  if (generatedCode) {
+      return (
+        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+             <div className="bg-[#141414] rounded-2xl p-10 max-w-lg w-full text-center border border-white/5 shadow-2xl space-y-6 animate-in zoom-in-95">
+                  <div className="w-16 h-16 bg-news-gold text-black rounded-full flex items-center justify-center mx-auto">
+                      <KeyRound size={32} />
+                  </div>
+                  <div>
+                      <h2 className="text-3xl font-black text-white mb-2">Secure Credential Generated</h2>
+                      <p className="text-gray-400 text-sm">Save your recovery key. This 8-digit code is the ONLY way to recover this administrative account.</p>
+                  </div>
+                  
+                  <div className="bg-black/50 border border-news-gold/30 text-news-gold p-6 rounded-xl font-mono text-4xl font-black tracking-widest relative group">
+                      {generatedCode}
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(generatedCode)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-white/10 rounded text-white"
+                        title="Copy Code"
+                      >
+                          <Copy size={16} />
+                      </button>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                        setGeneratedCode(null);
+                        // Force refresh or re-login flow to get session
+                        if (pendingUser) finalizeLogin(pendingUser);
+                        else {
+                            setIsRegistering(false);
+                            window.location.reload();
+                        }
+                    }} 
+                    className="w-full py-4 bg-news-gold text-black rounded-xl font-bold uppercase tracking-widest hover:bg-yellow-500 transition-colors"
+                  >
+                      I have archived this code
+                  </button>
+             </div>
+        </div>
+      );
+  }
 
   if (isAwaitingApproval) {
       return (
@@ -312,8 +330,30 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
                        <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="Full Legal Name" className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 px-5 focus:border-news-gold outline-none transition-all" />
                   </>
               )}
-              <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 px-5 focus:border-news-gold outline-none transition-all" placeholder="Corporate Email" />
-              <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 px-5 focus:border-news-gold outline-none transition-all" placeholder="Security Password" />
+              
+              <div className="relative">
+                <User className="absolute left-4 top-4.5 text-gray-500" size={18}/>
+                <input 
+                    type="text" 
+                    required 
+                    value={username} 
+                    onChange={e => setUsername(e.target.value.replace(/\s/g, ''))} 
+                    className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" 
+                    placeholder="Username" 
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-4 top-4.5 text-gray-500" size={18}/>
+                <input 
+                    type="password" 
+                    required 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" 
+                    placeholder="Security Password" 
+                />
+              </div>
               
               <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${activeTab === 'admin' ? 'bg-news-gold text-black hover:bg-yellow-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'INITIALIZE CREDENTIALS' : 'REQUEST HANDSHAKE'} <ArrowRight size={18}/></>}
