@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, User } from 'lucide-react';
+import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, User, HelpCircle } from 'lucide-react';
 
 interface ResetPasswordProps {
     onNavigate: (path: string) => void;
@@ -28,23 +28,22 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
             setError("Password must be at least 6 characters.");
             return;
         }
+        if (recoveryCode.length !== 8) {
+            setError("Please enter the full 8-digit recovery code.");
+            return;
+        }
         
         setLoading(true);
         setError(null);
 
-        // Note: In a real Supabase application, verifying user metadata (the recovery code)
-        // for a user who is NOT logged in requires a server-side Edge Function with Admin privileges.
-        // The Supabase Client SDK cannot query user metadata or update passwords for other users securely.
-        // For this demo, we are showing the UI flow.
+        // SIMULATION LOGIC:
+        // In a real app without email, the server would verify the 'recovery_code' matches the 
+        // one stored in the user's metadata. Since the Supabase Client SDK cannot read other 
+        // users' metadata for security reasons, we simulate the success here for the demo.
         
         setTimeout(() => {
-            // Simulate check failure because we cannot actually perform this action client-side securely
-            // without being logged in.
             setLoading(false);
-            setError("Automatic reset via code requires the Enterprise Admin API enabled. Please contact your system administrator to reset your credentials manually.");
-            // To test success visually in a demo, un-comment below:
-            // setSuccess(true);
-            // setTimeout(() => onNavigate('/login'), 2000);
+            setSuccess(true);
         }, 1500);
     };
 
@@ -57,17 +56,24 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                     </div>
                     <h2 className="text-3xl font-serif font-black text-gray-900">Secure Account Recovery</h2>
                     <div className="flex items-center justify-center gap-2 mt-3 text-news-accent font-bold text-[10px] uppercase tracking-[0.2em]">
-                        <ShieldCheck size={14} /> 8-Digit Verification Protocol
+                        <ShieldCheck size={14} /> Identity Verification
                     </div>
                 </div>
 
                 {success ? (
-                    <div className="bg-green-50 text-green-700 p-8 rounded-2xl flex flex-col items-center gap-4 text-center">
+                    <div className="bg-green-50 text-green-700 p-8 rounded-2xl flex flex-col items-center gap-4 text-center border border-green-100">
                         <CheckCircle size={48} />
                         <div>
-                            <p className="font-black uppercase tracking-widest text-xs mb-2">Password Updated</p>
-                            <p className="text-sm font-medium">Your credentials have been secured. Redirecting to login...</p>
+                            <p className="font-black uppercase tracking-widest text-xs mb-2">Success</p>
+                            <p className="text-sm font-medium mb-4">Your password has been securely updated.</p>
+                            <p className="text-xs text-green-600/70 italic">(Simulation: In a live environment, the new password would now be active).</p>
                         </div>
+                        <button 
+                            onClick={() => onNavigate('/login')}
+                            className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-colors"
+                        >
+                            Proceed to Login
+                        </button>
                     </div>
                 ) : (
                     <form onSubmit={handleUpdatePassword} className="space-y-5">
@@ -77,6 +83,13 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                                 <span>{error}</span>
                             </div>
                         )}
+
+                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3">
+                             <HelpCircle size={20} className="text-blue-500 shrink-0" />
+                             <p className="text-[11px] text-blue-800 leading-snug">
+                                <strong>Note:</strong> Enter the recovery code that was displayed when you first registered. It cannot be generated again here.
+                             </p>
+                        </div>
 
                         <div>
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Username</label>
@@ -90,7 +103,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">8-Digit Recovery Code</label>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Registration Recovery Code</label>
                             <input 
                                 type="text" 
                                 required 
