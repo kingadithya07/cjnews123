@@ -32,13 +32,14 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
         setLoading(true);
         setError(null);
 
-        // Simulate API call to generate and send code
+        // Simulate secure code generation handshake
+        // In a real app with backend, this would check if the user exists first
         setTimeout(() => {
             const newCode = generateVerificationCode();
             setSessionCode(newCode);
             setLoading(false);
             setStep('verify');
-        }, 1500);
+        }, 1000);
     };
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -60,11 +61,26 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
         setLoading(true);
         setError(null);
 
-        // Simulate password update
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            // Attempt to update the password in Supabase Real-time
+            const { data, error } = await supabase.auth.updateUser({ 
+                password: password 
+            });
+
+            if (error) {
+                // Handle specific Supabase auth errors
+                if (error.status === 401 || error.message.includes("session")) {
+                    throw new Error("Security Restriction: You are not currently logged in. To reset a password without the old one, you must use an Email Magic Link or contact an Admin. (Client-side API limitation)");
+                }
+                throw error;
+            }
+
             setSuccess(true);
-        }, 1500);
+        } catch (err: any) {
+            setError(err.message || "Failed to update password in database.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -85,8 +101,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                         <CheckCircle size={48} />
                         <div>
                             <p className="font-black uppercase tracking-widest text-xs mb-2">Success</p>
-                            <p className="text-sm font-medium mb-4">Your password has been securely updated.</p>
-                            <p className="text-xs text-green-600/70 italic">(Simulation: In a live environment, the new password would now be active).</p>
+                            <p className="text-sm font-medium mb-4">Your password has been updated in the database.</p>
                         </div>
                         <button 
                             onClick={() => onNavigate('/login')}
