@@ -37,29 +37,39 @@ const ImageTools: React.FC = () => {
     }, []);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
 
         setUploading(true);
         setError(null);
         try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${generateId()}.${fileExt}`;
-            const filePath = `${FOLDER_NAME}/${fileName}`;
+            const uploadPromises = Array.from(files).map(file => {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${generateId()}.${fileExt}`;
+                const filePath = `${FOLDER_NAME}/${fileName}`;
+                return supabase.storage.from(BUCKET_NAME).upload(filePath, file);
+            });
 
-            const { error: uploadError } = await supabase.storage
-                .from(BUCKET_NAME)
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
+            const results = await Promise.all(uploadPromises);
+            
+            const uploadError = results.find(result => result.error);
+            if (uploadError && uploadError.error) {
+                throw uploadError.error;
+            }
             
             // Refresh the list
             await fetchImages();
 
-        } catch (err: any) {
-            setError(err.message || "Upload failed.");
+        } catch (err: unknown) {
+            // FIX: Safely handle caught error, which might be of an 'unknown' type in strict mode.
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError(`Upload failed. Some files may not have been saved.`);
+            }
         } finally {
             setUploading(false);
+            if (e.target) e.target.value = ''; // Reset file input
         }
     };
 
@@ -95,8 +105,8 @@ const ImageTools: React.FC = () => {
                 </div>
                 <label className="bg-news-black hover:bg-gray-800 text-white text-xs font-bold px-4 py-3 rounded flex items-center gap-2 cursor-pointer transition-colors w-full md:w-auto justify-center">
                     {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                    <span>{uploading ? 'Uploading...' : 'Upload New Image'}</span>
-                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" disabled={uploading} />
+                    <span>{uploading ? 'Uploading...' : 'Upload New Images'}</span>
+                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" disabled={uploading} multiple />
                 </label>
             </div>
             

@@ -3,8 +3,9 @@ import {
   Bold, Italic, Underline, Heading1, Heading2, Quote, 
   List, ListOrdered, Link as LinkIcon, Image as ImageIcon,
   AlignLeft, AlignCenter, AlignRight, Undo, Redo, Loader2,
-  Trash2
+  Trash2, Library
 } from 'lucide-react';
+import ImageGalleryModal from './ImageGalleryModal';
 
 interface RichTextEditorProps {
   content: string;
@@ -20,6 +21,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== content) {
@@ -77,6 +79,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     }
   };
 
+  const handleGallerySelect = (url: string) => {
+    if (editorRef.current) {
+        editorRef.current.focus();
+        exec('insertImage', url);
+    }
+    setShowGallery(false);
+  };
+
   const handleEditorClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (target.tagName === 'IMG') {
@@ -132,76 +142,91 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
   );
 
   return (
-    <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg overflow-hidden bg-white ${className}`}>
-      <div className="flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
-        <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
-            <ToolbarButton icon={Bold} command="bold" title="Bold" />
-            <ToolbarButton icon={Italic} command="italic" title="Italic" />
-            <ToolbarButton icon={Underline} command="underline" title="Underline" />
-        </div>
-        <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
-            <ToolbarButton icon={Heading1} command="formatBlock" value="H2" title="Heading 1" />
-            <ToolbarButton icon={Heading2} command="formatBlock" value="H3" title="Heading 2" />
-            <ToolbarButton icon={Quote} command="formatBlock" value="blockquote" title="Quote" />
-        </div>
-        <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
-            <ToolbarButton icon={List} command="insertUnorderedList" title="Bullet List" />
-            <ToolbarButton icon={ListOrdered} command="insertOrderedList" title="Numbered List" />
-        </div>
-        <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
-            <ToolbarButton icon={AlignLeft} command="justifyLeft" title="Align Left" />
-            <ToolbarButton icon={AlignCenter} command="justifyCenter" title="Align Center" />
-            <ToolbarButton icon={AlignRight} command="justifyRight" title="Align Right" />
-        </div>
-        <div className="flex gap-0.5">
-             <ToolbarButton icon={LinkIcon} command="createLink" title="Insert Link" />
-             <button
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); handleImageButtonClick(); }}
-              className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors relative"
-              title="Upload & Insert Image"
-              disabled={isUploading}
-            >
-              {isUploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/*"
-              className="hidden"
-            />
-        </div>
-      </div>
-
-      <div
-        ref={editorRef}
-        contentEditable
-        onInput={handleInput}
-        onClick={handleEditorClick}
-        className="flex-1 p-4 overflow-y-auto outline-none prose prose-lg max-w-none min-h-[300px] font-serif text-gray-800"
-        style={{ whiteSpace: 'pre-wrap' }}
+    <>
+      <ImageGalleryModal
+          isOpen={showGallery}
+          onClose={() => setShowGallery(false)}
+          onSelectImage={handleGallerySelect}
       />
-      
-      {content === '' && !editorRef.current?.innerHTML && (
-          <div className="absolute top-[60px] left-4 text-gray-300 pointer-events-none font-serif text-lg">
-              {placeholder || 'Start writing...'}
+      <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg overflow-hidden bg-white ${className}`}>
+        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
+              <ToolbarButton icon={Bold} command="bold" title="Bold" />
+              <ToolbarButton icon={Italic} command="italic" title="Italic" />
+              <ToolbarButton icon={Underline} command="underline" title="Underline" />
           </div>
-      )}
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
+              <ToolbarButton icon={Heading1} command="formatBlock" value="H2" title="Heading 1" />
+              <ToolbarButton icon={Heading2} command="formatBlock" value="H3" title="Heading 2" />
+              <ToolbarButton icon={Quote} command="formatBlock" value="blockquote" title="Quote" />
+          </div>
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
+              <ToolbarButton icon={List} command="insertUnorderedList" title="Bullet List" />
+              <ToolbarButton icon={ListOrdered} command="insertOrderedList" title="Numbered List" />
+          </div>
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
+              <ToolbarButton icon={AlignLeft} command="justifyLeft" title="Align Left" />
+              <ToolbarButton icon={AlignCenter} command="justifyCenter" title="Align Center" />
+              <ToolbarButton icon={AlignRight} command="justifyRight" title="Align Right" />
+          </div>
+          <div className="flex gap-0.5">
+               <ToolbarButton icon={LinkIcon} command="createLink" title="Insert Link" />
+               <button
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); handleImageButtonClick(); }}
+                className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors relative"
+                title="Upload New Image"
+                disabled={isUploading}
+              >
+                {isUploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); setShowGallery(true); }}
+                  className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors"
+                  title="Choose from Gallery"
+              >
+                  <Library size={16} />
+              </button>
+          </div>
+        </div>
 
-      {selectedImg && (
-        <button
-          type="button"
-          data-image-delete-button
-          onClick={handleDeleteImage}
-          style={getButtonPosition()}
-          className="z-20 p-1.5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-transform hover:scale-110"
-          title="Delete Image"
-        >
-          <Trash2 size={14} />
-        </button>
-      )}
-    </div>
+        <div
+          ref={editorRef}
+          contentEditable
+          onInput={handleInput}
+          onClick={handleEditorClick}
+          className="flex-1 p-4 overflow-y-auto outline-none prose prose-lg max-w-none min-h-[300px] font-serif text-gray-800"
+          style={{ whiteSpace: 'pre-wrap' }}
+        />
+        
+        {content === '' && !editorRef.current?.innerHTML && (
+            <div className="absolute top-[60px] left-4 text-gray-300 pointer-events-none font-serif text-lg">
+                {placeholder || 'Start writing...'}
+            </div>
+        )}
+
+        {selectedImg && (
+          <button
+            type="button"
+            data-image-delete-button
+            onClick={handleDeleteImage}
+            style={getButtonPosition()}
+            className="z-20 p-1.5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-transform hover:scale-110"
+            title="Delete Image"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+    </>
   );
 };
 
