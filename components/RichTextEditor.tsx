@@ -203,7 +203,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           contentEditable
           onInput={handleInput}
           onClick={handleEditorClick}
-          className="flex-1 p-4 overflow-y-auto outline-none prose prose-lg max-w-none min-h-[300px] font-serif text-gray-800"
+          className="flex-1 p-4 outline-none prose prose-lg max-w-none min-h-[300px] font-serif text-gray-800"
           style={{ whiteSpace: 'pre-wrap' }}
         />
         

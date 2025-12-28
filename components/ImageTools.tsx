@@ -61,7 +61,8 @@ const ImageTools: React.FC = () => {
             await fetchImages();
 
         } catch (err: unknown) {
-            // FIX: Safely handle caught error, which might be of an 'unknown' type in strict mode.
+            // Fix: Safely handle caught error, which is of type 'unknown'.
+            // We must check if it is an instance of Error before accessing properties like 'message'.
             if (err instanceof Error) {
                 setError(err.message);
             } else {

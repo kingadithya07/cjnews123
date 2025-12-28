@@ -60,6 +60,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'image_tools' | 'users' | 'idcards' | 'classifieds' | 'categories' | 'ads' | 'analytics' | 'settings' | 'inbox' | 'approvals'>('articles');
 
+  // Article Modal State
   const [statusFilter, setStatusFilter] = useState<'ALL' | ArticleStatus>('ALL');
   const [showArticleModal, setShowArticleModal] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
@@ -74,10 +75,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [showImageGallery, setShowImageGallery] = useState(false);
-
+  
+  // E-Paper State
   const [activePageId, setActivePageId] = useState<string | null>(null);
-  const [editingRegionId, setEditingRegionId] = useState<string | null>(null);
-  const [regionInput, setRegionInput] = useState({ x: '', y: '', w: '', h: '', articleId: '' });
+  const activePage = ePaperPages.find(p => p.id === activePageId);
+
+  // Classifieds State
+  const [showClassifiedModal, setShowClassifiedModal] = useState(false);
+  const [editingClassified, setEditingClassified] = useState<ClassifiedAd | null>(null);
+
+  // Advertisement State
+  const [showAdModal, setShowAdModal] = useState(false);
+  const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
 
   useEffect(() => {
     if (modalContent) {
@@ -161,6 +170,24 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     setModalImageUrl(url);
     setShowImageGallery(false);
   };
+  
+  const handleSaveRegion = (page: EPaperPage, region: EPaperRegion) => {
+      const updatedRegions = page.regions.map(r => r.id === region.id ? region : r);
+      onUpdatePage({ ...page, regions: updatedRegions });
+  };
+  
+  const handleAddRegion = (page: EPaperPage) => {
+      const newRegion: EPaperRegion = {
+          id: generateId(),
+          x: 10, y: 10, width: 20, height: 20,
+          linkedArticleId: articles[0]?.id || ''
+      };
+      onUpdatePage({ ...page, regions: [...page.regions, newRegion] });
+  };
+  
+  const handleDeleteRegion = (page: EPaperPage, regionId: string) => {
+      onUpdatePage({ ...page, regions: page.regions.filter(r => r.id !== regionId) });
+  };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
     <button 
@@ -189,6 +216,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
               <SidebarItem id="articles" label="Articles" icon={FileText} />
               <SidebarItem id="epaper" label="E-Paper" icon={Newspaper} />
+              <SidebarItem id="classifieds" label="Classifieds" icon={Tag} />
+              <SidebarItem id="ads" label="Advertisements" icon={Megaphone} />
+              <SidebarItem id="inbox" label="Communication" icon={Inbox} />
               <SidebarItem id="image_tools" label="Image Tools" icon={ImageIcon} />
               <SidebarItem id="settings" label="Settings" icon={Settings} />
           </div>
@@ -237,6 +267,78 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               </tbody>
                           </table>
                       </div>
+                  </div>
+              )}
+              {activeTab === 'epaper' && (
+                 <div className="max-w-7xl mx-auto">
+                      <h1 className="font-serif text-3xl font-bold text-gray-900 mb-6">E-Paper Editor</h1>
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                          <div className="lg:col-span-3 bg-white p-4 border rounded-lg h-fit max-h-[70vh] overflow-y-auto">
+                              <h3 className="font-bold text-gray-800 border-b pb-2 mb-2">Pages</h3>
+                              {ePaperPages.map(p => (
+                                <button key={p.id} onClick={() => setActivePageId(p.id)} className={`w-full text-left p-2 rounded text-sm ${activePageId === p.id ? 'bg-news-accent/10 text-news-accent font-bold' : 'hover:bg-gray-50'}`}>
+                                    {p.date} - Page {p.pageNumber}
+                                </button>
+                              ))}
+                          </div>
+                          <div className="lg:col-span-9">
+                            {activePage ? (
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                    <div className="bg-white p-4 border rounded-lg">
+                                        <EPaperViewer page={activePage} />
+                                    </div>
+                                    <div className="bg-white p-4 border rounded-lg max-h-[70vh] overflow-y-auto">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="font-bold text-gray-800">Regions</h3>
+                                            <button onClick={() => handleAddRegion(activePage)} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">Add Region</button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {activePage.regions.map(region => (
+                                                <RegionEditor key={region.id} region={region} page={activePage} articles={articles} onSave={handleSaveRegion} onDelete={handleDeleteRegion}/>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="h-96 flex items-center justify-center bg-gray-50 border-2 border-dashed rounded-lg text-gray-400">Select a page to edit</div>
+                            )}
+                          </div>
+                      </div>
+                 </div>
+              )}
+              {activeTab === 'classifieds' && (
+                  <div className="max-w-6xl mx-auto">
+                      <div className="flex justify-between items-center mb-6">
+                           <h1 className="font-serif text-3xl font-bold text-gray-900">Classifieds</h1>
+                           <button onClick={() => onAddClassified({ id: generateId(), title: "New Ad", category: adCategories[0], content: "", contactInfo: "", postedAt: new Date().toISOString()})} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Add New</button>
+                      </div>
+                      <div className="bg-white rounded border overflow-hidden">
+                          <table className="w-full text-left">
+                             <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase"><tr><th className="px-6 py-4">Title</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Contact</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
+                             <tbody className="divide-y">{classifieds.map(c => <tr key={c.id} className="hover:bg-gray-50"><td className="px-6 py-4">{c.title}</td><td className="px-6 py-4">{c.category}</td><td className="px-6 py-4">{c.contactInfo}</td><td className="px-6 py-4 text-right"><button onClick={() => onDeleteClassified(c.id)} className="text-red-600"><Trash2 size={16}/></button></td></tr>)}</tbody>
+                          </table>
+                      </div>
+                  </div>
+              )}
+               {activeTab === 'ads' && (
+                  <div className="max-w-6xl mx-auto">
+                      <div className="flex justify-between items-center mb-6">
+                           <h1 className="font-serif text-3xl font-bold text-gray-900">Advertisements</h1>
+                           <button onClick={() => onAddAdvertisement({id: generateId(), title: "New Banner", size: "RECTANGLE", placement: "GLOBAL", isActive: true, imageUrl: 'https://picsum.photos/300/250', linkUrl: '#'})} className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Add New</button>
+                      </div>
+                      <div className="bg-white rounded border overflow-hidden">
+                           <table className="w-full text-left">
+                             <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase"><tr><th className="px-6 py-4">Title</th><th className="px-6 py-4">Size</th><th className="px-6 py-4">Placement</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
+                             <tbody className="divide-y">{advertisements.map(ad => <tr key={ad.id} className="hover:bg-gray-50"><td className="px-6 py-4 flex items-center gap-3"><img src={ad.imageUrl} className="w-16 h-10 object-cover bg-gray-100 rounded"/>{ad.title}</td><td className="px-6 py-4">{ad.size}</td><td className="px-6 py-4">{ad.placement}</td><td className="px-6 py-4">{ad.isActive ? 'Active' : 'Inactive'}</td><td className="px-6 py-4 text-right"><button onClick={() => onDeleteAdvertisement(ad.id)} className="text-red-600"><Trash2 size={16}/></button></td></tr>)}</tbody>
+                          </table>
+                      </div>
+                  </div>
+              )}
+               {activeTab === 'inbox' && (
+                  <div className="max-w-6xl mx-auto text-center py-20 bg-white border rounded-lg">
+                      <Inbox size={48} className="mx-auto text-gray-300 mb-4" />
+                      <h1 className="font-serif text-2xl font-bold text-gray-800">Communication Center</h1>
+                      <p className="text-gray-500 mt-2">This feature is under development.</p>
                   </div>
               )}
               {activeTab === 'image_tools' && <ImageTools />}
@@ -311,6 +413,35 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     </div>
     </>
   );
+};
+
+const RegionEditor: React.FC<{region: EPaperRegion, page: EPaperPage, articles: Article[], onSave: (p: EPaperPage, r: EPaperRegion) => void, onDelete: (p: EPaperPage, id: string) => void}> = ({ region, page, articles, onSave, onDelete }) => {
+    const [localRegion, setLocalRegion] = useState(region);
+    useEffect(() => setLocalRegion(region), [region]);
+    
+    const handleSave = () => onSave(page, localRegion);
+
+    return (
+        <div className="p-3 bg-gray-50 rounded border text-xs space-y-3">
+            <div className="flex justify-between items-center">
+                <p className="font-bold text-gray-600">Region #{region.id.substring(0,4)}</p>
+                <div>
+                     <button onClick={handleSave} className="text-blue-600 px-2 py-1 rounded hover:bg-blue-100 mr-2"><Save size={14}/></button>
+                     <button onClick={() => onDelete(page, region.id)} className="text-red-600 px-2 py-1 rounded hover:bg-red-100"><Trash2 size={14}/></button>
+                </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+                <input type="number" value={localRegion.x} onChange={e => setLocalRegion(r => ({...r, x: parseInt(e.target.value)}))} className="w-full p-1 border rounded" placeholder="X" />
+                <input type="number" value={localRegion.y} onChange={e => setLocalRegion(r => ({...r, y: parseInt(e.target.value)}))} className="w-full p-1 border rounded" placeholder="Y" />
+                <input type="number" value={localRegion.width} onChange={e => setLocalRegion(r => ({...r, width: parseInt(e.target.value)}))} className="w-full p-1 border rounded" placeholder="W" />
+                <input type="number" value={localRegion.height} onChange={e => setLocalRegion(r => ({...r, height: parseInt(e.target.value)}))} className="w-full p-1 border rounded" placeholder="H" />
+            </div>
+            <select value={localRegion.linkedArticleId} onChange={e => setLocalRegion(r => ({...r, linkedArticleId: e.target.value}))} className="w-full p-1 border rounded bg-white">
+                <option value="">No Linked Article</option>
+                {articles.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+            </select>
+        </div>
+    );
 };
 
 export default EditorDashboard;
