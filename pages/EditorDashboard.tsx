@@ -138,11 +138,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   };
 
   const openCreateArticleModal = () => { 
-      setModalMode('create'); setEditArticleId(null); setModalTitle(''); setModalSubline(''); setModalContent(''); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setShowArticleModal(true); 
+      setModalMode('create'); setEditArticleId(null); setModalTitle(''); setModalSubline(''); setModalContent(''); setModalImageUrl(''); setModalAuthor('Editor'); setModalStatus(ArticleStatus.PUBLISHED); setShowArticleModal(true); 
   };
 
   const openEditArticleModal = (article: Article) => { 
-      setModalMode('edit'); setEditArticleId(article.id); setModalTitle(article.title); setModalSubline(article.subline || ''); setModalContent(article.content); setModalCategory(article.category); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setShowArticleModal(true); 
+      setModalMode('edit'); setEditArticleId(article.id); setModalTitle(article.title); setModalSubline(article.subline || ''); setModalContent(article.content); setModalCategory(article.category); setModalImageUrl(article.imageUrl); setModalAuthor(article.author); setModalStatus(article.status); setShowArticleModal(true); 
   };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
@@ -222,45 +222,53 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
       {showArticleModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
                 <h3 className="font-bold">{modalMode === 'create' ? 'New Article' : 'Edit Article'}</h3>
                 <button onClick={() => setShowArticleModal(false)}><X size={20}/></button>
             </div>
             <div className="p-6 overflow-y-auto space-y-4">
-                <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline"/>
-                <input type="text" value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic" placeholder="Summary"/>
-                
-                <div className="border-2 border-dashed p-6 rounded bg-gray-50 text-center relative">
-                    {modalImageUrl ? (
-                        <div className="relative group">
-                             <img src={modalImageUrl} className="h-40 mx-auto rounded shadow" />
-                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                 <label className="cursor-pointer bg-white text-black px-4 py-2 rounded text-xs font-bold">Replace Image</label>
-                             </div>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 space-y-4">
+                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline"/>
+                        <input type="text" value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic" placeholder="Summary / Sub-headline"/>
+                        <div className="grid grid-cols-2 gap-4">
+                            <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
+                            <select value={modalCategory} onChange={(e) => setModalCategory(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
+                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
                         </div>
-                    ) : (
-                        <div className="py-4">
-                            <ImageIcon size={48} className="mx-auto text-gray-300 mb-2" />
-                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">No Image Uploaded</p>
+                    </div>
+                    <div className="md:col-span-1">
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-center">
+                             {modalImageUrl ? (
+                                <div className="relative group aspect-video">
+                                    <img src={modalImageUrl} className="w-full h-full object-cover rounded shadow" />
+                                    <button onClick={() => setModalImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
+                                        <Trash2 size={14} />
+                                    </button>
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <label className="cursor-pointer text-white text-xs font-bold uppercase">Change Image</label>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="py-4 text-gray-400">
+                                    <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
+                                    <p className="text-xs font-bold uppercase">Featured Image</p>
+                                </div>
+                            )}
+                            <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
+                            {isUploading && (
+                                <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-2">
+                                    <Loader2 size={24} className="animate-spin text-news-gold" />
+                                    <span className="text-xs font-bold uppercase">Uploading...</span>
+                                </div>
+                            )}
                         </div>
-                    )}
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
-                    {isUploading && (
-                        <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center gap-2">
-                            <Loader2 size={32} className="animate-spin text-news-gold" />
-                            <span className="text-xs font-bold uppercase">Uploading to Cloud...</span>
-                        </div>
-                    )}
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author"/>
-                    <select value={modalCategory} onChange={(e) => setModalCategory(e.target.value)} className="w-full p-2 border rounded text-sm">
-                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                </div>
-                <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="h-64"/>
+                <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]"/>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
               <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>

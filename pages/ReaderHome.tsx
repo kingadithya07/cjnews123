@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Article, EPaperPage, Advertisement } from '../types';
-import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin } from 'lucide-react';
+import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
@@ -31,7 +31,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
   useEffect(() => {
     if (isPaused) return;
     const timer = setInterval(() => {
-        setCurrentSlide((prev) => (prev + 1) % sliderArticles.length);
+        setCurrentSlide((prev) => (prev + 1) % (sliderArticles.length || 1));
     }, 5000);
     return () => clearInterval(timer);
   }, [isPaused, sliderArticles.length]);
@@ -63,7 +63,6 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* 1. Today's Edition Widget (Desktop: Left 3 cols, Mobile: Hidden/Stacked) */}
-          {/* Note: User requested it beside slider on left side. We hide on mobile to save space per request to keep it easy to use. */}
           <div className="hidden lg:block lg:col-span-3">
              {latestPaper && (
                 <div className="border border-gray-200 bg-white h-full p-4 flex flex-col shadow-sm rounded-lg">
@@ -105,7 +104,9 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                           className="flex transition-transform duration-500 ease-in-out" 
                           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
                       >
-                          {sliderArticles.map((article) => (
+                          {sliderArticles.map((article) => {
+                              const [authorName, authorRole] = article.author.split(',').map(s => s.trim());
+                              return (
                               <div key={`slide-${article.id}`} className="w-full shrink-0 relative">
                                   {/* Image Section - Full Background */}
                                   <img 
@@ -124,9 +125,9 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
                                   {/* Content Section (Bottom Overlay) */}
                                   <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 flex flex-col justify-end z-20">
-                                      <div className="mb-2 flex items-center text-news-gold text-[10px] md:text-xs font-bold uppercase tracking-wider">
-                                          <Clock size={12} className="mr-1.5" />
-                                          {format(new Date(article.publishedAt), 'MMM dd, yyyy')}
+                                      <div className="flex items-center text-gray-300 text-[10px] md:text-xs font-bold uppercase tracking-wider divide-x divide-gray-600 mb-2">
+                                        <span className="pr-3 flex items-center gap-1.5 text-news-gold"><Clock size={12}/> {format(new Date(article.publishedAt), 'MMM dd, yyyy')}</span>
+                                        <span className="pl-3 flex items-center gap-1.5"><User size={12}/> By {authorName}{authorRole && <span className="text-gray-400 font-normal normal-case italic">/ {authorRole}</span>}</span>
                                       </div>
                                       
                                       <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="group-hover:text-news-gold transition-colors w-fit">
@@ -150,7 +151,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                       </Link>
                                   </div>
                               </div>
-                          ))}
+                          )})}
                       </div>
 
                       {/* Slider Controls */}
@@ -294,9 +295,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                            <h3 className="text-xl font-serif font-bold text-gray-900 mb-2 leading-tight group-hover:text-news-accent transition-colors">
                                {article.title}
                            </h3>
-                           <p className="text-sm text-gray-500 line-clamp-3 mb-4 flex-grow font-sans leading-relaxed">
-                               {article.content.replace(/<[^>]*>/g, '').substring(0, 120)}...
-                           </p>
+                           <p className="text-sm text-gray-500 line-clamp-3 mb-4 flex-grow font-sans leading-relaxed" dangerouslySetInnerHTML={{ __html: article.content.substring(0, 150) + '...' }}/>
                            <div className="text-xs text-gray-400 font-bold uppercase tracking-wider flex items-center mt-auto">
                                Read More <ArrowRight size={12} className="ml-1 group-hover:translate-x-1 transition-transform"/>
                            </div>

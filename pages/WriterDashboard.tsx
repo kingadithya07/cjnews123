@@ -94,9 +94,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setShowEditorModal(true);
   };
 
-  // Fixed error: Changed setShowArticleModal to setShowEditorModal to match the state setter defined on line 26
   const openEditArticle = (article: Article) => {
-      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setCategory(article.category); setImageUrl(article.imageUrl); setStatus(article.status); setShowEditorModal(true);
+      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setCategory(article.category); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setShowEditorModal(true);
   };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
@@ -174,39 +173,52 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
 
       {showEditorModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
                 <h3 className="font-bold">{activeArticleId ? 'Edit Draft' : 'New Article Draft'}</h3>
                 <button onClick={() => setShowEditorModal(false)}><X size={20}/></button>
             </div>
             <div className="p-6 overflow-y-auto space-y-4">
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline"/>
-                
-                <div className="border-2 border-dashed p-6 rounded bg-gray-50 text-center relative overflow-hidden">
-                    {imageUrl ? (
-                        <img src={imageUrl} className="h-40 mx-auto rounded shadow" />
-                    ) : (
-                        <div className="py-4 text-gray-400">
-                            <ImageIcon size={48} className="mx-auto mb-2 opacity-20" />
-                            <p className="text-xs font-bold uppercase">Click to upload image</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 space-y-4">
+                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline"/>
+                        <div className="grid grid-cols-2 gap-4">
+                            <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
+                            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
+                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
                         </div>
-                    )}
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
-                    {isUploading && (
-                        <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-2">
-                            <Loader2 size={32} className="animate-spin text-news-accent" />
-                            <span className="text-xs font-bold uppercase text-news-accent">Uploading...</span>
+                    </div>
+                    <div className="md:col-span-1">
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-center">
+                            {imageUrl ? (
+                                <div className="relative group aspect-video">
+                                    <img src={imageUrl} className="w-full h-full object-cover rounded shadow" />
+                                    <button onClick={() => setImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
+                                        <Trash2 size={14} />
+                                    </button>
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <label className="cursor-pointer text-white text-xs font-bold uppercase">Change Image</label>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="py-4 text-gray-400">
+                                    <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
+                                    <p className="text-xs font-bold uppercase">Featured Image</p>
+                                </div>
+                            )}
+                            <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
+                            {isUploading && (
+                                <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-2">
+                                    <Loader2 size={24} className="animate-spin text-news-accent" />
+                                    <span className="text-xs font-bold uppercase text-news-accent">Uploading...</span>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name"/>
-                    <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border rounded text-sm">
-                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                </div>
-                <RichTextEditor content={content} onChange={setContent} className="h-64" onImageUpload={handleContentImageUpload} />
+                <RichTextEditor content={content} onChange={setContent} className="min-h-[400px]" onImageUpload={handleContentImageUpload} />
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
               <button onClick={() => setShowEditorModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>

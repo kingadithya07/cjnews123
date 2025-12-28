@@ -60,6 +60,8 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
   if (!article) {
     return <div className="text-center py-20 text-gray-500">Article not found.</div>;
   }
+  
+  const [authorName, authorRole] = article.author.split(',').map(s => s.trim());
 
   return (
     <div className="animate-in fade-in duration-500 pb-16">
@@ -103,7 +105,8 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                             <User size={20} md:size={24} />
                         </div>
                         <div>
-                            <p className="font-bold text-gray-900 text-sm uppercase tracking-wide">By {article.author}</p>
+                            <p className="font-bold text-gray-900 text-sm uppercase tracking-wide">By {authorName}</p>
+                            {authorRole && <p className="text-xs text-gray-500 italic -mt-0.5">{authorRole}</p>}
                             <div className="flex items-center text-gray-500 text-xs md:text-sm space-x-3 mt-1">
                                 <span className="flex items-center"><Calendar size={12} className="mr-1"/> {format(new Date(article.publishedAt), 'MMM d, yyyy')}</span>
                                 <span className="flex items-center"><Clock size={12} className="mr-1"/> {readTime} min read</span>
@@ -136,19 +139,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
             </figure>
 
             {/* Article Content */}
-            <article className="prose prose-lg prose-slate max-w-none font-serif text-gray-800 leading-loose mb-12">
-                {article.content.split('\n').map((paragraph, idx) => {
-                    if (!paragraph.trim()) return null;
-                    if (idx === 0) {
-                        return (
-                            <p key={idx} className="mb-6 first-letter:float-left first-letter:text-7xl first-letter:pr-4 first-letter:font-bold first-letter:text-news-black first-letter:leading-[0.8]">
-                                {paragraph}
-                            </p>
-                        )
-                    }
-                    return <p key={idx} className="mb-6">{paragraph}</p>
-                })}
-            </article>
+            <article className="prose prose-lg prose-slate max-w-none font-serif text-gray-800 leading-loose mb-12" dangerouslySetInnerHTML={{ __html: article.content }} />
 
             {/* Tags */}
             <div className="mt-10 pt-6 border-t border-gray-100 mb-10">
