@@ -160,7 +160,7 @@ function App() {
         imageUrl: article.imageUrl,
         publishedAt: article.publishedAt,
         status: article.status,
-        user_id: userId
+        user_id: userId // Ensure ownership is set
     });
     if (error) {
       console.error("Supabase Article Save Error:", error);
@@ -169,20 +169,43 @@ function App() {
   };
 
   const handleDeleteArticle = async (id: string) => {
-      // Optimistic Update
+      // 1. Keep a copy of previous state in case we need to revert
+      const previousArticles = [...articles];
+      
+      // 2. Optimistic Update (Remove from UI immediately)
       setArticles(prev => prev.filter(a => a.id !== id));
       
-      const { error } = await supabase.from('articles').delete().eq('id', id);
-      
-      if (error) {
-          console.error("Delete failed:", error);
-          if (error.code === '23503') { // Foreign Key Violation
-              alert("Cannot delete this article because it is linked to an E-Paper region or other content. Please remove references first.");
-          } else {
-              alert(`Failed to delete article: ${error.message}`);
+      try {
+          // 3. Perform Delete on Backend
+          // We ask for 'count' to ensure the row was ACTUALLY deleted. 
+          // If count is 0, it means it didn't exist or RLS permissions hid it.
+          const { error, count } = await supabase
+            .from('articles')
+            .delete({ count: 'exact' }) 
+            .eq('id', id);
+          
+          if (error) throw error;
+
+          // 4. Check for Silent Failure (RLS)
+          if (count === 0) {
+              throw new Error("Permission Denied: You do not have permission to delete this article, or it has already been deleted.");
           }
-          // Revert state by refetching
-          fetchData();
+
+      } catch (error: any) {
+          console.error("Delete failed:", error);
+          
+          let errorMessage = error.message;
+
+          // Handle Foreign Key Violations (e.g., Article is linked to E-Paper)
+          if (error.code === '23503') { 
+             errorMessage = "Cannot delete: This article is currently linked to an E-Paper page or Classified ad. Please remove the reference in the E-Paper editor first.";
+          }
+          
+          alert(`Failed to delete: ${errorMessage}`);
+          
+          // 5. Revert State (Bring it back to UI)
+          setArticles(previousArticles);
+          fetchData(); // Sync with server to be sure
       }
   };
 
