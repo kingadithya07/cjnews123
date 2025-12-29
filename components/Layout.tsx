@@ -46,6 +46,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const savedLocation = localStorage.getItem('newsroom_weather_location');
+    const initialLocation = savedLocation || 'Mumbai, India';
+    fetchWeatherData(initialLocation);
+  }, []);
+
   const fetchWeatherData = async (query: string) => {
     setIsWeatherLoading(true);
     setWeatherError(null);
@@ -90,6 +96,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
         aqi: aqiValue,
         humidity
       });
+      localStorage.setItem('newsroom_weather_location', fullName);
       setIsWeatherModalOpen(false);
     } catch (err: any) {
       setWeatherError(err.message || "Failed to fetch weather data.");

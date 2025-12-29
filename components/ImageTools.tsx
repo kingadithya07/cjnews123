@@ -67,7 +67,7 @@ const ImageTools: React.FC = () => {
             await fetchImages();
 
         } catch (err: unknown) {
-            // FIX: Safely handle caught error by checking if it's an Error instance before accessing its properties.
+            // Fix: Safely handle caught error by checking if it's an Error instance before accessing its properties.
             if (err instanceof Error) {
                 setError(err.message);
             } else {
