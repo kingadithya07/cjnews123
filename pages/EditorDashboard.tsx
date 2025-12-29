@@ -151,7 +151,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         content: modalContent, 
         category: modalCategory, 
         publishedAt: new Date().toISOString(), 
-        imageUrl: modalImageUrl || 'https://picsum.photos/800/400', 
+        imageUrl: modalImageUrl || 'https://placehold.co/800x400?text=No+Image', 
         status: modalStatus 
     };
     onSaveArticle(articleData);
@@ -323,7 +323,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   <div className="max-w-6xl mx-auto">
                       <div className="flex justify-between items-center mb-6">
                            <h1 className="font-serif text-3xl font-bold text-gray-900">Advertisements</h1>
-                           <button onClick={() => onAddAdvertisement({id: generateId(), title: "New Banner", size: "RECTANGLE", placement: "GLOBAL", isActive: true, imageUrl: 'https://picsum.photos/300/250', linkUrl: '#'})} className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Add New</button>
+                           <button onClick={() => onAddAdvertisement({id: generateId(), title: "New Banner", size: "RECTANGLE", placement: "GLOBAL", isActive: true, imageUrl: 'https://placehold.co/300x250?text=Ad+Space', linkUrl: '#'})} className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Add New</button>
                       </div>
                       <div className="bg-white rounded border overflow-hidden">
                            <table className="w-full text-left">

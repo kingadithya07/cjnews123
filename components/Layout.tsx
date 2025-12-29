@@ -296,9 +296,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
           </div>
           <div className="flex-1 whitespace-nowrap overflow-hidden relative flex items-center">
               <div className="animate-marquee inline-block">
-                  <span className="mx-8"><b className="text-news-gold">POLITICS</b> New trade agreements set to reshape global commerce.</span>
-                  <span className="mx-8"><b className="text-news-gold">TECH</b> Breakthough in battery efficiency extends smartphone life to one week.</span>
-                  <span className="mx-8"><b className="text-news-gold">SPORTS</b> National championship final broken attendance records.</span>
+                  <span className="mx-8">Welcome to Digital Newsroom. Bringing you the latest updates from around the globe.</span>
+                  <span className="mx-8">Exclusive coverage, in-depth analysis, and real-time reporting.</span>
               </div>
           </div>
       </div>
@@ -314,7 +313,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
            <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
               <div>
                   <h2 className="font-serif text-2xl font-bold text-white mb-4">DIGITAL <span className="text-news-gold">NEWSROOM</span></h2>
-                  <p className="text-sm leading-relaxed text-gray-500">The premier destination for in-depth journalism, real-time reporting, and global perspectives since 2025.</p>
+                  <p className="text-sm leading-relaxed text-gray-500">The premier destination for in-depth journalism, real-time reporting, and global perspectives.</p>
               </div>
               <div>
                  <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Explore</h4>

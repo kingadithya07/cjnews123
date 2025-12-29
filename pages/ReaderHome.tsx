@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Article, EPaperPage, Advertisement } from '../types';
 import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User } from 'lucide-react';
@@ -64,7 +65,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
           
           {/* 1. Today's Edition Widget (Desktop: Left 3 cols, Mobile: Hidden/Stacked) */}
           <div className="hidden lg:block lg:col-span-3">
-             {latestPaper && (
+             {latestPaper ? (
                 <div className="border border-gray-200 bg-white h-full p-4 flex flex-col shadow-sm rounded-lg">
                     <div className="flex justify-between items-center mb-3 border-b border-gray-100 pb-2">
                         <h3 className="font-bold text-gray-900 text-xs uppercase tracking-widest flex items-center gap-2">
@@ -89,11 +90,19 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                         <p className="text-[10px] text-gray-400">Digital Edition Available Daily</p>
                      </div>
                 </div>
+            ) : (
+                 <div className="border border-gray-200 bg-white h-full p-4 flex flex-col justify-center items-center text-center shadow-sm rounded-lg text-gray-400">
+                     <div className="bg-gray-100 p-4 rounded-full mb-3">
+                         <MapPin size={24} className="opacity-20" />
+                     </div>
+                     <p className="text-xs font-bold uppercase">No E-Paper Today</p>
+                 </div>
             )}
           </div>
 
           {/* 2. Unified Landscape Slider (Desktop: Right 9 cols, Mobile: Full Width) */}
           <div className="col-span-1 lg:col-span-9">
+              {sliderArticles.length > 0 ? (
               <div 
                 className="relative w-full bg-white md:bg-gray-100 group h-full"
                 onMouseEnter={() => setIsPaused(true)}
@@ -180,21 +189,14 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                       </div>
                   </div>
               </div>
-          </div>
-      </div>
-
-      {/* 1. Global Partner Banner */}
-      <div className="w-full h-32 md:h-48 relative overflow-hidden bg-gray-900 group">
-          <img 
-            src="https://picsum.photos/1200/300?grayscale&blur=2" 
-            alt="Banner" 
-            className="w-full h-full object-cover opacity-60 group-hover:opacity-70 transition-opacity duration-700"
-          />
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
-              <span className="text-[10px] font-bold tracking-[0.3em] text-gray-400 uppercase mb-2">Premium Global Partners</span>
-              <h2 className="text-white font-serif text-2xl md:text-3xl font-bold tracking-wide">
-                  Discover the Untold Stories of Nature
-              </h2>
+              ) : (
+                  <div className="w-full h-full min-h-[400px] flex items-center justify-center bg-gray-100 rounded-lg text-gray-400 border border-gray-200">
+                      <div className="text-center">
+                          <p className="text-sm font-bold uppercase tracking-widest mb-2">No Articles Available</p>
+                          <p className="text-xs">Publish your first article to see it here.</p>
+                      </div>
+                  </div>
+              )}
           </div>
       </div>
 
@@ -231,7 +233,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 min-h-[300px]">
                    {mobileTab === 'latest' && (
                        <div className="space-y-6">
-                           {secondaryArticles.map(article => (
+                           {secondaryArticles.length > 0 ? secondaryArticles.map(article => (
                                <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="flex gap-4 items-start group bg-white p-3 rounded-lg shadow-sm border border-gray-100">
                                    <div className="w-24 h-20 shrink-0 bg-gray-100 rounded overflow-hidden">
                                        <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
@@ -244,13 +246,15 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                        <span className="text-[10px] text-gray-400 mt-1 block">{format(new Date(article.publishedAt), 'MMM d')}</span>
                                    </div>
                                </Link>
-                           ))}
+                           )) : (
+                               <div className="text-center py-10 text-gray-400 text-xs italic">No additional articles found.</div>
+                           )}
                        </div>
                    )}
 
                    {mobileTab === 'trending' && (
                        <div className="space-y-2">
-                           {sideListArticles.map((article, idx) => (
+                           {sideListArticles.length > 0 ? sideListArticles.map((article, idx) => (
                                <div key={article.id} className="flex gap-4 items-center group bg-white p-3 rounded-lg border border-gray-100">
                                    <span className="text-2xl font-serif font-bold text-gray-200 group-hover:text-news-gold transition-colors w-8 text-center">{idx+1}</span>
                                    <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="flex-1">
@@ -258,7 +262,9 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                        <span className="text-[10px] text-gray-400 uppercase">{article.category}</span>
                                    </Link>
                                </div>
-                           ))}
+                           )) : (
+                               <div className="text-center py-10 text-gray-400 text-xs italic">No trending articles.</div>
+                           )}
                        </div>
                    )}
                </div>
@@ -280,7 +286,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
-                   {secondaryArticles.map(article => (
+                   {secondaryArticles.length > 0 ? secondaryArticles.map(article => (
                        <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="group block flex flex-col h-full">
                            <div className="overflow-hidden mb-4 relative shadow-sm">
                                 <img 
@@ -300,7 +306,11 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                Read More <ArrowRight size={12} className="ml-1 group-hover:translate-x-1 transition-transform"/>
                            </div>
                        </Link>
-                   ))}
+                   )) : (
+                       <div className="col-span-full py-20 text-center text-gray-400 border-2 border-dashed border-gray-100 rounded-lg">
+                           <p className="font-serif italic">More articles will appear here.</p>
+                       </div>
+                   )}
                 </div>
             </div>
 
@@ -316,7 +326,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                     <TrendingUp className="w-4 h-4 text-news-accent"/>
                  </h3>
                  <div className="space-y-6">
-                     {sideListArticles.map((article, idx) => (
+                     {sideListArticles.length > 0 ? sideListArticles.map((article, idx) => (
                          <div key={article.id} className="group flex gap-4 items-start">
                              <div className="text-3xl font-serif font-bold text-gray-200 leading-none group-hover:text-news-gold transition-colors">
                                  0{idx + 1}
@@ -330,7 +340,9 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                 </div>
                              </Link>
                          </div>
-                     ))}
+                     )) : (
+                         <div className="text-sm text-gray-400 italic">No trending stories yet.</div>
+                     )}
                  </div>
             </div>
 
