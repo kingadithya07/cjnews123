@@ -259,7 +259,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                           </td>
                                           <td className="px-6 py-4 text-right">
                                               <button onClick={() => openEditArticleModal(a)} className="text-blue-600 mr-4"><PenSquare size={16}/></button>
-                                              <button onClick={() => onDeleteArticle(a.id)} className="text-red-600"><Trash2 size={16}/></button>
+                                              <button onClick={() => { if(window.confirm('Are you sure you want to delete this article? This cannot be undone.')) onDeleteArticle(a.id) }} className="text-red-600"><Trash2 size={16}/></button>
                                           </td>
                                       </tr>
                                   ))}

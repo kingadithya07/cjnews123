@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -168,8 +169,21 @@ function App() {
   };
 
   const handleDeleteArticle = async (id: string) => {
+      // Optimistic Update
       setArticles(prev => prev.filter(a => a.id !== id));
-      await supabase.from('articles').delete().eq('id', id);
+      
+      const { error } = await supabase.from('articles').delete().eq('id', id);
+      
+      if (error) {
+          console.error("Delete failed:", error);
+          if (error.code === '23503') { // Foreign Key Violation
+              alert("Cannot delete this article because it is linked to an E-Paper region or other content. Please remove references first.");
+          } else {
+              alert(`Failed to delete article: ${error.message}`);
+          }
+          // Revert state by refetching
+          fetchData();
+      }
   };
 
   const isDeviceAuthorized = () => {
