@@ -28,12 +28,17 @@ interface WeatherState {
 const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [time, setTime] = useState(new Date());
-  const [weatherState, setWeatherState] = useState<WeatherState>({
-    location: 'Mumbai, India',
-    temp: 28,
-    condition: 'Sunny',
-    aqi: 72,
-    humidity: 65
+  
+  // Lazy initialize state from localStorage to prevent flash of default content
+  const [weatherState, setWeatherState] = useState<WeatherState>(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('newsroom_weather_location') : null;
+    return {
+      location: saved || 'Mumbai, India',
+      temp: 28,
+      condition: 'Sunny',
+      aqi: 72,
+      humidity: 65
+    };
   });
 
   const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false);
@@ -47,9 +52,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   }, []);
 
   useEffect(() => {
-    const savedLocation = localStorage.getItem('newsroom_weather_location');
-    const initialLocation = savedLocation || 'Mumbai, India';
-    fetchWeatherData(initialLocation);
+    // Fetch fresh data for the initial location (saved or default)
+    fetchWeatherData(weatherState.location);
   }, []);
 
   const fetchWeatherData = async (query: string) => {
