@@ -19,7 +19,14 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
   const sliderArticles = articles.slice(0, 5); // Top 5 for Slider
   const secondaryArticles = articles.slice(1, 7); // Next batch for Latest
   const sideListArticles = articles.slice(3, 8); // Overlapping batch for Trending
-  const latestPaper = ePaperPages[0];
+  
+  // Logic to find Page 1 of the latest date available
+  // 1. Sort pages by date descending to find the newest date
+  const sortedByDate = [...ePaperPages].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const latestDate = sortedByDate[0]?.date;
+  
+  // 2. Find Page 1 for that date. If Page 1 isn't uploaded yet, fallback to the first available page for that date.
+  const latestPaper = ePaperPages.find(p => p.date === latestDate && p.pageNumber === 1) || sortedByDate[0];
   
   // Mobile Tab State
   const [mobileTab, setMobileTab] = useState<'latest' | 'trending'>('latest');
@@ -72,22 +79,22 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                             <MapPin size={12} className="text-news-accent"/> Today's Paper
                         </h3>
                         <span className="text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded">
-                             {format(new Date(), 'dd MMM')}
+                             {format(new Date(latestPaper.date), 'dd MMM')}
                         </span>
                     </div>
                      <Link to="/epaper" onNavigate={onNavigate} className="block group relative shadow-md flex-1 overflow-hidden bg-gray-100">
                         <img 
                             src={latestPaper.imageUrl} 
                             alt="E-Paper Preview" 
-                            className="w-full h-full object-cover object-top grayscale transition-all duration-500 group-hover:grayscale-0 group-hover:scale-105" 
+                            className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105" 
                         />
-                        <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
                         <div className="absolute bottom-0 left-0 right-0 bg-news-black/95 text-white text-center py-3 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                             <span className="text-xs font-bold uppercase tracking-wider">Read Full Paper</span>
                         </div>
                      </Link>
                      <div className="mt-3 text-center">
-                        <p className="text-[10px] text-gray-400">Digital Edition Available Daily</p>
+                        <p className="text-[10px] text-gray-400">Digital Edition • Page {latestPaper.pageNumber}</p>
                      </div>
                 </div>
             ) : (

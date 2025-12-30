@@ -7,6 +7,7 @@ import {
   Maximize, Minimize, RotateCcw, MousePointer2, X, ArrowRight, Menu, Grid, Scissors, Download, Loader2, Share2
 } from 'lucide-react';
 import { APP_NAME } from '../constants';
+import { format } from 'date-fns';
 
 interface EPaperReaderProps {
   pages: EPaperPage[];
@@ -79,17 +80,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     const ctx = canvas.getContext('2d');
     const img = new Image();
     
-    // Default settings if not provided
-    const settings: WatermarkSettings = watermarkSettings || {
-        text: APP_NAME,
-        fontSize: 24,
-        showLogo: false,
-        logoUrl: '',
-        logoSize: 80,
-        backgroundColor: '#1a1a1a',
-        textColor: '#bfa17b'
-    };
-
     img.crossOrigin = "Anonymous"; // Essential for external images (CORS)
     img.src = srcUrl;
 
@@ -102,8 +92,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
         const sW = (region.width / 100) * img.naturalWidth;
         const sH = (region.height / 100) * img.naturalHeight;
 
-        // 2. Define Footer Dimensions (Watermark)
-        const footerHeight = Math.max(60, img.naturalWidth * 0.05); // Scale footer based on image width
+        // 2. Define Footer Dimensions (Watermark Strip)
+        // Ensure footer is at least 60px or 10% of crop height, whichever is reasonable
+        const footerHeight = Math.max(60, sH * 0.15); 
         
         // 3. Set Canvas Size (Crop Size + Footer)
         canvas.width = sW;
@@ -112,71 +103,45 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
         // 4. Draw The Cropped Image
         ctx.drawImage(img, sX, sY, sW, sH, 0, 0, sW, sH);
 
-        // 5. Draw The Footer Background
-        ctx.fillStyle = settings.backgroundColor;
+        // 5. Draw The Footer Background (Black Strip)
+        ctx.fillStyle = '#1a1a1a'; // News Black
         ctx.fillRect(0, sH, sW, footerHeight);
 
-        // 6. Draw Content
-        const baseY = sH + (footerHeight / 2);
-        let textX = 20;
+        // 6. Draw Content (Website Name & Date)
+        const centerY = sH + (footerHeight / 2);
+        const padding = sW * 0.05; // 5% padding
+        
+        // Font sizing based on image width to remain proportional
+        const nameFontSize = Math.max(16, sW * 0.05); 
+        const dateFontSize = Math.max(12, sW * 0.035);
 
-        // Handle Logo
-        if (settings.showLogo && settings.logoUrl) {
-            const logoImg = new Image();
-            logoImg.crossOrigin = "Anonymous";
-            logoImg.src = settings.logoUrl;
-            
-            logoImg.onload = () => {
-                const aspect = logoImg.width / logoImg.height;
-                const logoH = footerHeight * (settings.logoSize / 100);
-                const logoW = logoH * aspect;
-                
-                // Draw logo vertically centered
-                ctx.drawImage(logoImg, 20, sH + (footerHeight - logoH) / 2, logoW, logoH);
-                
-                textX = 20 + logoW + 20; // Shift text right
-                
-                drawText(ctx, sW, sH, footerHeight, dateStr, settings, textX);
-                finalize();
-            };
-            
-            logoImg.onerror = () => {
-                // If logo fails, just draw text
-                drawText(ctx, sW, sH, footerHeight, dateStr, settings, 20);
-                finalize();
-            };
-        } else {
-            drawText(ctx, sW, sH, footerHeight, dateStr, settings, 20);
-            finalize();
+        // A. Website Name (Left, Gold)
+        ctx.font = `bold ${nameFontSize}px "Merriweather", serif`;
+        ctx.fillStyle = '#bfa17b'; // News Gold
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.fillText(APP_NAME, padding, centerY);
+
+        // B. Date (Right, White)
+        ctx.font = `normal ${dateFontSize}px "Inter", sans-serif`;
+        ctx.fillStyle = '#ffffff'; // White
+        ctx.textAlign = 'right';
+        
+        try {
+            const formattedDate = format(new Date(dateStr), 'MMM do, yyyy');
+            ctx.fillText(formattedDate, sW - padding, centerY);
+        } catch (e) {
+            ctx.fillText(dateStr, sW - padding, centerY);
         }
 
-        function drawText(context: CanvasRenderingContext2D, width: number, height: number, fHeight: number, dStr: string, opts: WatermarkSettings, xPos: number) {
-            // Brand Text
-            context.font = `bold ${opts.fontSize}px "Merriweather", serif`;
-            context.fillStyle = opts.textColor;
-            context.textBaseline = 'middle';
-            context.textAlign = 'left';
-            context.fillText(opts.text, xPos, height + (fHeight / 2));
-
-            // Date & URL (Right Aligned)
-            // Use a smaller relative font size for the date
-            const metaFontSize = Math.max(12, opts.fontSize * 0.6);
-            context.font = `${metaFontSize}px "Inter", sans-serif`;
-            context.fillStyle = '#ffffff';
-            context.textAlign = 'right';
-            const dateText = new Date(dStr).toLocaleDateString(undefined, {  year: 'numeric', month: 'long', day: 'numeric' });
-            context.fillText(`${dateText}  |  www.cjnewshub.com`, width - 20, height + (fHeight / 2));
-        }
-
-        function finalize() {
-            try {
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-                setGeneratedClipping(dataUrl);
-            } catch (e) {
-                console.error("Canvas export failed (likely CORS)", e);
-            } finally {
-                setIsGeneratingClipping(false);
-            }
+        // Finalize
+        try {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+            setGeneratedClipping(dataUrl);
+        } catch (e) {
+            console.error("Canvas export failed (likely CORS)", e);
+        } finally {
+            setIsGeneratingClipping(false);
         }
     };
 
@@ -448,7 +413,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                </div>
                
                <p className="mt-4 text-[10px] text-gray-400 text-center max-w-xs">
-                   This image has been automatically cropped and watermarked for sharing.
+                   This image has been automatically cropped and watermarked with {APP_NAME} branding for sharing.
                </p>
             </div>
 
