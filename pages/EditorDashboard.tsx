@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { EPaperPage, Article, EPaperRegion, ArticleStatus, ClassifiedAd, Advertisement, AdSize, AdPlacement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
 import { 
   Trash2, Upload, Plus, Save, FileText, Image as ImageIcon, 
-  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2, Lock, Library
+  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2, Lock, Library, Calendar
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -78,6 +78,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   
   // E-Paper State
   const [activePageId, setActivePageId] = useState<string | null>(null);
+  const [showAddPageModal, setShowAddPageModal] = useState(false);
+  const [newPageDate, setNewPageDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newPageNumber, setNewPageNumber] = useState(1);
+  const [newPageImage, setNewPageImage] = useState('');
+  const [isPageUploading, setIsPageUploading] = useState(false);
   const activePage = ePaperPages.find(p => p.id === activePageId);
 
   // Classifieds State
@@ -141,6 +146,49 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     return data.publicUrl;
   };
 
+  const handleEPaperUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsPageUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `epaper/${newPageDate}/${newPageNumber}_${generateId()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('images') // Using same bucket for simplicity
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+      setNewPageImage(data.publicUrl);
+    } catch (error: any) {
+      console.error('E-Paper Upload Error:', error.message);
+      alert("Failed to upload E-Paper image: " + error.message);
+    } finally {
+      setIsPageUploading(false);
+    }
+  };
+
+  const handleSubmitNewPage = () => {
+      if (!newPageImage) {
+          alert("Please upload an image first.");
+          return;
+      }
+      const newPage: EPaperPage = {
+          id: generateId(),
+          date: newPageDate,
+          pageNumber: newPageNumber,
+          imageUrl: newPageImage,
+          regions: []
+      };
+      onAddPage(newPage);
+      setShowAddPageModal(false);
+      setNewPageImage('');
+      setNewPageNumber(prev => prev + 1);
+  };
+
   const handleArticleModalSubmit = () => {
     if (!modalTitle) { alert("Headline is required"); return; }
     const articleData: Article = { 
@@ -171,22 +219,54 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     setShowImageGallery(false);
   };
   
-  const handleSaveRegion = (page: EPaperPage, region: EPaperRegion) => {
+  const handleSaveRegion = async (page: EPaperPage, region: EPaperRegion) => {
+      // 1. Optimistic UI
       const updatedRegions = page.regions.map(r => r.id === region.id ? region : r);
       onUpdatePage({ ...page, regions: updatedRegions });
+      
+      // 2. Database Insert
+      // Note: In a real relational DB, you'd upsert into an 'epaper_regions' table here.
+      // Since App.tsx currently handles 'epaper_pages' but not explicit child region logic deep inside onUpdatePage,
+      // we do the direct call here for robustness.
+      
+      const { error } = await supabase.from('epaper_regions').upsert({
+          id: region.id,
+          page_id: page.id,
+          x: region.x,
+          y: region.y,
+          width: region.width,
+          height: region.height,
+          linked_article_id: region.linkedArticleId || null
+      });
+
+      if (error) console.error("Region save failed:", error);
   };
   
-  const handleAddRegion = (page: EPaperPage) => {
+  const handleAddRegion = async (page: EPaperPage) => {
       const newRegion: EPaperRegion = {
           id: generateId(),
           x: 10, y: 10, width: 20, height: 20,
-          linkedArticleId: articles[0]?.id || ''
+          linkedArticleId: ''
       };
-      onUpdatePage({ ...page, regions: [...page.regions, newRegion] });
+      
+      const updatedRegions = [...page.regions, newRegion];
+      onUpdatePage({...page, regions: updatedRegions});
+
+      await supabase.from('epaper_regions').insert({
+          id: newRegion.id,
+          page_id: page.id,
+          x: newRegion.x, 
+          y: newRegion.y, 
+          width: newRegion.width, 
+          height: newRegion.height
+      });
   };
   
-  const handleDeleteRegion = (page: EPaperPage, regionId: string) => {
-      onUpdatePage({ ...page, regions: page.regions.filter(r => r.id !== regionId) });
+  const handleDeleteRegion = async (page: EPaperPage, regionId: string) => {
+      const updatedRegions = page.regions.filter(r => r.id !== regionId);
+      onUpdatePage({ ...page, regions: updatedRegions });
+      
+      await supabase.from('epaper_regions').delete().eq('id', regionId);
   };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
@@ -270,28 +350,59 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               )}
               {activeTab === 'epaper' && (
                  <div className="max-w-7xl mx-auto">
-                      <h1 className="font-serif text-3xl font-bold text-gray-900 mb-6">E-Paper Editor</h1>
+                      <div className="flex justify-between items-center mb-6">
+                        <h1 className="font-serif text-3xl font-bold text-gray-900">E-Paper Editor</h1>
+                        <button 
+                            onClick={() => { setShowAddPageModal(true); setNewPageImage(''); }}
+                            className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800"
+                        >
+                            <Plus size={16} /> Add New Page
+                        </button>
+                      </div>
+                      
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                           <div className="lg:col-span-3 bg-white p-4 border rounded-lg h-fit max-h-[70vh] overflow-y-auto">
                               <h3 className="font-bold text-gray-800 border-b pb-2 mb-2">Pages</h3>
+                              {ePaperPages.length === 0 && <p className="text-xs text-gray-400 italic">No pages uploaded yet.</p>}
                               {ePaperPages.map(p => (
-                                <button key={p.id} onClick={() => setActivePageId(p.id)} className={`w-full text-left p-2 rounded text-sm ${activePageId === p.id ? 'bg-news-accent/10 text-news-accent font-bold' : 'hover:bg-gray-50'}`}>
-                                    {p.date} - Page {p.pageNumber}
-                                </button>
+                                <div key={p.id} className="group relative">
+                                    <button onClick={() => setActivePageId(p.id)} className={`w-full text-left p-2 rounded text-sm mb-1 ${activePageId === p.id ? 'bg-news-accent/10 text-news-accent font-bold' : 'hover:bg-gray-50'}`}>
+                                        {p.date} - Page {p.pageNumber}
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); if(window.confirm('Delete this page?')) onDeletePage(p.id); }}
+                                        className="absolute right-2 top-2 text-gray-400 hover:text-red-600 hidden group-hover:block"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
                               ))}
                           </div>
                           <div className="lg:col-span-9">
                             {activePage ? (
                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                    <div className="bg-white p-4 border rounded-lg">
-                                        <EPaperViewer page={activePage} />
+                                    <div className="bg-white p-4 border rounded-lg shadow-sm">
+                                        <div className="aspect-[2/3] w-full bg-gray-100 relative">
+                                            <EPaperViewer page={activePage} />
+                                        </div>
                                     </div>
                                     <div className="bg-white p-4 border rounded-lg max-h-[70vh] overflow-y-auto">
                                         <div className="flex justify-between items-center mb-4">
-                                            <h3 className="font-bold text-gray-800">Regions</h3>
-                                            <button onClick={() => handleAddRegion(activePage)} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">Add Region</button>
+                                            <div>
+                                                <h3 className="font-bold text-gray-800">Interactive Regions</h3>
+                                                <p className="text-xs text-gray-500">Map articles to areas on the page image.</p>
+                                            </div>
+                                            <button onClick={() => handleAddRegion(activePage)} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 transition-colors">
+                                                <Plus size={14} className="inline mr-1"/> Add Region
+                                            </button>
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-3">
+                                            {activePage.regions.length === 0 && (
+                                                <div className="text-center py-8 text-gray-400 border-2 border-dashed rounded">
+                                                    <MousePointer2 className="mx-auto mb-2 opacity-50" />
+                                                    <p className="text-xs">No regions added yet.</p>
+                                                </div>
+                                            )}
                                             {activePage.regions.map(region => (
                                                 <RegionEditor key={region.id} region={region} page={activePage} articles={articles} onSave={handleSaveRegion} onDelete={handleDeleteRegion}/>
                                             ))}
@@ -299,7 +410,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     </div>
                                 </div>
                             ) : (
-                                <div className="h-96 flex items-center justify-center bg-gray-50 border-2 border-dashed rounded-lg text-gray-400">Select a page to edit</div>
+                                <div className="h-96 flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed rounded-lg text-gray-400">
+                                    <Newspaper size={48} className="mb-4 opacity-20" />
+                                    <p className="font-bold">Select a page to edit</p>
+                                    <p className="text-xs mt-1">Or upload a new one to get started.</p>
+                                </div>
                             )}
                           </div>
                       </div>
@@ -406,6 +521,80 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* NEW: ADD E-PAPER PAGE MODAL */}
+      {showAddPageModal && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg w-full max-w-md animate-in zoom-in-95">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-gray-800">Upload E-Paper Page</h3>
+                    <button onClick={() => setShowAddPageModal(false)}><X size={20}/></button>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Edition Date</label>
+                        <div className="relative">
+                            <Calendar className="absolute left-3 top-2.5 text-gray-400" size={16}/>
+                            <input 
+                                type="date" 
+                                value={newPageDate} 
+                                onChange={(e) => setNewPageDate(e.target.value)} 
+                                className="w-full pl-10 p-2 border rounded font-mono text-sm"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Page Number</label>
+                        <input 
+                            type="number" 
+                            min="1"
+                            value={newPageNumber} 
+                            onChange={(e) => setNewPageNumber(parseInt(e.target.value))} 
+                            className="w-full p-2 border rounded font-mono text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Page Image (JPG/PNG)</label>
+                        <div className="border-2 border-dashed p-6 rounded bg-gray-50 text-center hover:bg-gray-100 transition-colors relative">
+                             {isPageUploading ? (
+                                <div className="flex flex-col items-center">
+                                    <Loader2 className="animate-spin text-news-accent mb-2" />
+                                    <span className="text-xs font-bold">Uploading...</span>
+                                </div>
+                             ) : newPageImage ? (
+                                <div className="relative group">
+                                     <img src={newPageImage} className="max-h-32 mx-auto shadow-sm rounded" />
+                                     <button 
+                                        onClick={() => setNewPageImage('')}
+                                        className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full shadow-lg"
+                                     >
+                                        <X size={12} />
+                                     </button>
+                                     <p className="text-xs text-green-600 font-bold mt-2 flex items-center justify-center gap-1"><CheckCircle size={12}/> Ready to save</p>
+                                </div>
+                             ) : (
+                                <>
+                                    <Upload className="mx-auto text-gray-400 mb-2" size={24} />
+                                    <p className="text-xs text-gray-500 font-medium">Click to upload page image</p>
+                                    <input type="file" accept="image/*" onChange={handleEPaperUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                </>
+                             )}
+                        </div>
+                    </div>
+                </div>
+                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                    <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-xs font-bold text-gray-600 uppercase">Cancel</button>
+                    <button 
+                        onClick={handleSubmitNewPage} 
+                        disabled={!newPageImage || isPageUploading}
+                        className="px-6 py-2 bg-news-black text-white rounded text-xs font-bold uppercase disabled:opacity-50"
+                    >
+                        Save Page
+                    </button>
+                </div>
+            </div>
         </div>
       )}
     </div>

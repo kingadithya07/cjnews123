@@ -169,45 +169,80 @@ function App() {
   };
 
   const handleDeleteArticle = async (id: string) => {
-      // 1. Keep a copy of previous state in case we need to revert
       const previousArticles = [...articles];
-      
-      // 2. Optimistic Update (Remove from UI immediately)
       setArticles(prev => prev.filter(a => a.id !== id));
       
       try {
-          // 3. Perform Delete on Backend
-          // We ask for 'count' to ensure the row was ACTUALLY deleted. 
-          // If count is 0, it means it didn't exist or RLS permissions hid it.
           const { error, count } = await supabase
             .from('articles')
             .delete({ count: 'exact' }) 
             .eq('id', id);
           
           if (error) throw error;
-
-          // 4. Check for Silent Failure (RLS)
           if (count === 0) {
               throw new Error("Permission Denied: You do not have permission to delete this article, or it has already been deleted.");
           }
-
       } catch (error: any) {
           console.error("Delete failed:", error);
-          
           let errorMessage = error.message;
-
-          // Handle Foreign Key Violations (e.g., Article is linked to E-Paper)
           if (error.code === '23503') { 
              errorMessage = "Cannot delete: This article is currently linked to an E-Paper page or Classified ad. Please remove the reference in the E-Paper editor first.";
           }
-          
           alert(`Failed to delete: ${errorMessage}`);
-          
-          // 5. Revert State (Bring it back to UI)
           setArticles(previousArticles);
-          fetchData(); // Sync with server to be sure
+          fetchData();
       }
   };
+
+  const handleAddPage = async (page: EPaperPage) => {
+    // Optimistic Update
+    setEPaperPages(prev => [page, ...prev]);
+
+    const { error } = await supabase.from('epaper_pages').insert({
+      id: page.id,
+      date: page.date,
+      pageNumber: page.pageNumber,
+      imageUrl: page.imageUrl
+    });
+
+    if (error) {
+      console.error("Failed to add page:", error);
+      alert("Failed to save page to backend: " + error.message);
+      fetchData(); // Revert
+    } else {
+      fetchData(); // Sync exact structure
+    }
+  };
+
+  const handleDeletePage = async (id: string) => {
+    const prevPages = [...ePaperPages];
+    setEPaperPages(prev => prev.filter(p => p.id !== id));
+
+    const { error } = await supabase.from('epaper_pages').delete().eq('id', id);
+    if (error) {
+      console.error("Failed to delete page:", error);
+      alert("Failed to delete page: " + error.message);
+      setEPaperPages(prevPages);
+    }
+  };
+
+  const handleUpdatePage = async (page: EPaperPage) => {
+    // Mostly used for updating regions
+    // This assumes specific logic exists in EditorDashboard to handle regions separately if using a relational table,
+    // but here we just refresh to ensure sync or handle basic updates.
+    // For this app architecture, regions are usually children rows.
+    
+    // We will trust the child component to handle the specific region upserts via supabase, 
+    // but if we are updating the page metadata itself:
+    const { error } = await supabase.from('epaper_pages').update({
+        date: page.date,
+        pageNumber: page.pageNumber
+    }).eq('id', page.id);
+
+    if(error) console.error("Page update error", error);
+    fetchData(); 
+  }
+
 
   const isDeviceAuthorized = () => {
     if (!userId) return false;
@@ -239,7 +274,7 @@ function App() {
   } else if (path === '/staff/login') {
     content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={(d) => persistDevicesToCloud([...devices, d])} onEmergencyReset={() => {}} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
-    content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={setWatermarkSettings} onUpdatePage={() => fetchData()} onAddPage={() => fetchData()} onDeletePage={() => fetchData()} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={() => {}} onDeleteAdCategory={() => {}} onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(); }} onAddAdvertisement={async (ad) => { await supabase.from('advertisements').insert(ad); fetchData(); }} onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(); }} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} />;
+    content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={setWatermarkSettings} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} onDeletePage={handleDeletePage} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={() => {}} onDeleteAdCategory={() => {}} onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(); }} onAddAdvertisement={async (ad) => { await supabase.from('advertisements').insert(ad); fetchData(); }} onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(); }} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard onSave={handleSaveArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} />;
   } else if (path === '/' || path === '/home') {
