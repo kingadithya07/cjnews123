@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Article, Advertisement } from '../types';
 import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft } from 'lucide-react';
@@ -102,7 +103,8 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 <div className="flex flex-col md:flex-row md:items-center justify-between border-y border-gray-200 py-6">
                     <div className="flex items-center space-x-4 mb-4 md:mb-0">
                         <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-400">
-                            <User size={20} md:size={24} />
+                            {/* Fixed: Removed non-existent md:size prop from User icon */}
+                            <User size={20} />
                         </div>
                         <div>
                             <p className="font-bold text-gray-900 text-sm uppercase tracking-wide">By {authorName}</p>
@@ -175,7 +177,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 {/* Skyscraper Ad */}
                  <AdvertisementBanner 
                     ads={advertisements} 
-                    size="SKYSCRAPER" 
+                    size="SKYSCPER" 
                     placement="ARTICLE"
                     globalAdsEnabled={globalAdsEnabled}
                     className="hidden lg:flex"
