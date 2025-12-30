@@ -190,18 +190,20 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] bg-black text-white overflow-hidden relative font-sans">
+    <div className="flex flex-col h-[calc(100vh-80px)] md:h-[calc(100vh-80px)] bg-black text-white overflow-hidden relative font-sans">
       
-      {/* Refined Navigation Header */}
-      <div className="flex items-center justify-between px-4 md:px-8 py-4 bg-news-black border-b border-white/5 z-50 shrink-0 shadow-2xl">
-         <div className="flex items-center gap-4 md:gap-8">
+      {/* Refined Navigation Header - Optimized with Icons for Mobile */}
+      <div className="flex items-center justify-between px-4 md:px-8 py-3 md:py-4 bg-news-black border-b border-white/5 z-50 shrink-0 shadow-2xl">
+         <div className="flex items-center gap-3 md:gap-8">
             <button 
                 onClick={() => viewMode === 'grid' ? onNavigate('/') : setViewMode('grid')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-[0.25em]"
+                className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-all"
+                title={viewMode === 'grid' ? 'Back to Portal' : 'Back to Grid'}
             >
-                <ArrowLeft size={16} /> {viewMode === 'grid' ? 'Portal' : 'Grid'}
+                <ArrowLeft size={18} />
+                <span className="hidden md:inline text-[10px] font-black uppercase tracking-[0.25em]">{viewMode === 'grid' ? 'Portal' : 'Grid'}</span>
             </button>
-            <div className="flex items-center bg-white/5 rounded-full px-1 border border-white/10">
+            <div className="flex items-center bg-white/5 rounded-full px-1 border border-white/10 h-9 md:h-10">
                 <button 
                     disabled={selectedDate === uniqueDates[uniqueDates.length - 1]}
                     onClick={() => {
@@ -212,8 +214,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                 >
                     <ChevronLeft size={18} />
                 </button>
-                <div className="px-4 text-[10px] font-black tracking-[0.2em] font-mono text-news-gold whitespace-nowrap">
-                    {safeFormat(selectedDate, 'dd MMM yyyy').toUpperCase()}
+                <div className="px-2 md:px-4 text-[9px] md:text-[10px] font-black tracking-[0.2em] font-mono text-news-gold whitespace-nowrap">
+                    {safeFormat(selectedDate, 'dd MMM yy').toUpperCase()}
                 </div>
                 <button 
                     disabled={selectedDate === uniqueDates[0]}
@@ -228,18 +230,21 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             </div>
          </div>
 
-         <div className="flex items-center gap-3">
+         <div className="flex items-center gap-2 md:gap-3">
              {viewMode === 'reader' && (
                 <button 
                     onClick={() => setIsCropping(true)}
-                    className="flex items-center gap-2 px-5 md:px-7 py-2.5 bg-news-gold text-black rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-white shadow-lg active:scale-95"
+                    className="flex items-center gap-2 px-3 md:px-7 py-2 md:py-2.5 bg-news-gold text-black rounded-full transition-all hover:bg-white shadow-lg active:scale-95"
+                    title="Clip Article"
                 >
-                    <Scissors size={14} /> CLIP ARTICLE
+                    <Scissors size={14} />
+                    <span className="hidden md:inline text-[10px] font-black uppercase tracking-[0.2em]">CLIP ARTICLE</span>
                 </button>
              )}
              <button 
                 onClick={() => setViewMode(viewMode === 'grid' ? 'reader' : 'grid')}
-                className="p-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors"
+                className="p-2.5 md:p-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors"
+                title={viewMode === 'grid' ? 'Read Edition' : 'Browse Pages'}
              >
                 {viewMode === 'grid' ? <Eye size={18} /> : <LayoutGrid size={18} />}
              </button>
@@ -248,13 +253,13 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
       <div className="flex-1 overflow-hidden relative">
           
-          {/* ARCHIVE GRID */}
+          {/* ARCHIVE GRID - Colorful version */}
           {viewMode === 'grid' && (
               <div className="h-full overflow-y-auto custom-scrollbar p-6 md:p-16 animate-in fade-in duration-500 bg-[#0a0a0a]">
                   <div className="max-w-7xl mx-auto space-y-12">
                       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/5 pb-10">
                           <div>
-                              <h1 className="text-4xl md:text-5xl font-serif font-black text-white mb-2">Issue Archive</h1>
+                              <h1 className="text-3xl md:text-5xl font-serif font-black text-white mb-2">Issue Archive</h1>
                               <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.4em] flex items-center gap-3">
                                 <Calendar size={14} className="text-news-gold"/> Edition Date: {safeFormat(selectedDate, 'yyyy-MM-dd')}
                               </p>
@@ -269,14 +274,15 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                                 className="group cursor-pointer space-y-3"
                               >
                                   <div className="relative aspect-[3/4] overflow-hidden rounded-sm border border-white/10 shadow-2xl transition-all duration-500 group-hover:scale-[1.05] group-hover:border-news-gold group-hover:shadow-news-gold/30">
-                                      <img src={page.imageUrl} className="w-full h-full object-cover transition-all duration-700 grayscale group-hover:grayscale-0 brightness-75 group-hover:brightness-100" alt={`P${page.pageNumber}`} />
+                                      {/* Colorful image, no grayscale */}
+                                      <img src={page.imageUrl} className="w-full h-full object-cover transition-all duration-700 brightness-90 group-hover:brightness-105" alt={`P${page.pageNumber}`} />
                                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                           <div className="bg-news-gold text-black p-3 rounded-full shadow-2xl transform scale-75 group-hover:scale-100 transition-transform">
                                               <Eye size={20} />
                                           </div>
                                       </div>
                                   </div>
-                                  <p className="text-[10px] font-black tracking-[0.3em] text-gray-500 group-hover:text-news-gold transition-colors text-center">PAGE {page.pageNumber}</p>
+                                  <p className="text-[9px] md:text-[10px] font-black tracking-[0.3em] text-gray-500 group-hover:text-news-gold transition-colors text-center">PAGE {page.pageNumber}</p>
                               </div>
                           ))}
                       </div>
@@ -284,7 +290,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
               </div>
           )}
 
-          {/* READER VIEW */}
+          {/* READER VIEW - Deeply Optimized for Mobile Frame */}
           {viewMode === 'reader' && (
               <div 
                 ref={viewerRef}
@@ -302,12 +308,15 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                             transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1)',
                             transformOrigin: 'center',
                             display: 'inline-block',
-                            position: 'relative'
+                            position: 'relative',
+                            maxWidth: '100%',
+                            maxHeight: '100%'
                         }}
                       >
                           <EPaperViewer 
                             page={activePage} 
-                            imageClassName="max-h-[85vh] h-auto w-auto max-w-full block shadow-[0_0_150px_rgba(0,0,0,1)] border border-white/5"
+                            // Adjusted max-h to fit perfectly in mobile without overflow
+                            imageClassName="max-h-[82vh] md:max-h-[85vh] h-auto w-auto max-w-full block shadow-[0_0_100px_rgba(0,0,0,0.8)] border border-white/5"
                             disableInteractivity={true}
                           />
                       </div>
@@ -318,82 +327,86 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                       </div>
                   )}
 
-                  {/* Navigation Handles */}
-                  <div className="absolute inset-y-0 left-0 flex items-center">
+                  {/* Navigation Handles - Subtle for mobile */}
+                  <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none">
                     <button 
                         onClick={() => setActivePageIndex(prev => Math.max(0, prev - 1))}
                         disabled={activePageIndex === 0}
-                        className="p-6 md:p-12 text-gray-700 hover:text-white transition-colors disabled:opacity-0"
+                        className="p-3 md:p-12 text-gray-700/50 hover:text-white transition-colors disabled:opacity-0 pointer-events-auto"
                     >
-                        <ChevronLeft size={48} />
+                        <ChevronLeft size={40} className="md:w-12 md:h-12 w-8 h-8" />
                     </button>
                   </div>
-                  <div className="absolute inset-y-0 right-0 flex items-center">
+                  <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                     <button 
                         onClick={() => setActivePageIndex(prev => Math.min(currentEditionPages.length - 1, prev + 1))}
                         disabled={activePageIndex === currentEditionPages.length - 1}
-                        className="p-6 md:p-12 text-gray-700 hover:text-white transition-colors disabled:opacity-0"
+                        className="p-3 md:p-12 text-gray-700/50 hover:text-white transition-colors disabled:opacity-0 pointer-events-auto"
                     >
-                        <ChevronRight size={48} />
+                        <ChevronRight size={40} className="md:w-12 md:h-12 w-8 h-8" />
                     </button>
                   </div>
 
-                  {/* Desktop Zoom Console */}
-                  <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-news-black/90 backdrop-blur-3xl border border-white/5 rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl z-40 hidden md:flex">
-                      <button onClick={() => setScale(s => Math.max(1, s - 0.5))} className="hover:text-news-gold transition-colors"><ZoomOut size={18} /></button>
-                      <div className="text-[10px] font-mono font-black text-news-gold min-w-[50px] text-center tracking-widest">{Math.round(scale * 100)}%</div>
-                      <button onClick={() => setScale(s => Math.min(4, s + 0.5))} className="hover:text-news-gold transition-colors"><ZoomIn size={18} /></button>
-                      <div className="w-px h-4 bg-white/10"></div>
-                      <button onClick={() => { setScale(1); setPosition({x:0, y:0}); }} className="hover:text-news-gold transition-colors" title="Reset Viewer"><RotateCcw size={16} /></button>
+                  {/* Zoom Console - Minimized on mobile */}
+                  <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 bg-news-black/90 backdrop-blur-3xl border border-white/5 rounded-full px-4 md:px-6 py-2.5 md:py-3 flex items-center gap-4 md:gap-6 shadow-2xl z-40">
+                      <button onClick={() => setScale(s => Math.max(1, s - 0.5))} className="hover:text-news-gold transition-colors"><ZoomOut size={16} /></button>
+                      <div className="text-[9px] md:text-[10px] font-mono font-black text-news-gold min-w-[40px] md:min-w-[50px] text-center tracking-widest">{Math.round(scale * 100)}%</div>
+                      <button onClick={() => setScale(s => Math.min(4, s + 0.5))} className="hover:text-news-gold transition-colors"><ZoomIn size={16} /></button>
+                      <div className="w-px h-3 md:h-4 bg-white/10"></div>
+                      <button onClick={() => { setScale(1); setPosition({x:0, y:0}); }} className="hover:text-news-gold transition-colors" title="Reset Viewer"><RotateCcw size={15} /></button>
                   </div>
               </div>
           )}
       </div>
 
-      {/* CLIPPING WORKSHOP (MODAL + SIDE PREVIEW ON DESKTOP) */}
+      {/* CLIPPING WORKSHOP (DIRECT STEP - SKIP SELECTION) */}
       {isCropping && (
         <div className="fixed inset-0 z-[100] bg-[#050505] flex flex-col animate-in fade-in zoom-in-95 duration-300">
-            {/* Workshop Header */}
-            <div className="px-6 py-5 bg-news-black border-b border-white/5 flex items-center justify-between shrink-0 shadow-2xl">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="p-2 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all">
-                        <X size={24} />
+            {/* Workshop Header - Icon Heavy for Mobile */}
+            <div className="px-4 md:px-6 py-3 md:py-5 bg-news-black border-b border-white/5 flex items-center justify-between shrink-0 shadow-2xl">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="p-1.5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all">
+                        <X size={22} />
                     </button>
                     <div>
-                        <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-news-gold">Clipping Workshop</h2>
-                        <p className="text-[9px] text-gray-600 uppercase tracking-widest font-bold hidden sm:block">Refining borders for digital archival</p>
+                        <h2 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.25em] text-news-gold leading-none">Workshop</h2>
+                        <p className="text-[8px] text-gray-600 uppercase tracking-widest font-bold hidden md:block mt-1">Refining borders for archival</p>
                     </div>
                 </div>
                 
-                <div className="flex gap-3">
+                <div className="flex gap-2 md:gap-3">
                     {cropPreview ? (
                         <div className="flex gap-2">
-                            <button onClick={handleShare} className="bg-white/5 text-white border border-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2 hover:bg-white/10 transition-all shadow-xl"><Share2 size={14} /> Share</button>
-                            <button onClick={handleDownload} className="bg-news-gold text-black px-7 py-2.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2 hover:bg-yellow-500 transition-all shadow-xl"><Download size={14} /> Save Clip</button>
-                            <button onClick={() => setCropPreview(null)} className="p-2.5 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 text-gray-400 transition-all" title="Redo Crop"><RefreshCcw size={16} /></button>
+                            <button onClick={handleShare} className="bg-white/5 text-white border border-white/10 p-2 md:px-5 md:py-2.5 rounded-full hover:bg-white/10 transition-all flex items-center gap-2" title="Share">
+                                <Share2 size={16} /> <span className="hidden md:inline text-[9px] font-black uppercase tracking-[0.2em]">Share</span>
+                            </button>
+                            <button onClick={handleDownload} className="bg-news-gold text-black p-2 md:px-7 md:py-2.5 rounded-full hover:bg-yellow-500 transition-all flex items-center gap-2" title="Save">
+                                <Download size={16} /> <span className="hidden md:inline text-[9px] font-black uppercase tracking-[0.2em]">Save</span>
+                            </button>
+                            <button onClick={() => setCropPreview(null)} className="p-2 md:p-2.5 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 text-gray-400 transition-all" title="Redo Crop"><RefreshCcw size={16} /></button>
                         </div>
                     ) : (
                         <button 
                             onClick={generateBrandedClip}
                             disabled={isProcessing}
-                            className="bg-news-gold text-black px-10 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 hover:bg-yellow-500 transition-all shadow-xl disabled:opacity-50"
+                            className="bg-news-gold text-black px-5 md:px-10 py-2 md:py-3 rounded-full flex items-center gap-2 hover:bg-yellow-500 transition-all shadow-xl disabled:opacity-50"
                         >
                             {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
-                            Process Clipping
+                            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em]">{isProcessing ? 'Wait' : 'Process'}</span>
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* Workspace: Side-by-Side on Desktop */}
+            {/* Workspace: Side-by-Side on Desktop, Direct Editor on Mobile */}
             <div className={`flex-1 overflow-hidden relative flex flex-col ${cropPreview ? 'md:flex-row' : 'flex-col'} bg-[#080808]`}>
                 
-                {/* Image Section (Cropper or Reference) */}
-                <div className={`relative flex flex-col items-center justify-center p-4 md:p-12 transition-all duration-500 ${cropPreview ? 'w-full md:w-1/2 border-r border-white/5' : 'w-full h-full'}`}>
+                {/* Editor Area (Original Scan with Cropper) */}
+                <div className={`relative flex flex-col items-center justify-center transition-all duration-500 ${cropPreview ? 'w-full md:w-1/2 border-r border-white/5 h-1/2 md:h-full p-4' : 'w-full h-full p-2 md:p-8'}`}>
                     {cropPreview && (
-                         <div className="absolute top-8 left-12 text-[9px] font-black uppercase tracking-[0.4em] text-gray-600 hidden md:block">Original Scan</div>
+                         <div className="absolute top-4 left-6 text-[8px] font-black uppercase tracking-[0.4em] text-gray-600">Original</div>
                     )}
-                    <div className={`w-full h-full flex items-center justify-center ${cropPreview ? 'opacity-40 grayscale pointer-events-none scale-90' : ''} transition-all duration-700`}>
+                    <div className={`w-full h-full flex items-center justify-center ${cropPreview ? 'opacity-30 pointer-events-none scale-[0.85]' : ''} transition-all duration-700`}>
                         <img 
                             ref={cropperImgRef}
                             src={activePage?.imageUrl} 
@@ -404,25 +417,25 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                     </div>
                 </div>
 
-                {/* Branded Clipping Result Section (Right Side on Desktop) */}
+                {/* Clipping Result Section (Right side on desktop, bottom on mobile) */}
                 {cropPreview && (
-                    <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 md:p-16 bg-[#0c0c0c] animate-in slide-in-from-right-8 duration-700">
-                        <div className="absolute top-8 right-12 text-[9px] font-black uppercase tracking-[0.4em] text-news-gold">Clipped Result</div>
-                        <div className="max-w-4xl shadow-[0_0_100px_rgba(0,0,0,1)] border border-white/5 rounded-sm overflow-hidden bg-white animate-in zoom-in-95 duration-700">
-                             <img src={cropPreview} className="max-h-[65vh] w-auto block" alt="Branded Output" />
+                    <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col items-center justify-center p-6 md:p-16 bg-[#0c0c0c] animate-in slide-in-from-bottom md:slide-in-from-right duration-700 relative">
+                        <div className="absolute top-4 right-6 text-[8px] font-black uppercase tracking-[0.4em] text-news-gold">Clipped Result</div>
+                        <div className="max-w-full md:max-w-4xl shadow-[0_0_100px_rgba(0,0,0,1)] border border-white/5 rounded-sm overflow-hidden bg-white animate-in zoom-in-95 duration-700">
+                             <img src={cropPreview} className="max-h-[40vh] md:max-h-[65vh] w-auto block" alt="Branded Output" />
                         </div>
-                        <div className="mt-10 flex flex-col items-center gap-2">
-                             <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em]">Quality Verified • Watermark Applied</p>
-                             <div className="w-12 h-0.5 bg-news-gold/30 mt-2"></div>
+                        <div className="mt-6 md:mt-10 flex flex-col items-center gap-2">
+                             <p className="text-[8px] md:text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em]">Quality Verified • Watermark Applied</p>
+                             <div className="w-8 md:w-12 h-0.5 bg-news-gold/30 mt-1"></div>
                         </div>
                     </div>
                 )}
             </div>
             
             {!cropPreview && (
-                <div className="bg-news-black p-4 border-t border-white/5 text-center shrink-0">
-                    <p className="text-[9px] text-gray-600 font-bold uppercase tracking-[0.5em] flex items-center justify-center gap-4">
-                        <ZoomIn size={14} /> Scroll to Zoom & Drag to Reposition Original • Refine borders to capture text and imagery
+                <div className="bg-news-black p-3 md:p-4 border-t border-white/5 text-center shrink-0">
+                    <p className="text-[8px] md:text-[9px] text-gray-600 font-bold uppercase tracking-[0.5em] flex items-center justify-center gap-2 md:gap-4">
+                        <Scissors size={12} /> Direct Clipping Mode • Adjust borders and save
                     </p>
                 </div>
             )}

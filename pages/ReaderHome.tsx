@@ -83,10 +83,11 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                         </span>
                     </div>
                      <Link to="/epaper" onNavigate={onNavigate} className="block group relative shadow-md flex-1 overflow-hidden bg-gray-100">
+                        {/* Grayscale removed to make it colorful */}
                         <img 
                             src={latestPaper.imageUrl} 
                             alt="E-Paper Preview" 
-                            className="w-full h-full object-cover object-top grayscale transition-all duration-500 group-hover:grayscale-0 group-hover:scale-105" 
+                            className="w-full h-full object-cover object-top transition-all duration-500 group-hover:scale-105" 
                         />
                         <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
                         <div className="absolute bottom-0 left-0 right-0 bg-news-black/95 text-white text-center py-3 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
