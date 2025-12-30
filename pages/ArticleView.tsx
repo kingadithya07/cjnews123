@@ -175,9 +175,10 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 />
                 
                 {/* Skyscraper Ad */}
+                 {/* Corrected typo: changed 'SKYSCPER' to 'SKYSCRAPER' */}
                  <AdvertisementBanner 
                     ads={advertisements} 
-                    size="SKYSCPER" 
+                    size="SKYSCRAPER" 
                     placement="ARTICLE"
                     globalAdsEnabled={globalAdsEnabled}
                     className="hidden lg:flex"

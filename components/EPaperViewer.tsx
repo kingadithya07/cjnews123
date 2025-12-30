@@ -40,7 +40,7 @@ const EPaperViewer: React.FC<EPaperViewerProps> = ({ page, onRegionClick, onNavi
         <img 
           src={page.imageUrl} 
           alt={`Page ${page.pageNumber}`} 
-          className={`block max-w-none select-none transition-all duration-300 ${imageClassName || ''} ${hoveredRegion ? 'brightness-75' : ''}`}
+          className={`block max-w-none select-none transition-all duration-300 ${imageClassName || ''} ${hoveredRegion ? 'brightness-90' : ''}`}
           draggable={false}
         />
         
@@ -52,7 +52,7 @@ const EPaperViewer: React.FC<EPaperViewerProps> = ({ page, onRegionClick, onNavi
             onMouseLeave={() => setHoveredRegion(null)}
             className={`absolute transition-all duration-200 border-2 z-10 
               ${!disableInteractivity && hoveredRegion === region.id 
-                ? 'bg-news-accent/20 border-news-accent shadow-xl ring-4 ring-news-accent/20 cursor-pointer animate-pulse' 
+                ? 'bg-news-accent/15 border-news-accent shadow-lg ring-4 ring-news-accent/10 cursor-pointer' 
                 : 'bg-transparent border-transparent'
               }
               ${disableInteractivity ? 'pointer-events-none' : 'pointer-events-auto'}
@@ -65,13 +65,13 @@ const EPaperViewer: React.FC<EPaperViewerProps> = ({ page, onRegionClick, onNavi
             }}
           >
             {!disableInteractivity && hoveredRegion === region.id && (
-              <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-news-black text-white text-[10px] font-bold py-2 px-4 rounded-full shadow-2xl whitespace-nowrap z-20 pointer-events-none border border-gray-700 flex items-center gap-3 animate-in slide-in-from-bottom-2">
-                 <div className="flex items-center gap-1.5 border-r border-gray-700 pr-3">
-                    <Scissors size={14} className="text-news-gold" />
+              <div className="absolute -top-14 left-1/2 transform -translate-x-1/2 bg-news-black text-white text-[10px] font-bold py-2.5 px-4 rounded-xl shadow-2xl whitespace-nowrap z-20 pointer-events-none border border-white/10 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+                 <div className="flex items-center gap-1.5 border-r border-gray-700 pr-3 text-news-gold">
+                    <Scissors size={14} />
                     <span>CLIP</span>
                  </div>
                  <div className="flex items-center gap-1.5">
-                    <BookOpen size={14} className="text-white" />
+                    <BookOpen size={14} />
                     <span>READ ARTICLE</span>
                  </div>
               </div>
