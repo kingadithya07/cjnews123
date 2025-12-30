@@ -4,7 +4,7 @@ import { EPaperPage, EPaperRegion, Article, WatermarkSettings } from '../types';
 import EPaperViewer from '../components/EPaperViewer';
 import { 
   ChevronLeft, ChevronRight, Calendar, ZoomIn, ZoomOut, 
-  Maximize, Minimize, RotateCcw, MousePointer2, X, ArrowRight, Menu, Grid, Scissors, Download, Loader2, Share2, Crop, ArrowLeft
+  Maximize, Minimize, RotateCcw, MousePointer2, X, ArrowRight, Menu, Grid, Scissors, Download, Loader2, Share2, Crop, ArrowLeft, MoveVertical
 } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { format, isValid, parseISO } from 'date-fns';
@@ -98,14 +98,12 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
         if (!ctx) return;
 
         // 1. Calculate Crop Coordinates based on Natural Image Size
-        // IMPORTANT: Round to integers to avoid sub-pixel rendering issues on some mobile devices
         const sX = Math.floor((region.x / 100) * img.naturalWidth);
         const sY = Math.floor((region.y / 100) * img.naturalHeight);
         const sW = Math.floor((region.width / 100) * img.naturalWidth);
         const sH = Math.floor((region.height / 100) * img.naturalHeight);
 
         // 2. Define Footer Dimensions (Watermark Strip)
-        // Ensure footer is at least 60px or 10% of crop height, whichever is reasonable
         const footerHeight = Math.max(60, Math.floor(sH * 0.15)); 
         
         // 3. Set Canvas Size (Crop Size + Footer)
@@ -130,9 +128,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
         // Draw Logic Helpers
         let textStartX = padding;
 
-        // B. Website Name (Left/Center)
-        // Note: For advanced logo handling, we'd need a Promise wrapper. 
-        // For now, we render text.
+        // B. Website Name
         ctx.font = `bold ${nameFontSize}px "Merriweather", serif`;
         ctx.fillStyle = watermarkSettings?.textColor || '#bfa17b'; // News Gold default
         ctx.textBaseline = 'middle';
@@ -153,7 +149,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
             ctx.fillText(dateStr, sW - padding, centerY);
         }
 
-        // If logo exists, try to draw it. This is async, so we might need to re-export dataURL inside onload.
+        // If logo exists, try to draw it.
         if (watermarkSettings?.showLogo && watermarkSettings.logoUrl) {
              const logo = new Image();
              logo.crossOrigin = "Anonymous";
@@ -240,6 +236,15 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
   const handleZoomOut = () => setScale(s => Math.max(s - 0.5, 1));
   const handleReset = () => { setScale(1); setPosition({ x: 0, y: 0 }); };
 
+  // Vertical Slider Logic
+  const handleVerticalScroll = (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Invert value so Up moves Up (scrolling down visually) or as preferred.
+      // Standard: Max Value = Top of Image (Translate Y positive or 0), Min Value = Bottom (Translate Y negative)
+      // Actually standard scrollbar: Top=0.
+      // TranslateY: 0 is center/top. 
+      setPosition(prev => ({ ...prev, y: parseInt(e.target.value) }));
+  };
+
   // Mouse Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (scale > 1) {
@@ -304,17 +309,11 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
             targetIndex = idx - 1; // Newer
         }
     } else {
-        // Fallback if user picked a random date via calendar: find nearest
-        // If we want to move "prev" (older), find first date in uniqueDates smaller than current
-        // If "next" (newer), find first date larger than current
         const currentTs = new Date(selectedDate).getTime();
         if (direction === 'prev') {
-            // Find newest date that is older than current
             const older = uniqueDates.find(d => new Date(d).getTime() < currentTs);
             if (older) newDate = older;
         } else {
-            // Find oldest date that is newer than current
-            // uniqueDates is desc, so reverse it or findLast
             const newer = [...uniqueDates].reverse().find(d => new Date(d).getTime() > currentTs);
             if (newer) newDate = newer;
         }
@@ -329,6 +328,20 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     if (targetIndex >= 0 && targetIndex < uniqueDates.length) {
         setSelectedDate(uniqueDates[targetIndex]);
         setActivePageIndex(0);
+    }
+  };
+
+  const handlePrevPage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (activePageIndex > 0) {
+        setActivePageIndex(prev => prev - 1);
+    }
+  };
+
+  const handleNextPage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (activePageIndex < currentEditionPages.length - 1) {
+        setActivePageIndex(prev => prev + 1);
     }
   };
 
@@ -407,7 +420,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                 </button>
                 
                 <div className="relative mx-1 md:mx-2 cursor-pointer flex items-center justify-center px-2 py-1">
-                    <div className="flex items-center space-x-2 text-xs md:text-sm font-bold text-white pointer-events-none">
+                    <div className="flex items-center space-x-2 text-[10px] md:text-xs font-bold text-white pointer-events-none group-hover:text-news-gold transition-colors">
                         <Calendar size={14} className="text-news-accent mb-0.5"/>
                         <span className="tracking-wide">
                             {isValid(parseISO(selectedDate)) ? format(parseISO(selectedDate), 'MMM dd, yyyy') : selectedDate}
@@ -529,6 +542,62 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
          >
              {activePage ? (
                  <>
+                    {/* Vertical Slider Control */}
+                    {scale > 1 && (
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 h-64 z-40 hidden md:flex items-center bg-black/40 rounded-full py-2 backdrop-blur-sm">
+                            <input
+                                type="range"
+                                min="-1000"
+                                max="1000"
+                                step="10"
+                                value={position.y}
+                                onChange={handleVerticalScroll}
+                                className="h-full w-1.5 bg-gray-400 rounded-lg appearance-none cursor-pointer hover:bg-white transition-colors"
+                                style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+                                title="Scroll Image Vertically"
+                            />
+                        </div>
+                    )}
+
+                    {/* Floating Page Navigation (Prev/Next Page) */}
+                    {activePageIndex > 0 && (
+                        <button 
+                            onClick={handlePrevPage}
+                            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-news-accent text-white p-2 rounded-full backdrop-blur-sm transition-all z-30 group shadow-lg"
+                            title="Previous Page"
+                        >
+                            <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform"/>
+                        </button>
+                    )}
+
+                    {activePageIndex < currentEditionPages.length - 1 && (
+                        <button 
+                            onClick={handleNextPage}
+                            className="absolute right-2 md:right-16 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-news-accent text-white p-2 rounded-full backdrop-blur-sm transition-all z-30 group shadow-lg"
+                            title="Next Page"
+                        >
+                            <ChevronRight size={24} className="group-hover:translate-x-0.5 transition-transform"/>
+                        </button>
+                    )}
+
+                    {/* Floating Zoom Controls (Visible on all devices) */}
+                    <div className="absolute bottom-8 right-6 flex flex-col gap-2 z-40">
+                        <button 
+                            onClick={handleZoomIn} 
+                            disabled={scale >= 4}
+                            className="p-3 bg-news-black text-white rounded-full shadow-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                        >
+                            <ZoomIn size={20} />
+                        </button>
+                        <button 
+                            onClick={handleZoomOut} 
+                            disabled={scale <= 1}
+                            className="p-3 bg-news-black text-white rounded-full shadow-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                        >
+                            <ZoomOut size={20} />
+                        </button>
+                    </div>
+
                     {/* Center Content Container */}
                     <div className="w-full h-full flex items-center justify-center">
                         <div 

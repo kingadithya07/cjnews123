@@ -84,11 +84,14 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [newPageImage, setNewPageImage] = useState('');
   const [isPageUploading, setIsPageUploading] = useState(false);
   
-  // E-Paper Drawing State
+  // E-Paper Drawing & Zoom State
   const [drawMode, setDrawMode] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<{x: number, y: number} | null>(null);
   const [drawPreview, setDrawPreview] = useState<{x: number, y: number, w: number, h: number} | null>(null);
+  const [editorScale, setEditorScale] = useState(1);
+  const [editorPanY, setEditorPanY] = useState(0);
+  
   const imageContainerRef = useRef<HTMLDivElement>(null);
   
   const activePage = ePaperPages.find(p => p.id === activePageId);
@@ -121,6 +124,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setWordCount(0);
     }
   }, [modalContent]);
+
+  // Reset scale when page changes
+  useEffect(() => {
+      setEditorScale(1);
+      setEditorPanY(0);
+  }, [activePageId]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -303,6 +312,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     if (!drawMode || !imageContainerRef.current) return;
     e.preventDefault();
     
+    // Calculate coordinates relative to the *transformed* element
     const rect = imageContainerRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -571,10 +581,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     {/* EDITOR / VIEWER */}
                                     <div className="bg-white p-4 border rounded-lg shadow-sm">
                                         <div className="flex justify-between items-center mb-3">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-3">
                                                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Preview</span>
                                                 {drawMode && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold uppercase animate-pulse">Draw Mode Active</span>}
+                                                
+                                                {/* Zoom Controls */}
+                                                <div className="flex items-center gap-1 bg-gray-100 rounded p-0.5 border border-gray-200">
+                                                    <button onClick={() => setEditorScale(s => Math.max(1, s - 0.5))} className="p-1 hover:bg-gray-200 rounded" title="Zoom Out"><ZoomOut size={14}/></button>
+                                                    <span className="text-[10px] font-mono w-8 text-center">{editorScale}x</span>
+                                                    <button onClick={() => setEditorScale(s => Math.min(4, s + 0.5))} className="p-1 hover:bg-gray-200 rounded" title="Zoom In"><ZoomIn size={14}/></button>
+                                                </div>
                                             </div>
+                                            
                                             <button 
                                                 onClick={() => setDrawMode(!drawMode)} 
                                                 className={`text-xs px-3 py-1.5 rounded font-bold uppercase flex items-center gap-2 transition-colors ${drawMode ? 'bg-news-accent text-white shadow-lg' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
@@ -584,49 +602,75 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                         </div>
                                         
                                         {/* Container for the image + overlays */}
-                                        {/* We use a flex container to center the image preview block */}
-                                        <div className="aspect-[2/3] w-full bg-gray-100 relative flex items-center justify-center overflow-hidden border border-gray-200 p-2">
+                                        <div className="aspect-[2/3] w-full bg-gray-100 relative overflow-hidden border border-gray-200 p-2 flex items-center justify-center">
+                                            
+                                            {/* Vertical Slider */}
+                                            {editorScale > 1 && (
+                                                <div className="absolute right-2 top-1/2 -translate-y-1/2 h-4/5 z-40 flex items-center">
+                                                    <input
+                                                        type="range"
+                                                        min="-500"
+                                                        max="500"
+                                                        step="10"
+                                                        value={editorPanY}
+                                                        onChange={(e) => setEditorPanY(parseInt(e.target.value))}
+                                                        className="h-full w-1.5 bg-gray-400 rounded-lg appearance-none cursor-pointer hover:bg-news-accent transition-colors"
+                                                        style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+                                                    />
+                                                </div>
+                                            )}
+
                                             {/* The ref must be on the specific element that matches the image dimensions 
                                                 so coordinate calculations are correct. 
                                                 We wrap EPaperViewer in a div that shrinks to fit the image. */}
                                             <div 
-                                                ref={imageContainerRef}
-                                                className={`relative inline-block shadow-sm ${drawMode ? 'cursor-crosshair' : 'cursor-default'}`}
-                                                style={{ touchAction: 'none' }}
-                                                onMouseDown={handleDrawStart}
-                                                onMouseMove={handleDrawMove}
-                                                onMouseUp={handleDrawEnd}
-                                                onMouseLeave={handleDrawEnd}
-                                                onTouchStart={handleTouchDrawStart}
-                                                onTouchMove={handleTouchDrawMove}
-                                                onTouchEnd={handleDrawEnd}
+                                                style={{
+                                                    transform: `scale(${editorScale}) translateY(${editorPanY}px)`,
+                                                    transformOrigin: 'center center',
+                                                    transition: 'transform 0.1s ease-out'
+                                                }}
+                                                className="relative inline-block shadow-sm transition-transform origin-center"
                                             >
-                                                <EPaperViewer 
-                                                    page={activePage} 
-                                                    className="max-w-full max-h-full" 
-                                                    imageClassName="max-h-[600px]" // Limit height in editor
-                                                />
-                                                
-                                                {/* Draw Mode Overlay */}
-                                                {drawMode && <div className="absolute inset-0 z-20" />}
-                                                
-                                                {/* Live Preview Box */}
-                                                {drawPreview && (
-                                                    <div 
-                                                        className="absolute border-2 border-news-accent bg-news-accent/20 z-30"
-                                                        style={{
-                                                            left: `${drawPreview.x}%`,
-                                                            top: `${drawPreview.y}%`,
-                                                            width: `${drawPreview.w}%`,
-                                                            height: `${drawPreview.h}%`
-                                                        }}
+                                                <div
+                                                    ref={imageContainerRef}
+                                                    className={`relative inline-block ${drawMode ? 'cursor-crosshair' : 'cursor-default'}`}
+                                                    style={{ touchAction: 'none' }}
+                                                    onMouseDown={handleDrawStart}
+                                                    onMouseMove={handleDrawMove}
+                                                    onMouseUp={handleDrawEnd}
+                                                    onMouseLeave={handleDrawEnd}
+                                                    onTouchStart={handleTouchDrawStart}
+                                                    onTouchMove={handleTouchDrawMove}
+                                                    onTouchEnd={handleDrawEnd}
+                                                >
+                                                    <EPaperViewer 
+                                                        page={activePage} 
+                                                        className="max-w-full max-h-full" 
+                                                        imageClassName="max-h-[600px]" // Limit height in editor
                                                     />
-                                                )}
+                                                    
+                                                    {/* Draw Mode Overlay */}
+                                                    {drawMode && <div className="absolute inset-0 z-20" />}
+                                                    
+                                                    {/* Live Preview Box */}
+                                                    {drawPreview && (
+                                                        <div 
+                                                            className="absolute border-2 border-news-accent bg-news-accent/20 z-30"
+                                                            style={{
+                                                                left: `${drawPreview.x}%`,
+                                                                top: `${drawPreview.y}%`,
+                                                                width: `${drawPreview.w}%`,
+                                                                height: `${drawPreview.h}%`
+                                                            }}
+                                                        />
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="mt-2 text-[10px] text-gray-400 text-center">
-                                            {drawMode ? 'Click/Tap and drag on the image to define a new region.' : 'Enable Draw Mode to add regions freely.'}
+                                        <div className="mt-2 text-[10px] text-gray-400 text-center flex justify-between px-2">
+                                            <span>{drawMode ? 'Click/Tap and drag on the image to define a new region.' : 'Enable Draw Mode to add regions freely.'}</span>
+                                            {editorScale > 1 && <span className="text-news-accent font-bold">Use slider to scroll vertically</span>}
                                         </div>
                                     </div>
                                     
