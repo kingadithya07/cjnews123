@@ -202,8 +202,9 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
           {/* Date & Account Strip */}
           <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 bg-gray-50">
               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{format(new Date(), 'dd MMM yyyy')}</span>
-              {/* Login removed from top bar as requested */}
-              <div className="w-4"></div> 
+              <button onClick={handleProfileClick} className="text-[10px] font-bold text-news-gold uppercase flex items-center gap-1">
+                 {userName ? 'Account' : 'Login'}
+              </button>
           </div>
           
           {/* Brand Header */}

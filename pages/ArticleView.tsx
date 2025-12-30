@@ -102,7 +102,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 <div className="flex flex-col md:flex-row md:items-center justify-between border-y border-gray-200 py-6">
                     <div className="flex items-center space-x-4 mb-4 md:mb-0">
                         <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-400">
-                            <User className="w-5 h-5 md:w-6 md:h-6" />
+                            <User size={20} md:size={24} />
                         </div>
                         <div>
                             <p className="font-bold text-gray-900 text-sm uppercase tracking-wide">By {authorName}</p>
