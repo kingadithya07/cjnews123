@@ -55,13 +55,15 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  // Refs for high-performance gesture handling without re-renders
+  const contentRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ clientX: number, clientY: number, originX: number, originY: number } | null>(null);
+  
   const viewerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Mobile UI Logic
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-  const touchStart = useRef<{x: number, y: number} | null>(null);
 
   // --- Modal & Clipping Logic ---
   const [selectedRegion, setSelectedRegion] = useState<EPaperRegion | null>(null);
@@ -238,55 +240,99 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
 
   // Vertical Slider Logic
   const handleVerticalScroll = (e: React.ChangeEvent<HTMLInputElement>) => {
-      // Invert value so Up moves Up (scrolling down visually) or as preferred.
-      // Standard: Max Value = Top of Image (Translate Y positive or 0), Min Value = Bottom (Translate Y negative)
-      // Actually standard scrollbar: Top=0.
-      // TranslateY: 0 is center/top. 
       setPosition(prev => ({ ...prev, y: parseInt(e.target.value) }));
   };
 
-  // Mouse Handlers
+  // Mouse Handlers (Desktop)
   const handleMouseDown = (e: React.MouseEvent) => {
     if (scale > 1) {
       setIsDragging(true);
-      setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+      dragStartRef.current = { 
+          clientX: e.clientX, 
+          clientY: e.clientY, 
+          originX: position.x, 
+          originY: position.y 
+      };
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && scale > 1) {
+    if (isDragging && scale > 1 && dragStartRef.current && contentRef.current) {
       e.preventDefault();
-      setPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      });
+      const deltaX = e.clientX - dragStartRef.current.clientX;
+      const deltaY = e.clientY - dragStartRef.current.clientY;
+      
+      const newX = dragStartRef.current.originX + deltaX;
+      const newY = dragStartRef.current.originY + deltaY;
+
+      // Direct DOM update
+      contentRef.current.style.transform = `translate(${newX}px, ${newY}px) scale(${scale})`;
+      contentRef.current.style.transition = 'none';
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (isDragging && dragStartRef.current) {
+        // Sync final position to state
+        const deltaX = e.clientX - dragStartRef.current.clientX;
+        const deltaY = e.clientY - dragStartRef.current.clientY;
+        setPosition({
+            x: dragStartRef.current.originX + deltaX,
+            y: dragStartRef.current.originY + deltaY
+        });
+    }
     setIsDragging(false);
+    dragStartRef.current = null;
   };
 
-  // Touch Handlers
+  // Touch Handlers (Mobile) - Optimized
   const handleTouchStart = (e: React.TouchEvent) => {
     if (scale > 1 && e.touches.length === 1) {
-       touchStart.current = { x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y };
        setIsDragging(true);
+       dragStartRef.current = { 
+           clientX: e.touches[0].clientX, 
+           clientY: e.touches[0].clientY, 
+           originX: position.x, 
+           originY: position.y 
+       };
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-     if (isDragging && scale > 1 && e.touches.length === 1 && touchStart.current) {
-        setPosition({
-            x: e.touches[0].clientX - touchStart.current.x,
-            y: e.touches[0].clientY - touchStart.current.y
-        });
+     if (isDragging && scale > 1 && e.touches.length === 1 && dragStartRef.current && contentRef.current) {
+        // Prevent browser scrolling? Handled by touch-action: none on container
+        const deltaX = e.touches[0].clientX - dragStartRef.current.clientX;
+        const deltaY = e.touches[0].clientY - dragStartRef.current.clientY;
+        
+        const newX = dragStartRef.current.originX + deltaX;
+        const newY = dragStartRef.current.originY + deltaY;
+
+        // Apply transform directly to avoid Re-renders on every frame
+        contentRef.current.style.transform = `translate(${newX}px, ${newY}px) scale(${scale})`;
+        contentRef.current.style.transition = 'none';
      }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+      if (isDragging && dragStartRef.current) {
+          // Since it's touchend, touches list might be empty, use changedTouches or just nothing?
+          // We can't get clientX from e.touches[0] easily if lifted.
+          // However, we need to sync state.
+          // Simplest way: parse the current transform from the DOM element or track last known pos.
+          // Let's assume the last Move event was close enough.
+          // Actually, precise way:
+          const touch = e.changedTouches[0];
+          if (touch) {
+              const deltaX = touch.clientX - dragStartRef.current.clientX;
+              const deltaY = touch.clientY - dragStartRef.current.clientY;
+              setPosition({
+                  x: dragStartRef.current.originX + deltaX,
+                  y: dragStartRef.current.originY + deltaY
+              });
+          }
+      }
       setIsDragging(false);
-      touchStart.current = null;
+      dragStartRef.current = null;
   };
 
   // Handle region click - UPDATED: Open modal regardless of linking
@@ -420,7 +466,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                 </button>
                 
                 <div className="relative mx-1 md:mx-2 cursor-pointer flex items-center justify-center px-2 py-1">
-                    <div className="flex items-center space-x-2 text-[10px] md:text-xs font-bold text-white pointer-events-none group-hover:text-news-gold transition-colors">
+                    <div className="flex items-center space-x-2 text-[10px] md:text-xs font-bold text-white pointer-events-none group-hover:text-news-gold transition-colors whitespace-nowrap">
                         <Calendar size={14} className="text-news-accent mb-0.5"/>
                         <span className="tracking-wide">
                             {isValid(parseISO(selectedDate)) ? format(parseISO(selectedDate), 'MMM dd, yyyy') : selectedDate}
@@ -601,6 +647,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                     {/* Center Content Container */}
                     <div className="w-full h-full flex items-center justify-center">
                         <div 
+                            ref={contentRef}
                             style={{ 
                                 transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
                                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
