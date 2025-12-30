@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Article, EPaperPage, Advertisement } from '../types';
 import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
 
@@ -20,6 +20,13 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
   const secondaryArticles = articles.slice(1, 7); // Next batch for Latest
   const sideListArticles = articles.slice(3, 8); // Overlapping batch for Trending
   const latestPaper = ePaperPages[0];
+
+  // Helper for safe date formatting
+  const safeFormat = (dateValue: any, formatStr: string) => {
+    if (!dateValue) return 'N/A';
+    const d = new Date(dateValue);
+    return isValid(d) ? format(d, formatStr) : 'N/A';
+  };
   
   // Mobile Tab State
   const [mobileTab, setMobileTab] = useState<'latest' | 'trending'>('latest');
@@ -72,7 +79,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                             <MapPin size={12} className="text-news-accent"/> Today's Paper
                         </h3>
                         <span className="text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded">
-                             {format(new Date(), 'dd MMM')}
+                             {safeFormat(new Date(), 'dd MMM')}
                         </span>
                     </div>
                      <Link to="/epaper" onNavigate={onNavigate} className="block group relative shadow-md flex-1 overflow-hidden bg-gray-100">
@@ -135,7 +142,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                   {/* Content Section (Bottom Overlay) */}
                                   <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 flex flex-col justify-end z-20">
                                       <div className="flex items-center text-gray-300 text-[10px] md:text-xs font-bold uppercase tracking-wider divide-x divide-gray-600 mb-2">
-                                        <span className="pr-3 flex items-center gap-1.5 text-news-gold"><Clock size={12}/> {format(new Date(article.publishedAt), 'MMM dd, yyyy')}</span>
+                                        <span className="pr-3 flex items-center gap-1.5 text-news-gold"><Clock size={12}/> {safeFormat(article.publishedAt, 'MMM dd, yyyy')}</span>
                                         <span className="pl-3 flex items-center gap-1.5"><User size={12}/> By {authorName}{authorRole && <span className="text-gray-400 font-normal normal-case italic">/ {authorRole}</span>}</span>
                                       </div>
                                       
@@ -243,7 +250,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                        <h4 className="font-serif font-bold text-sm leading-snug text-gray-900 group-hover:text-news-accent transition-colors">
                                            {article.title}
                                        </h4>
-                                       <span className="text-[10px] text-gray-400 mt-1 block">{format(new Date(article.publishedAt), 'MMM d')}</span>
+                                       <span className="text-[10px] text-gray-400 mt-1 block">{safeFormat(article.publishedAt, 'MMM d')}</span>
                                    </div>
                                </Link>
                            )) : (

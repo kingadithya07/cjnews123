@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Article, Advertisement } from '../types';
 import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
 
@@ -20,6 +20,13 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
   const [moreArticles, setMoreArticles] = useState<Article[]>([]);
   const [wordCount, setWordCount] = useState(0);
   const [readTime, setReadTime] = useState(0);
+
+  // Helper for safe date formatting
+  const safeFormat = (dateValue: any, formatStr: string) => {
+    if (!dateValue) return 'N/A';
+    const d = new Date(dateValue);
+    return isValid(d) ? format(d, formatStr) : 'N/A';
+  };
 
   useEffect(() => {
     const found = articles.find(a => a.id === articleId);
@@ -110,7 +117,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                             <p className="font-bold text-gray-900 text-sm uppercase tracking-wide">By {authorName}</p>
                             {authorRole && <p className="text-xs text-gray-500 italic -mt-0.5">{authorRole}</p>}
                             <div className="flex items-center text-gray-500 text-xs md:text-sm space-x-3 mt-1">
-                                <span className="flex items-center"><Calendar size={12} className="mr-1"/> {format(new Date(article.publishedAt), 'MMM d, yyyy')}</span>
+                                <span className="flex items-center"><Calendar size={12} className="mr-1"/> {safeFormat(article.publishedAt, 'MMM d, yyyy')}</span>
                                 <span className="flex items-center"><Clock size={12} className="mr-1"/> {readTime} min read</span>
                                 <span className="flex items-center"><AlignLeft size={12} className="mr-1"/> {wordCount} words</span>
                             </div>
@@ -193,7 +200,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                                 <h5 className="font-serif font-bold text-sm text-gray-900 group-hover:text-news-accent transition-colors leading-snug mb-1">
                                     {rel.title}
                                 </h5>
-                                <span className="text-xs text-gray-500">{format(new Date(rel.publishedAt), 'MMM d')}</span>
+                                <span className="text-xs text-gray-500">{safeFormat(rel.publishedAt, 'MMM d')}</span>
                             </Link>
                         ))}
                     </div>
@@ -234,7 +241,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                                 </h4>
                                 <div className="text-xs text-gray-400 flex items-center">
                                     <Clock size={12} className="mr-1" />
-                                    {format(new Date(rel.publishedAt), 'MMM d')}
+                                    {safeFormat(rel.publishedAt, 'MMM d')}
                                 </div>
                             </div>
                         </Link>
