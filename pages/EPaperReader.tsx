@@ -96,14 +96,15 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
         if (!ctx) return;
 
         // 1. Calculate Crop Coordinates based on Natural Image Size
-        const sX = (region.x / 100) * img.naturalWidth;
-        const sY = (region.y / 100) * img.naturalHeight;
-        const sW = (region.width / 100) * img.naturalWidth;
-        const sH = (region.height / 100) * img.naturalHeight;
+        // IMPORTANT: Round to integers to avoid sub-pixel rendering issues on some mobile devices
+        const sX = Math.floor((region.x / 100) * img.naturalWidth);
+        const sY = Math.floor((region.y / 100) * img.naturalHeight);
+        const sW = Math.floor((region.width / 100) * img.naturalWidth);
+        const sH = Math.floor((region.height / 100) * img.naturalHeight);
 
         // 2. Define Footer Dimensions (Watermark Strip)
         // Ensure footer is at least 60px or 10% of crop height, whichever is reasonable
-        const footerHeight = Math.max(60, sH * 0.15); 
+        const footerHeight = Math.max(60, Math.floor(sH * 0.15)); 
         
         // 3. Set Canvas Size (Crop Size + Footer)
         canvas.width = sW;
@@ -118,11 +119,11 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
 
         // 6. Draw Content (Website Name & Date)
         const centerY = sH + (footerHeight / 2);
-        const padding = sW * 0.05; // 5% padding
+        const padding = Math.floor(sW * 0.05); // 5% padding
         
         // Font sizing based on image width to remain proportional
-        const nameFontSize = Math.max(16, sW * 0.05); 
-        const dateFontSize = Math.max(12, sW * 0.035);
+        const nameFontSize = Math.max(16, Math.floor(sW * 0.05)); 
+        const dateFontSize = Math.max(12, Math.floor(sW * 0.035));
 
         // Draw Logic Helpers
         let textStartX = padding;
@@ -156,14 +157,14 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
              logo.crossOrigin = "Anonymous";
              logo.src = watermarkSettings.logoUrl;
              logo.onload = () => {
-                 const logoH = footerHeight * 0.8;
-                 const logoW = logo.naturalWidth * (logoH / logo.naturalHeight);
-                 const logoY = sH + (footerHeight - logoH) / 2;
+                 const logoH = Math.floor(footerHeight * 0.8);
+                 const logoW = Math.floor(logo.naturalWidth * (logoH / logo.naturalHeight));
+                 const logoY = Math.floor(sH + (footerHeight - logoH) / 2);
                  // Draw logo before text
                  ctx.drawImage(logo, padding, logoY, logoW, logoH);
                  // Redraw text shifted
                  ctx.fillStyle = watermarkSettings?.backgroundColor || '#1a1a1a';
-                 ctx.fillRect(padding, sH, sW/2, footerHeight); // Clear left side
+                 ctx.fillRect(padding, sH, Math.floor(sW/2), footerHeight); // Clear left side
                  ctx.fillStyle = watermarkSettings?.textColor || '#bfa17b';
                  ctx.textAlign = 'left';
                  ctx.fillText(brandText, padding + logoW + 15, centerY);
@@ -202,6 +203,33 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    }
+  };
+
+  const handleShareClip = async () => {
+    if (!generatedClipping) return;
+
+    try {
+        const base64Response = await fetch(generatedClipping);
+        const blob = await base64Response.blob();
+        const file = new File([blob], `clip_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        
+        const shareData = {
+            files: [file],
+            title: 'News Clipping',
+            text: `Check out this clipping from ${APP_NAME}!`
+        };
+
+        if (navigator.canShare && navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+        } else {
+            // Fallback
+            downloadClipping();
+        }
+    } catch (err) {
+        console.error("Sharing failed", err);
+        // Fallback to download if sharing fails
+        downloadClipping();
     }
   };
 
@@ -283,7 +311,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     }
   };
 
-  const handleShare = async () => {
+  const handlePageShare = async () => {
     const shareData = {
         title: `${APP_NAME} E-Paper`,
         text: `Read the ${format(new Date(selectedDate), 'dd MMM yyyy')} edition of ${APP_NAME} online.`,
@@ -330,9 +358,19 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                 >
                     <ChevronLeft size={16} md:size={20} />
                 </button>
-                <div className="flex items-center px-2 md:px-3 space-x-2 text-xs md:text-sm font-medium border-x border-gray-700 mx-1 min-w-[100px] md:min-w-[140px] justify-center">
-                    <Calendar size={12} className="text-news-accent hidden sm:block"/>
-                    <span>{selectedDate}</span>
+                <div className="flex items-center px-1 md:px-2 space-x-2 text-xs md:text-sm font-medium border-x border-gray-700 mx-1 min-w-[100px] md:min-w-[140px] justify-center relative group">
+                    <Calendar size={12} className="text-news-accent hidden sm:block absolute left-2 pointer-events-none"/>
+                    <select 
+                        value={selectedDate} 
+                        onChange={(e) => { setSelectedDate(e.target.value); setActivePageIndex(0); }}
+                        className="bg-transparent text-white font-bold text-xs md:text-sm appearance-none outline-none cursor-pointer pl-6 pr-4 py-1 text-center w-full hover:text-news-gold transition-colors"
+                    >
+                        {uniqueDates.map(date => (
+                            <option key={date} value={date} className="text-black bg-white">
+                                {date}
+                            </option>
+                        ))}
+                    </select>
                 </div>
                 <button 
                   onClick={() => handleDateChange('next')}
@@ -365,7 +403,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
              </div>
              
              <button 
-                onClick={handleShare}
+                onClick={handlePageShare}
                 className="p-2 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors"
                 title="Share this edition"
              >
@@ -405,7 +443,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                     }`}
                   >
                      <div className={`rounded-sm overflow-hidden border-2 ${idx === activePageIndex ? 'border-news-accent shadow-lg shadow-news-accent/20' : 'border-transparent'}`}>
-                        <img src={page.imageUrl} className="w-full h-auto object-cover" alt={`Thumb ${page.pageNumber}`} />
+                        <img src={page.imageUrl} className="w-full h-full object-cover" alt={`Thumb ${page.pageNumber}`} />
                      </div>
                      <p className={`text-center text-xs mt-2 font-mono ${idx === activePageIndex ? 'text-news-accent font-bold' : 'text-gray-400'}`}>
                         Page {page.pageNumber}
@@ -423,6 +461,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
          <div 
             ref={viewerRef}
             className={`flex-1 bg-[#1e1e1e] overflow-hidden relative touch-none cursor-${scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'}`}
+            style={{ touchAction: 'none' }} // Prevent scrolling while interacting
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -461,24 +500,24 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
       {/* CLIPPING MODAL */}
       {selectedRegion && (
         <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white text-news-black rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+          <div className="bg-white text-news-black rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row max-h-[85vh]">
             
             {/* Left: The Generated Clipping */}
-            <div className="w-full md:w-1/2 bg-gray-100 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-200 relative">
-               <div className="absolute top-4 left-4 bg-white/80 backdrop-blur px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1 border border-gray-200">
+            <div className="w-full md:w-1/2 bg-gray-100 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-200 relative min-h-[350px] md:min-h-auto">
+               <div className="absolute top-4 left-4 bg-white/80 backdrop-blur px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1 border border-gray-200 z-10">
                    <Scissors size={12} /> Auto-Clipped
                </div>
                
-               <div className="shadow-lg max-h-full max-w-full overflow-auto custom-scrollbar border-4 border-white">
+               <div className="shadow-lg max-h-full max-w-full overflow-auto custom-scrollbar border-4 border-white flex justify-center items-center w-full h-full">
                   {isGeneratingClipping ? (
-                      <div className="h-64 w-64 flex flex-col items-center justify-center text-gray-400">
+                      <div className="h-48 w-full flex flex-col items-center justify-center text-gray-400">
                           <Loader2 size={32} className="animate-spin mb-2" />
                           <span className="text-xs font-bold uppercase">Generating Watermark...</span>
                       </div>
                   ) : generatedClipping ? (
-                      <img src={generatedClipping} alt="Clipped Article" className="max-w-full h-auto object-contain block" />
+                      <img src={generatedClipping} alt="Clipped Article" className="max-w-full max-h-[40vh] md:max-h-[60vh] object-contain block" />
                   ) : (
-                      <div className="h-64 w-64 flex items-center justify-center text-red-400 text-xs">Failed to generate image</div>
+                      <div className="h-48 w-full flex items-center justify-center text-red-400 text-xs">Failed to generate image</div>
                   )}
                </div>
                
@@ -488,7 +527,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
             </div>
 
             {/* Right: Actions & Info */}
-            <div className="w-full md:w-1/2 flex flex-col">
+            <div className="w-full md:w-1/2 flex flex-col h-[40vh] md:h-auto">
                 <div className="flex justify-between items-start p-6 border-b border-gray-100">
                    <div>
                        <span className={`inline-block text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-widest rounded-sm mb-2 ${selectedArticle ? 'bg-news-accent' : 'bg-gray-400'}`}>
@@ -519,13 +558,13 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                         <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 space-y-3">
                             <Crop size={48} className="opacity-20" />
                             <p className="text-sm">No digital article is linked to this region.</p>
-                            <p className="text-xs">You can still download the clipped image to read offline or share.</p>
+                            <p className="text-xs">You can still download or share the clipped image.</p>
                         </div>
                     )}
                 </div>
 
                 <div className="p-6 bg-gray-50 border-t border-gray-100 space-y-3">
-                    <div className={`grid gap-3 ${selectedArticle ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    <div className={`grid gap-3 ${selectedArticle ? 'grid-cols-2' : 'grid-cols-2'}`}>
                          <button 
                             onClick={downloadClipping}
                             disabled={!generatedClipping}
@@ -534,21 +573,25 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                             <Download size={20} className="mb-1 text-news-black group-hover:scale-110 transition-transform"/>
                             <span className="text-xs font-bold uppercase tracking-wide text-gray-700">Save Clipping</span>
                          </button>
+                         
+                         <button 
+                            onClick={handleShareClip}
+                            disabled={!generatedClipping}
+                            className="flex flex-col items-center justify-center p-3 bg-white border border-gray-300 rounded hover:bg-gray-100 hover:border-gray-400 transition-all group disabled:opacity-50"
+                         >
+                            <Share2 size={20} className="mb-1 text-blue-600 group-hover:scale-110 transition-transform"/>
+                            <span className="text-xs font-bold uppercase tracking-wide text-gray-700">Share Clip</span>
+                         </button>
 
                          {selectedArticle && (
                             <button 
                                 onClick={() => onNavigate(`/article/${selectedArticle.id}`)}
-                                className="flex flex-col items-center justify-center p-3 bg-news-black text-white rounded hover:bg-gray-800 transition-all group shadow-lg shadow-gray-300"
+                                className="col-span-2 flex flex-col items-center justify-center p-3 bg-news-black text-white rounded hover:bg-gray-800 transition-all group shadow-lg shadow-gray-300"
                             >
                                 <ArrowRight size={20} className="mb-1 group-hover:translate-x-1 transition-transform"/>
                                 <span className="text-xs font-bold uppercase tracking-wide">Read Full Article</span>
                             </button>
                          )}
-                    </div>
-                    <div className="text-center">
-                        <span className="text-[10px] text-gray-400 font-medium">
-                            {selectedArticle ? 'Select an option to continue' : 'Download the image to view'}
-                        </span>
                     </div>
                 </div>
             </div>

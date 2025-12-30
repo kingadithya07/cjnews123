@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { EPaperPage, EPaperRegion } from '../types';
 
@@ -54,7 +55,7 @@ const EPaperViewer: React.FC<EPaperViewerProps> = ({ page, onRegionClick, onNavi
           }}
         >
           {hoveredRegion === region.id && (
-            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-news-black text-white text-[10px] font-bold px-3 py-1 rounded shadow-lg whitespace-nowrap z-20 pointer-events-none border border-gray-700">
+            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-news-black text-white text-[10px] font-bold px-3 py-1 rounded shadow-lg whitespace-nowrap z-20 pointer-events-none border border-gray-700 hidden md:block">
                Click to Clip / Read
             </div>
           )}

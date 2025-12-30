@@ -1,9 +1,10 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { 
   Bold, Italic, Underline, Heading1, Heading2, Quote, 
   List, ListOrdered, Link as LinkIcon, Image as ImageIcon,
   AlignLeft, AlignCenter, AlignRight, Undo, Redo, Loader2,
-  Trash2, Library
+  Trash2, Library, Palette
 } from 'lucide-react';
 import ImageGalleryModal from './ImageGalleryModal';
 
@@ -154,6 +155,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
               <ToolbarButton icon={Bold} command="bold" title="Bold" />
               <ToolbarButton icon={Italic} command="italic" title="Italic" />
               <ToolbarButton icon={Underline} command="underline" title="Underline" />
+              <div className="relative group flex items-center justify-center p-1.5 hover:bg-gray-200 rounded cursor-pointer">
+                   <Palette size={16} className="text-gray-500 group-hover:text-black"/>
+                   <input 
+                      type="color" 
+                      onChange={(e) => exec('foreColor', e.target.value)} 
+                      title="Text Color"
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                   />
+              </div>
           </div>
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
               <ToolbarButton icon={Heading1} command="formatBlock" value="H2" title="Heading 1" />
