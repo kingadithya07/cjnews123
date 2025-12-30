@@ -114,20 +114,35 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     setIsPageUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
+      // Using a structured path for better storage management
       const fileName = `epaper/${newPageDate}/${newPageNumber}_${generateId()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
       if (uploadError) throw uploadError;
       const { data } = supabase.storage.from('images').getPublicUrl(fileName);
       setNewPageImage(data.publicUrl);
-    } catch (error: any) { alert("Failed to upload: " + error.message); } finally { setIsPageUploading(false); }
+    } catch (error: any) { 
+      alert("Failed to upload archive scan: " + error.message); 
+    } finally { 
+      setIsPageUploading(false); 
+    }
   };
 
-  const handleSubmitNewPage = () => {
-      if (!newPageImage) { alert("Please upload an image first."); return; }
-      const newPage: EPaperPage = { id: generateId(), date: newPageDate, pageNumber: newPageNumber, imageUrl: newPageImage, regions: [] };
-      onAddPage(newPage);
+  const handleSubmitNewPage = async () => {
+      if (!newPageImage) { alert("Please upload a page scan first."); return; }
+      const newPage: EPaperPage = { 
+        id: generateId(), 
+        date: newPageDate, 
+        pageNumber: newPageNumber, 
+        imageUrl: newPageImage, 
+        regions: [] 
+      };
+      
+      // onAddPage triggers the persistence logic in App.tsx
+      await onAddPage(newPage);
+      
       setShowAddPageModal(false);
       setNewPageImage('');
+      // Auto-increment for convenience
       setNewPageNumber(prev => prev + 1);
   };
 
@@ -327,7 +342,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       <div><label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Sequence Number</label><input type="number" value={newPageNumber} onChange={e => setNewPageNumber(Number(e.target.value))} className="w-full border border-gray-200 p-3 rounded-lg font-mono text-sm outline-none focus:border-news-black"/></div>
                       <div><label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Page Scan (High-Res)</label><div className="border-2 border-dashed border-gray-200 p-10 text-center rounded-xl bg-gray-50 group hover:border-news-gold transition-colors">{isPageUploading ? <div className="flex flex-col items-center gap-3"><Loader2 className="animate-spin text-news-gold" /><span className="text-[10px] font-black uppercase tracking-widest">Transferring...</span></div> : newPageImage ? <div className="relative"><img src={newPageImage} className="max-h-48 mx-auto shadow-2xl rounded"/><button onClick={() => setNewPageImage('')} className="bg-red-600 text-white p-2 rounded-full shadow-lg absolute -top-3 -right-3"><X size={14} /></button></div> : <label className="cursor-pointer block"><ImageIcon size={32} className="mx-auto mb-2 opacity-10" /><span className="text-news-accent font-black text-[10px] uppercase tracking-widest">Select File</span><input type="file" accept="image/*" onChange={handleEPaperUpload} className="hidden"/></label>}</div></div>
                   </div>
-                  <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-100"><button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black">Dismiss</button><button onClick={handleSubmitNewPage} disabled={!newPageImage} className="bg-news-black text-news-gold px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all">Add to Archive</button></div>
+                  <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-100"><button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black">Dismiss</button><button onClick={handleSubmitNewPage} disabled={!newPageImage || isPageUploading} className="bg-news-black text-news-gold px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all">{isPageUploading ? 'Busy...' : 'Add to Archive'}</button></div>
               </div>
           </div>
       )}

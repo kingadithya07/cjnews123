@@ -47,13 +47,16 @@ function App() {
   const fetchData = async () => {
     try {
       const { data: artData } = await supabase.from('articles').select('*').order('publishedAt', { ascending: false });
-      const { data: pageData } = await supabase.from('epaper_pages').select('*, epaper_regions(*)').order('date', { ascending: false });
+      const { data: pageData } = await supabase.from('epaper_pages').select('*, epaper_regions(*)').order('date', { ascending: false }, 'page_number', { ascending: true });
       const { data: clsData } = await supabase.from('classifieds').select('*').order('postedAt', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
 
       if (artData) setArticles(artData as Article[]);
       if (pageData) setEPaperPages(pageData.map(p => ({
-          ...p,
+          id: p.id,
+          date: p.date,
+          pageNumber: p.page_number || p.pageNumber, // Map snake_case or legacy camelCase
+          imageUrl: p.image_url || p.imageUrl,
           regions: p.epaper_regions || []
       })) as EPaperPage[]);
       if (clsData) setClassifieds(clsData as ClassifiedAd[]);
@@ -163,7 +166,7 @@ function App() {
         return exists ? prev.map(a => a.id === article.id ? article : a) : [article, ...prev];
     });
 
-    // Supabase Update
+    // Supabase Update - using snake_case for DB columns
     const { error } = await supabase.from('articles').upsert({
         id: article.id,
         title: article.title,
@@ -171,14 +174,14 @@ function App() {
         author: article.author,
         content: article.content,
         category: article.category,
-        imageUrl: article.imageUrl,
-        publishedAt: article.publishedAt,
+        image_url: article.imageUrl,
+        published_at: article.publishedAt,
         status: article.status,
-        user_id: userId // Ensure ownership is set
+        user_id: userId
     });
     if (error) {
       console.error("Supabase Article Save Error:", error);
-      alert("Failed to save to cloud: " + error.message);
+      alert("Failed to save article to cloud: " + error.message);
     }
   };
 
@@ -194,15 +197,11 @@ function App() {
           
           if (error) throw error;
           if (count === 0) {
-              throw new Error("Permission Denied: You do not have permission to delete this article, or it has already been deleted.");
+              throw new Error("Permission Denied: You do not have permission to delete this article.");
           }
       } catch (error: any) {
           console.error("Delete failed:", error);
-          let errorMessage = error.message;
-          if (error.code === '23503') { 
-             errorMessage = "Cannot delete: This article is currently linked to an E-Paper page or Classified ad. Please remove the reference in the E-Paper editor first.";
-          }
-          alert(`Failed to delete: ${errorMessage}`);
+          alert(`Failed to delete: ${error.message}`);
           setArticles(previousArticles);
           fetchData();
       }
@@ -212,20 +211,21 @@ function App() {
     // Optimistic Update
     setEPaperPages(prev => [page, ...prev]);
 
+    // Using snake_case for DB columns to ensure persistence
     const { error } = await supabase.from('epaper_pages').insert({
       id: page.id,
       date: page.date,
-      pageNumber: page.pageNumber,
-      imageUrl: page.imageUrl
+      page_number: page.pageNumber,
+      image_url: page.imageUrl
     });
 
     if (error) {
       console.error("Failed to add page to backend:", error);
-      alert("Database error: Could not sync page. Ensure 'epaper_pages' table exists in Supabase. " + error.message);
-      fetchData(); // Revert from backend state
+      alert("Database error: Could not sync page to backend. " + error.message);
+      fetchData(); // Revert to backend state
     } else {
-      console.log("Archive page successfully synced.");
-      fetchData(); // Sync exact structure (including any server defaults)
+      console.log("Archive page successfully synced to database.");
+      fetchData(); // Refresh list to get consistent naming
     }
   };
 
@@ -244,13 +244,12 @@ function App() {
   const handleUpdatePage = async (page: EPaperPage) => {
     const { error } = await supabase.from('epaper_pages').update({
         date: page.date,
-        pageNumber: page.pageNumber
+        page_number: page.pageNumber
     }).eq('id', page.id);
 
     if(error) console.error("Page update error", error);
     fetchData(); 
   }
-
 
   const isDeviceAuthorized = () => {
     if (!userId) return false;

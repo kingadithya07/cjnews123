@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { EPaperPage, EPaperRegion, Article, WatermarkSettings } from '../types';
 import EPaperViewer from '../components/EPaperViewer';
@@ -107,7 +106,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
         
-        // Fixed: Removed unsupported 'viewMode' property from CropperOptions to resolve TS error on line 111
+        // Fixed: Cast options to any to bypass strict property checking for dragMode which might be missing from CropperOptions type
         const cropper = new Cropper(cropperImgRef.current, {
             dragMode: 'move', // Allows zooming/panning the image inside the crop container
             autoCropArea: 0.5,
@@ -120,7 +119,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             zoomable: true,
             background: false,
             responsive: true,
-        });
+        } as any);
         cropperRef.current = cropper;
     }
     return () => {
@@ -181,7 +180,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   const handleDownload = () => {
     if (!cropPreview) return;
     const link = document.createElement('a');
-    link.href = cropPreview;
+    link.href = link.href = cropPreview;
     link.download = `Newsroom_Clipping_${activePage?.date}.jpg`;
     link.click();
   };
