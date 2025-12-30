@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { EPaperPage, Article, EPaperRegion, ArticleStatus, ClassifiedAd, Advertisement, AdSize, AdPlacement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
 import { 
   Trash2, Upload, Plus, Save, FileText, Image as ImageIcon, 
-  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2, Lock, Library, Calendar, Pencil, Ban
+  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2, Lock, Library, Calendar, Pencil, Ban, Type, Palette
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -101,6 +101,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [showAdModal, setShowAdModal] = useState(false);
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
 
+  // Watermark State
+  const [localWatermark, setLocalWatermark] = useState<WatermarkSettings>(watermarkSettings);
+  
+  useEffect(() => {
+    setLocalWatermark(watermarkSettings);
+  }, [watermarkSettings]);
+
   useEffect(() => {
     if (modalContent) {
       const text = modalContent.replace(/<[^>]*>/g, '').trim();
@@ -135,6 +142,28 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     } finally {
       setIsUploading(false);
     }
+  };
+  
+  const handleWatermarkLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `watermarks/${generateId()}.${fileExt}`;
+          const { error } = await supabase.storage.from('images').upload(fileName, file);
+          if (error) throw error;
+          
+          const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+          setLocalWatermark(prev => ({...prev, logoUrl: data.publicUrl}));
+      } catch(err: any) {
+          alert('Failed to upload logo: ' + err.message);
+      }
+  };
+
+  const saveWatermarkSettings = () => {
+      onUpdateWatermarkSettings(localWatermark);
+      alert("Watermark settings saved!");
   };
 
   const handleContentImageUpload = async (file: File): Promise<string> => {
@@ -301,6 +330,39 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     setDrawPreview({ x: clampedX, y: clampedY, w: clampedW, h: clampedH });
   };
 
+  // TOUCH SUPPORT for mobile drawing
+  const handleTouchDrawStart = (e: React.TouchEvent) => {
+    if (!drawMode || !imageContainerRef.current) return;
+    const touch = e.touches[0];
+    const rect = imageContainerRef.current.getBoundingClientRect();
+    const x = ((touch.clientX - rect.left) / rect.width) * 100;
+    const y = ((touch.clientY - rect.top) / rect.height) * 100;
+    
+    setIsDrawing(true);
+    setDrawStart({ x, y });
+    setDrawPreview({ x, y, w: 0, h: 0 });
+  };
+
+  const handleTouchDrawMove = (e: React.TouchEvent) => {
+    if (!isDrawing || !drawStart || !imageContainerRef.current) return;
+    const touch = e.touches[0];
+    const rect = imageContainerRef.current.getBoundingClientRect();
+    const currentX = ((touch.clientX - rect.left) / rect.width) * 100;
+    const currentY = ((touch.clientY - rect.top) / rect.height) * 100;
+    
+    const x = Math.min(drawStart.x, currentX);
+    const y = Math.min(drawStart.y, currentY);
+    const w = Math.abs(currentX - drawStart.x);
+    const h = Math.abs(currentY - drawStart.y);
+    
+    const clampedX = Math.max(0, Math.min(x, 100));
+    const clampedY = Math.max(0, Math.min(y, 100));
+    const clampedW = Math.min(w, 100 - clampedX);
+    const clampedH = Math.min(h, 100 - clampedY);
+
+    setDrawPreview({ x: clampedX, y: clampedY, w: clampedW, h: clampedH });
+  };
+
   const handleDrawEnd = async () => {
     if (!isDrawing || !drawPreview || !activePage) {
         setIsDrawing(false);
@@ -439,7 +501,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                       
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                          <div className="lg:col-span-3 bg-white p-4 border rounded-lg h-fit max-h-[70vh] overflow-y-auto">
+                          <div className="lg:col-span-3 bg-white p-4 border rounded-lg h-fit max-h-60 lg:max-h-[70vh] overflow-y-auto">
                               <h3 className="font-bold text-gray-800 border-b pb-2 mb-2">Pages</h3>
                               {ePaperPages.length === 0 && <p className="text-xs text-gray-400 italic">No pages uploaded yet.</p>}
                               {ePaperPages.map(p => (
@@ -477,10 +539,14 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                         <div 
                                             ref={imageContainerRef}
                                             className={`aspect-[2/3] w-full bg-gray-100 relative select-none ${drawMode ? 'cursor-crosshair' : 'cursor-default'}`}
+                                            style={{ touchAction: 'none' }} // Crucial for mobile drawing
                                             onMouseDown={handleDrawStart}
                                             onMouseMove={handleDrawMove}
                                             onMouseUp={handleDrawEnd}
                                             onMouseLeave={handleDrawEnd}
+                                            onTouchStart={handleTouchDrawStart}
+                                            onTouchMove={handleTouchDrawMove}
+                                            onTouchEnd={handleDrawEnd}
                                         >
                                             <EPaperViewer page={activePage} />
                                             
@@ -501,7 +567,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                             )}
                                         </div>
                                         <div className="mt-2 text-[10px] text-gray-400 text-center">
-                                            {drawMode ? 'Click and drag to define a new region.' : 'Enable Draw Mode to add regions freely.'}
+                                            {drawMode ? 'Click/Tap and drag to define a new region.' : 'Enable Draw Mode to add regions freely.'}
                                         </div>
                                     </div>
                                     
@@ -566,6 +632,139 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                              <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase"><tr><th className="px-6 py-4">Title</th><th className="px-6 py-4">Size</th><th className="px-6 py-4">Placement</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
                              <tbody className="divide-y">{advertisements.map(ad => <tr key={ad.id} className="hover:bg-gray-50"><td className="px-6 py-4 flex items-center gap-3"><img src={ad.imageUrl} className="w-16 h-10 object-cover bg-gray-100 rounded"/>{ad.title}</td><td className="px-6 py-4">{ad.size}</td><td className="px-6 py-4">{ad.placement}</td><td className="px-6 py-4">{ad.isActive ? 'Active' : 'Inactive'}</td><td className="px-6 py-4 text-right"><button onClick={() => onDeleteAdvertisement(ad.id)} className="text-red-600"><Trash2 size={16}/></button></td></tr>)}</tbody>
                           </table>
+                      </div>
+                  </div>
+              )}
+               {activeTab === 'settings' && (
+                  <div className="max-w-4xl mx-auto space-y-6">
+                      <div className="flex justify-between items-center mb-6">
+                           <h1 className="font-serif text-3xl font-bold text-gray-900">Settings</h1>
+                           <button onClick={saveWatermarkSettings} className="bg-news-black hover:bg-gray-800 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2 uppercase tracking-wider"><Save size={16} /> Save Changes</button>
+                      </div>
+                      
+                      {/* Watermark Configuration Card */}
+                      <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
+                           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                   <Crop size={24} />
+                               </div>
+                               <div>
+                                   <h3 className="text-lg font-bold text-gray-900">Watermark Configuration</h3>
+                                   <p className="text-sm text-gray-500">Customize the branding applied to clipped E-Paper regions.</p>
+                               </div>
+                           </div>
+                           
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                               <div className="space-y-4">
+                                   <div>
+                                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Website Name / Brand Text</label>
+                                       <div className="relative">
+                                           <Type className="absolute left-3 top-3 text-gray-400" size={16} />
+                                           <input 
+                                                type="text" 
+                                                value={localWatermark.text}
+                                                onChange={(e) => setLocalWatermark({...localWatermark, text: e.target.value})}
+                                                className="w-full pl-10 p-2.5 border border-gray-300 rounded-lg outline-none focus:border-news-black transition-colors text-sm font-medium"
+                                                placeholder="e.g. Digital Newsroom"
+                                           />
+                                       </div>
+                                   </div>
+                                   
+                                   <div>
+                                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Logo Image</label>
+                                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition-colors relative">
+                                            {localWatermark.logoUrl ? (
+                                                <div className="flex items-center justify-between">
+                                                    <img src={localWatermark.logoUrl} className="h-10 object-contain" alt="Logo Preview" />
+                                                    <button onClick={() => setLocalWatermark({...localWatermark, logoUrl: ''})} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16}/></button>
+                                                </div>
+                                            ) : (
+                                                <div className="py-2 text-gray-400">
+                                                    <Upload size={20} className="mx-auto mb-2 opacity-50"/>
+                                                    <span className="text-xs">Upload PNG/JPG</span>
+                                                </div>
+                                            )}
+                                            <input type="file" accept="image/*" onChange={handleWatermarkLogoUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                       </div>
+                                       <div className="flex items-center gap-2 mt-2">
+                                           <input 
+                                                type="checkbox" 
+                                                id="showLogo" 
+                                                checked={localWatermark.showLogo} 
+                                                onChange={(e) => setLocalWatermark({...localWatermark, showLogo: e.target.checked})}
+                                                className="rounded border-gray-300 text-news-black focus:ring-news-black"
+                                           />
+                                           <label htmlFor="showLogo" className="text-sm text-gray-600">Show Logo in Clipping</label>
+                                       </div>
+                                   </div>
+                               </div>
+
+                               <div className="space-y-4">
+                                   <div>
+                                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Colors</label>
+                                       <div className="grid grid-cols-2 gap-4">
+                                           <div>
+                                               <div className="flex items-center gap-2 mb-1">
+                                                   <div className="w-4 h-4 rounded border border-gray-200" style={{backgroundColor: localWatermark.backgroundColor}}></div>
+                                                   <span className="text-xs text-gray-600">Background</span>
+                                               </div>
+                                               <input 
+                                                    type="color" 
+                                                    value={localWatermark.backgroundColor} 
+                                                    onChange={(e) => setLocalWatermark({...localWatermark, backgroundColor: e.target.value})}
+                                                    className="w-full h-8 cursor-pointer rounded overflow-hidden"
+                                               />
+                                           </div>
+                                           <div>
+                                               <div className="flex items-center gap-2 mb-1">
+                                                    <div className="w-4 h-4 rounded border border-gray-200" style={{backgroundColor: localWatermark.textColor}}></div>
+                                                    <span className="text-xs text-gray-600">Text</span>
+                                               </div>
+                                               <input 
+                                                    type="color" 
+                                                    value={localWatermark.textColor} 
+                                                    onChange={(e) => setLocalWatermark({...localWatermark, textColor: e.target.value})}
+                                                    className="w-full h-8 cursor-pointer rounded overflow-hidden"
+                                               />
+                                           </div>
+                                       </div>
+                                   </div>
+                                   
+                                   <div className="pt-2">
+                                       <div className="p-4 bg-gray-100 rounded-lg border border-gray-200">
+                                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Live Preview (Approximate)</p>
+                                           <div className="h-12 w-full flex items-center px-4 justify-between" style={{backgroundColor: localWatermark.backgroundColor}}>
+                                                <div className="flex items-center gap-3">
+                                                    {localWatermark.showLogo && localWatermark.logoUrl && (
+                                                        <img src={localWatermark.logoUrl} className="h-6 object-contain" />
+                                                    )}
+                                                    <span className="font-serif font-bold" style={{color: localWatermark.textColor}}>{localWatermark.text}</span>
+                                                </div>
+                                                <span className="text-xs font-sans text-white/80">Jan 01, 2024</span>
+                                           </div>
+                                       </div>
+                                   </div>
+                               </div>
+                           </div>
+                      </div>
+                      
+                      {/* Global Ads Switch */}
+                      <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                           <div className="flex items-center gap-3">
+                               <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                                   <Megaphone size={24} />
+                               </div>
+                               <div>
+                                   <h3 className="text-lg font-bold text-gray-900">Global Advertisements</h3>
+                                   <p className="text-sm text-gray-500">Toggle all ad units across the platform instantly.</p>
+                               </div>
+                           </div>
+                           <button 
+                                onClick={() => onToggleGlobalAds(!globalAdsEnabled)}
+                                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${globalAdsEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                           >
+                               <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${globalAdsEnabled ? 'translate-x-7' : 'translate-x-1'}`}/>
+                           </button>
                       </div>
                   </div>
               )}

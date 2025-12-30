@@ -70,8 +70,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       {/* --- TOP SECTION: E-PAPER (Left) & SLIDER (Right) --- */}
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* 1. Today's Edition Widget (Desktop: Left 3 cols, Mobile: Hidden/Stacked) */}
-          <div className="hidden lg:block lg:col-span-3">
+          {/* 1. Today's Edition Widget (Desktop: Left 3 cols, Mobile: Order 2 - Below Slider) */}
+          <div className="col-span-1 lg:col-span-3 order-2 lg:order-1">
              {latestPaper ? (
                 <div className="border border-gray-200 bg-white h-full p-4 flex flex-col shadow-sm rounded-lg">
                     <div className="flex justify-between items-center mb-3 border-b border-gray-100 pb-2">
@@ -82,7 +82,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                              {format(new Date(latestPaper.date), 'dd MMM')}
                         </span>
                     </div>
-                     <Link to="/epaper" onNavigate={onNavigate} className="block group relative shadow-md flex-1 overflow-hidden bg-gray-100">
+                     {/* On mobile, give it a fixed aspect ratio so it doesn't collapse. On desktop, fill height. */}
+                     <Link to="/epaper" onNavigate={onNavigate} className="block group relative shadow-md flex-1 overflow-hidden bg-gray-100 aspect-[3/4] lg:aspect-auto">
                         <img 
                             src={latestPaper.imageUrl} 
                             alt="E-Paper Preview" 
@@ -98,7 +99,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                      </div>
                 </div>
             ) : (
-                 <div className="border border-gray-200 bg-white h-full p-4 flex flex-col justify-center items-center text-center shadow-sm rounded-lg text-gray-400">
+                 <div className="border border-gray-200 bg-white h-full min-h-[300px] lg:min-h-0 p-4 flex flex-col justify-center items-center text-center shadow-sm rounded-lg text-gray-400">
                      <div className="bg-gray-100 p-4 rounded-full mb-3">
                          <MapPin size={24} className="opacity-20" />
                      </div>
@@ -107,8 +108,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
             )}
           </div>
 
-          {/* 2. Unified Landscape Slider (Desktop: Right 9 cols, Mobile: Full Width) */}
-          <div className="col-span-1 lg:col-span-9">
+          {/* 2. Unified Landscape Slider (Desktop: Right 9 cols, Mobile: Full Width, Order 1) */}
+          <div className="col-span-1 lg:col-span-9 order-1 lg:order-2">
               {sliderArticles.length > 0 ? (
               <div 
                 className="relative w-full bg-white md:bg-gray-100 group h-full"
