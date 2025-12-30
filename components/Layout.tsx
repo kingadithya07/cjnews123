@@ -194,10 +194,24 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   const dashboardLink = currentRole === UserRole.EDITOR || currentRole === UserRole.ADMIN ? '/editor' : currentRole === UserRole.WRITER ? '/writer' : null;
   const DashboardIcon = currentRole === UserRole.EDITOR || currentRole === UserRole.ADMIN ? Shield : PenTool;
 
+  const BreakingTicker = ({ className = '' }: { className?: string }) => (
+    <div className={`bg-news-black text-white text-xs font-medium flex border-b border-gray-800 h-10 items-center overflow-hidden ${className}`}>
+        <div className="bg-news-gold text-black px-6 h-full font-bold uppercase tracking-widest flex items-center gap-2 shrink-0 z-10">
+            <Flame size={14} className="animate-pulse" /> Breaking
+        </div>
+        <div className="flex-1 whitespace-nowrap overflow-hidden relative flex items-center">
+            <div className="animate-marquee inline-block">
+                <span className="mx-8">Welcome to Digital Newsroom. Bringing you the latest updates from around the globe.</span>
+                <span className="mx-8">Exclusive coverage, in-depth analysis, and real-time reporting.</span>
+            </div>
+        </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-news-paper">
       
-      {/* MOBILE HEADER WRAPPER (Top Strip + Brand + Nav) */}
+      {/* MOBILE HEADER WRAPPER (Top Strip + Brand + Nav + Ticker) */}
       <div className="md:hidden flex flex-col bg-white sticky top-0 z-50 shadow-md">
           {/* Date & Account Strip */}
           <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 bg-gray-50">
@@ -223,13 +237,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
               </button>
           </div>
 
-          {/* Navigation Bar (Moved Here) */}
+          {/* Navigation Bar */}
           <div className="flex justify-around items-center px-2 border-t border-gray-100 bg-white pb-1">
              <MobileNavIcon to="/" label="HOME" icon={Home} />
              <MobileNavIcon to="/epaper" label="PAPER" icon={Newspaper} />
              <MobileNavIcon to="/classifieds" label="ADS" icon={Briefcase} />
              <MobileNavIcon label={userName ? "PROFILE" : "LOGIN"} icon={User} onClick={handleProfileClick} />
           </div>
+
+          {/* Frozen Breaking Ticker (Mobile Only) */}
+          <BreakingTicker />
       </div>
 
       {/* MOBILE PROFILE DRAWER (SHEET) */}
@@ -399,18 +416,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          </div>
       </div>
 
-      {/* BREAKING TICKER */}
-      <div className="bg-news-black text-white text-xs font-medium flex border-b border-gray-800 h-10 items-center overflow-hidden">
-          <div className="bg-news-gold text-black px-6 h-full font-bold uppercase tracking-widest flex items-center gap-2 shrink-0 z-10">
-              <Flame size={14} className="animate-pulse" /> Breaking
-          </div>
-          <div className="flex-1 whitespace-nowrap overflow-hidden relative flex items-center">
-              <div className="animate-marquee inline-block">
-                  <span className="mx-8">Welcome to Digital Newsroom. Bringing you the latest updates from around the globe.</span>
-                  <span className="mx-8">Exclusive coverage, in-depth analysis, and real-time reporting.</span>
-              </div>
-          </div>
-      </div>
+      {/* BREAKING TICKER (Desktop Only) */}
+      <BreakingTicker className="hidden md:flex" />
 
       {/* MAIN CONTENT */}
       <main className="flex-grow container mx-auto px-4 py-8 mb-16 md:mb-0">

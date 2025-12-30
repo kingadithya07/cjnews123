@@ -29,8 +29,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
   // Audit Fix: Reset selected date if available dates change significantly
   useEffect(() => {
     if (!uniqueDates.includes(selectedDate) && uniqueDates.length > 0) {
-        // Don't auto-reset if user manually picked a date (we show empty state instead)
-        // But if no date is selected initially, pick latest.
         if (!selectedDate) setSelectedDate(uniqueDates[0]);
     }
   }, [uniqueDates]);
@@ -39,12 +37,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     return pages.filter(p => p.date === selectedDate).sort((a, b) => a.pageNumber - b.pageNumber);
   }, [pages, selectedDate]);
 
-  // Fix: activePageIndex out of bounds check
   const [activePageIndex, setActivePageIndex] = useState(0);
-
   const activePage = currentEditionPages[activePageIndex];
   
-  // Ensure we stay within bounds when changing editions
   useEffect(() => {
      if (activePageIndex >= currentEditionPages.length && currentEditionPages.length > 0) {
          setActivePageIndex(0);
@@ -55,7 +50,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  // Refs for high-performance gesture handling without re-renders
+  
+  // Refs for high-performance gesture handling
   const contentRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ clientX: number, clientY: number, originX: number, originY: number } | null>(null);
   
@@ -69,6 +65,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
   const [selectedRegion, setSelectedRegion] = useState<EPaperRegion | null>(null);
   const [generatedClipping, setGeneratedClipping] = useState<string | null>(null);
   const [isGeneratingClipping, setIsGeneratingClipping] = useState(false);
+  
+  // Modal Image Zoom State
+  const [clippingScale, setClippingScale] = useState(1);
 
   // Reset view when page changes
   useEffect(() => {
@@ -76,6 +75,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     setPosition({ x: 0, y: 0 });
     setSelectedRegion(null);
     setGeneratedClipping(null);
+    setClippingScale(1);
   }, [activePageIndex, selectedDate]);
 
   // --- Clipping Generator ---
@@ -93,55 +93,45 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     const ctx = canvas.getContext('2d');
     const img = new Image();
     
-    img.crossOrigin = "Anonymous"; // Essential for external images (CORS)
+    img.crossOrigin = "Anonymous";
     img.src = srcUrl;
 
     img.onload = () => {
         if (!ctx) return;
 
-        // 1. Calculate Crop Coordinates based on Natural Image Size
         const sX = Math.floor((region.x / 100) * img.naturalWidth);
         const sY = Math.floor((region.y / 100) * img.naturalHeight);
         const sW = Math.floor((region.width / 100) * img.naturalWidth);
         const sH = Math.floor((region.height / 100) * img.naturalHeight);
 
-        // 2. Define Footer Dimensions (Watermark Strip)
         const footerHeight = Math.max(60, Math.floor(sH * 0.15)); 
         
-        // 3. Set Canvas Size (Crop Size + Footer)
         canvas.width = sW;
         canvas.height = sH + footerHeight;
 
-        // 4. Draw The Cropped Image
         ctx.drawImage(img, sX, sY, sW, sH, 0, 0, sW, sH);
 
-        // 5. Draw The Footer Background using settings or default
         ctx.fillStyle = watermarkSettings?.backgroundColor || '#1a1a1a'; 
         ctx.fillRect(0, sH, sW, footerHeight);
 
-        // 6. Draw Content (Website Name & Date)
         const centerY = sH + (footerHeight / 2);
-        const padding = Math.floor(sW * 0.05); // 5% padding
+        const padding = Math.floor(sW * 0.05);
         
-        // Font sizing based on image width to remain proportional
         const nameFontSize = Math.max(16, Math.floor(sW * 0.05)); 
         const dateFontSize = Math.max(12, Math.floor(sW * 0.035));
 
-        // Draw Logic Helpers
         let textStartX = padding;
 
-        // B. Website Name
         ctx.font = `bold ${nameFontSize}px "Merriweather", serif`;
-        ctx.fillStyle = watermarkSettings?.textColor || '#bfa17b'; // News Gold default
+        ctx.fillStyle = watermarkSettings?.textColor || '#bfa17b';
         ctx.textBaseline = 'middle';
         ctx.textAlign = 'left';
         
         const brandText = watermarkSettings?.text || APP_NAME;
         ctx.fillText(brandText, textStartX, centerY);
 
-        // C. Date (Right, White/Contrast)
         ctx.font = `normal ${dateFontSize}px "Inter", sans-serif`;
-        ctx.fillStyle = '#ffffff'; // Keep date white for contrast usually, or derive
+        ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'right';
         
         try {
@@ -151,7 +141,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
             ctx.fillText(dateStr, sW - padding, centerY);
         }
 
-        // If logo exists, try to draw it.
         if (watermarkSettings?.showLogo && watermarkSettings.logoUrl) {
              const logo = new Image();
              logo.crossOrigin = "Anonymous";
@@ -160,18 +149,15 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                  const logoH = Math.floor(footerHeight * 0.8);
                  const logoW = Math.floor(logo.naturalWidth * (logoH / logo.naturalHeight));
                  const logoY = Math.floor(sH + (footerHeight - logoH) / 2);
-                 // Draw logo before text
                  ctx.drawImage(logo, padding, logoY, logoW, logoH);
-                 // Redraw text shifted
                  ctx.fillStyle = watermarkSettings?.backgroundColor || '#1a1a1a';
-                 ctx.fillRect(padding, sH, Math.floor(sW/2), footerHeight); // Clear left side
+                 ctx.fillRect(padding, sH, Math.floor(sW/2), footerHeight);
                  ctx.fillStyle = watermarkSettings?.textColor || '#bfa17b';
                  ctx.textAlign = 'left';
                  ctx.fillText(brandText, padding + logoW + 15, centerY);
-                 
                  finalize();
              };
-             logo.onerror = () => finalize(); // Proceed without logo on error
+             logo.onerror = () => finalize();
         } else {
             finalize();
         }
@@ -223,12 +209,10 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
         if (navigator.canShare && navigator.canShare(shareData)) {
             await navigator.share(shareData);
         } else {
-            // Fallback
             downloadClipping();
         }
     } catch (err) {
         console.error("Sharing failed", err);
-        // Fallback to download if sharing fails
         downloadClipping();
     }
   };
@@ -265,7 +249,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
       const newX = dragStartRef.current.originX + deltaX;
       const newY = dragStartRef.current.originY + deltaY;
 
-      // Direct DOM update
       contentRef.current.style.transform = `translate(${newX}px, ${newY}px) scale(${scale})`;
       contentRef.current.style.transition = 'none';
     }
@@ -273,7 +256,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
 
   const handleMouseUp = (e: React.MouseEvent) => {
     if (isDragging && dragStartRef.current) {
-        // Sync final position to state
         const deltaX = e.clientX - dragStartRef.current.clientX;
         const deltaY = e.clientY - dragStartRef.current.clientY;
         setPosition({
@@ -300,14 +282,12 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
 
   const handleTouchMove = (e: React.TouchEvent) => {
      if (isDragging && scale > 1 && e.touches.length === 1 && dragStartRef.current && contentRef.current) {
-        // Prevent browser scrolling? Handled by touch-action: none on container
         const deltaX = e.touches[0].clientX - dragStartRef.current.clientX;
         const deltaY = e.touches[0].clientY - dragStartRef.current.clientY;
         
         const newX = dragStartRef.current.originX + deltaX;
         const newY = dragStartRef.current.originY + deltaY;
 
-        // Apply transform directly to avoid Re-renders on every frame
         contentRef.current.style.transform = `translate(${newX}px, ${newY}px) scale(${scale})`;
         contentRef.current.style.transition = 'none';
      }
@@ -315,12 +295,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
 
   const handleTouchEnd = (e: React.TouchEvent) => {
       if (isDragging && dragStartRef.current) {
-          // Since it's touchend, touches list might be empty, use changedTouches or just nothing?
-          // We can't get clientX from e.touches[0] easily if lifted.
-          // However, we need to sync state.
-          // Simplest way: parse the current transform from the DOM element or track last known pos.
-          // Let's assume the last Move event was close enough.
-          // Actually, precise way:
           const touch = e.changedTouches[0];
           if (touch) {
               const deltaX = touch.clientX - dragStartRef.current.clientX;
@@ -335,10 +309,10 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
       dragStartRef.current = null;
   };
 
-  // Handle region click - UPDATED: Open modal regardless of linking
   const handleRegionClick = (region: EPaperRegion) => {
     if (!isDragging) {
        setSelectedRegion(region);
+       setClippingScale(1); // Reset modal zoom
     }
   };
 
@@ -346,7 +320,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     let targetIndex = -1;
     let newDate = selectedDate;
 
-    // If currently selected date is in our uniqueDates list
     if (uniqueDates.includes(selectedDate)) {
         const idx = uniqueDates.indexOf(selectedDate);
         if (direction === 'prev') {
@@ -420,17 +393,16 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     }
   };
 
-  // Get linked article data (if any)
   const selectedArticle = selectedRegion && selectedRegion.linkedArticleId ? articles.find(a => a.id === selectedRegion.linkedArticleId) : null;
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] bg-gray-900 text-white overflow-hidden relative">
       
       {/* Top Toolbar */}
-      <div className="flex items-center justify-between px-2 md:px-4 py-3 bg-news-black border-b border-gray-800 shadow-md z-20">
+      <div className="flex items-center justify-between px-2 md:px-4 py-3 bg-news-black border-b border-gray-800 shadow-md z-20 gap-2">
          
          {/* Left: Sidebar Toggle & Navigation */}
-         <div className="flex items-center justify-start gap-2 md:gap-4 w-1/4 md:w-1/3">
+         <div className="flex items-center justify-start gap-2 w-auto md:min-w-[150px]">
             <button 
                 onClick={() => onNavigate('/')}
                 className="p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded flex items-center gap-1"
@@ -454,21 +426,21 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
          </div>
 
          {/* Center: Date Navigation */}
-         <div className="flex items-center justify-center w-1/2 md:w-1/3">
-            <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700 shadow-sm relative group hover:border-gray-600 transition-colors">
+         <div className="flex items-center justify-center flex-1">
+            <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700 shadow-sm relative group hover:border-gray-600 transition-colors w-auto max-w-full">
                 <button 
                   onClick={() => handleDateChange('prev')} 
                   disabled={uniqueDates.indexOf(selectedDate) === uniqueDates.length - 1 && uniqueDates.includes(selectedDate)}
-                  className="p-1.5 hover:bg-gray-700 rounded-full disabled:opacity-30 transition-colors text-gray-300 hover:text-white"
+                  className="p-1.5 hover:bg-gray-700 rounded-full disabled:opacity-30 transition-colors text-gray-300 hover:text-white shrink-0"
                   title="Previous Edition"
                 >
                     <ChevronLeft size={18} />
                 </button>
                 
-                <div className="relative mx-1 md:mx-2 cursor-pointer flex items-center justify-center px-2 py-1">
-                    <div className="flex items-center space-x-2 text-[10px] md:text-xs font-bold text-white pointer-events-none group-hover:text-news-gold transition-colors whitespace-nowrap">
-                        <Calendar size={14} className="text-news-accent mb-0.5"/>
-                        <span className="tracking-wide">
+                <div className="relative mx-1 md:mx-2 cursor-pointer flex items-center justify-center px-2 py-1 overflow-hidden">
+                    <div className="flex items-center space-x-2 text-[10px] md:text-xs font-bold text-white pointer-events-none group-hover:text-news-gold transition-colors whitespace-nowrap overflow-hidden text-ellipsis">
+                        <Calendar size={14} className="text-news-accent mb-0.5 shrink-0"/>
+                        <span className="tracking-wide truncate">
                             {isValid(parseISO(selectedDate)) ? format(parseISO(selectedDate), 'MMM dd, yyyy') : selectedDate}
                         </span>
                     </div>
@@ -485,7 +457,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                 <button 
                   onClick={() => handleDateChange('next')}
                   disabled={uniqueDates.indexOf(selectedDate) === 0 && uniqueDates.includes(selectedDate)}
-                  className="p-1.5 hover:bg-gray-700 rounded-full disabled:opacity-30 transition-colors text-gray-300 hover:text-white"
+                  className="p-1.5 hover:bg-gray-700 rounded-full disabled:opacity-30 transition-colors text-gray-300 hover:text-white shrink-0"
                   title="Next Edition"
                 >
                     <ChevronRight size={18} />
@@ -494,7 +466,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
          </div>
 
          {/* Right: Zoom & Tools */}
-         <div className="flex items-center justify-end gap-2 w-1/4 md:w-1/3">
+         <div className="flex items-center justify-end gap-2 w-auto md:min-w-[150px]">
              <div className="hidden md:flex items-center bg-gray-800 rounded-md p-1 mr-2">
                 <button onClick={handleZoomOut} disabled={scale <= 1} className="p-1.5 hover:bg-gray-700 rounded disabled:opacity-30">
                     <ZoomOut size={16} />
@@ -577,7 +549,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
          <div 
             ref={viewerRef}
             className={`flex-1 bg-[#1e1e1e] overflow-hidden relative touch-none cursor-${scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'}`}
-            style={{ touchAction: 'none' }} // Prevent scrolling while interacting
+            style={{ touchAction: scale > 1 ? 'none' : 'pan-y' }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -590,7 +562,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                  <>
                     {/* Vertical Slider Control */}
                     {scale > 1 && (
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 h-64 z-40 hidden md:flex items-center bg-black/40 rounded-full py-2 backdrop-blur-sm">
+                        <div className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 h-48 md:h-64 z-40 flex items-center justify-center bg-black/40 rounded-full py-4 backdrop-blur-sm shadow-lg border border-white/10">
                             <input
                                 type="range"
                                 min="-1000"
@@ -598,8 +570,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                                 step="10"
                                 value={position.y}
                                 onChange={handleVerticalScroll}
-                                className="h-full w-1.5 bg-gray-400 rounded-lg appearance-none cursor-pointer hover:bg-white transition-colors"
-                                style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+                                className="h-full w-2 md:w-1.5 bg-gray-400/50 rounded-lg appearance-none cursor-pointer hover:bg-white transition-colors accent-news-accent"
+                                style={{ writingMode: 'vertical-lr', direction: 'rtl', WebkitAppearance: 'slider-vertical' }}
                                 title="Scroll Image Vertically"
                             />
                         </div>
@@ -652,6 +624,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                                 transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
                                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                                 transformOrigin: 'center',
+                                willChange: 'transform' // Improve scrolling performance
                             }}
                             className="origin-center"
                         >
@@ -696,90 +669,82 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
       {/* CLIPPING MODAL */}
       {selectedRegion && (
         <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white text-news-black rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row max-h-[85vh]">
-            
-            {/* Left: The Generated Clipping */}
-            <div className="w-full md:w-1/2 bg-gray-100 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-200 relative min-h-[350px] md:min-h-auto">
-               <div className="absolute top-4 left-4 bg-white/80 backdrop-blur px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1 border border-gray-200 z-10">
-                   <Scissors size={12} /> Auto-Clipped
-               </div>
-               
-               <div className="shadow-lg max-h-full max-w-full overflow-auto custom-scrollbar border-4 border-white flex justify-center items-center w-full h-full">
-                  {isGeneratingClipping ? (
-                      <div className="h-48 w-full flex flex-col items-center justify-center text-gray-400">
-                          <Loader2 size={32} className="animate-spin mb-2" />
-                          <span className="text-xs font-bold uppercase">Generating Watermark...</span>
-                      </div>
-                  ) : generatedClipping ? (
-                      <img src={generatedClipping} alt="Clipped Article" className="max-w-full max-h-[40vh] md:max-h-[60vh] object-contain block" />
-                  ) : (
-                      <div className="h-48 w-full flex items-center justify-center text-red-400 text-xs">Failed to generate image</div>
-                  )}
-               </div>
-               
-               <p className="mt-4 text-[10px] text-gray-400 text-center max-w-xs">
-                   This image has been automatically cropped and watermarked with {watermarkSettings?.text || APP_NAME} branding.
-               </p>
-            </div>
-
-            {/* Right: Actions & Info */}
-            <div className="w-full md:w-1/2 flex flex-col h-[40vh] md:h-auto">
-                <div className="flex justify-between items-start p-6 border-b border-gray-100">
-                   <div>
-                       <span className={`inline-block text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-widest rounded-sm mb-2 ${selectedArticle ? 'bg-news-accent' : 'bg-gray-400'}`}>
-                          {selectedArticle ? selectedArticle.category : 'E-Paper Clipping'}
-                       </span>
-                       <h2 className="text-xl md:text-2xl font-serif font-bold leading-tight text-gray-900">
-                           {selectedArticle ? selectedArticle.title : 'Clipping Selection'}
-                       </h2>
-                   </div>
-                   <button onClick={() => setSelectedRegion(null)} className="text-gray-400 hover:text-black transition-colors">
-                     <X size={24} />
-                   </button>
+          
+          {selectedArticle ? (
+            /* WITH ARTICLE: Standard Split View */
+            <div className="bg-white text-news-black rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row max-h-[85vh]">
+                
+                {/* Left: The Generated Clipping */}
+                <div className="w-full md:w-1/2 bg-gray-100 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-200 relative min-h-[350px] md:min-h-auto">
+                <div className="absolute top-4 left-4 bg-white/80 backdrop-blur px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1 border border-gray-200 z-10">
+                    <Scissors size={12} /> Auto-Clipped
                 </div>
-
-                <div className="p-6 flex-1 overflow-y-auto">
-                    {selectedArticle ? (
-                        <>
-                            <p className="font-serif text-gray-600 leading-relaxed text-sm mb-4">
-                            {selectedArticle.content.replace(/<[^>]*>/g, '').substring(0, 200)}...
-                            </p>
-                            <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                <span>By {selectedArticle.author}</span>
-                                <span>•</span>
-                                <span>{new Date(selectedArticle.publishedAt).toLocaleDateString()}</span>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 space-y-3">
-                            <Crop size={48} className="opacity-20" />
-                            <p className="text-sm">No digital article is linked to this region.</p>
-                            <p className="text-xs">You can still download or share the clipped image.</p>
+                
+                <div className="shadow-lg max-h-full max-w-full overflow-auto custom-scrollbar border-4 border-white flex justify-center items-center w-full h-full">
+                    {isGeneratingClipping ? (
+                        <div className="h-48 w-full flex flex-col items-center justify-center text-gray-400">
+                            <Loader2 size={32} className="animate-spin mb-2" />
+                            <span className="text-xs font-bold uppercase">Generating Watermark...</span>
                         </div>
+                    ) : generatedClipping ? (
+                        <img src={generatedClipping} alt="Clipped Article" className="max-w-full max-h-[40vh] md:max-h-[60vh] object-contain block" />
+                    ) : (
+                        <div className="h-48 w-full flex items-center justify-center text-red-400 text-xs">Failed to generate image</div>
                     )}
                 </div>
+                
+                <p className="mt-4 text-[10px] text-gray-400 text-center max-w-xs">
+                    This image has been automatically cropped and watermarked with {watermarkSettings?.text || APP_NAME} branding.
+                </p>
+                </div>
 
-                <div className="p-6 bg-gray-50 border-t border-gray-100 space-y-3">
-                    <div className={`grid gap-3 ${selectedArticle ? 'grid-cols-2' : 'grid-cols-2'}`}>
-                         <button 
-                            onClick={downloadClipping}
-                            disabled={!generatedClipping}
-                            className="flex flex-col items-center justify-center p-3 bg-white border border-gray-300 rounded hover:bg-gray-100 hover:border-gray-400 transition-all group disabled:opacity-50"
-                         >
-                            <Download size={20} className="mb-1 text-news-black group-hover:scale-110 transition-transform"/>
-                            <span className="text-xs font-bold uppercase tracking-wide text-gray-700">Save Clipping</span>
-                         </button>
-                         
-                         <button 
-                            onClick={handleShareClip}
-                            disabled={!generatedClipping}
-                            className="flex flex-col items-center justify-center p-3 bg-white border border-gray-300 rounded hover:bg-gray-100 hover:border-gray-400 transition-all group disabled:opacity-50"
-                         >
-                            <Share2 size={20} className="mb-1 text-blue-600 group-hover:scale-110 transition-transform"/>
-                            <span className="text-xs font-bold uppercase tracking-wide text-gray-700">Share Clip</span>
-                         </button>
+                {/* Right: Actions & Info */}
+                <div className="w-full md:w-1/2 flex flex-col h-[40vh] md:h-auto">
+                    <div className="flex justify-between items-start p-6 border-b border-gray-100">
+                    <div>
+                        <span className={`inline-block text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-widest rounded-sm mb-2 ${selectedArticle ? 'bg-news-accent' : 'bg-gray-400'}`}>
+                            {selectedArticle.category}
+                        </span>
+                        <h2 className="text-xl md:text-2xl font-serif font-bold leading-tight text-gray-900">
+                            {selectedArticle.title}
+                        </h2>
+                    </div>
+                    <button onClick={() => setSelectedRegion(null)} className="text-gray-400 hover:text-black transition-colors">
+                        <X size={24} />
+                    </button>
+                    </div>
 
-                         {selectedArticle && (
+                    <div className="p-6 flex-1 overflow-y-auto">
+                        <p className="font-serif text-gray-600 leading-relaxed text-sm mb-4">
+                        {selectedArticle.content.replace(/<[^>]*>/g, '').substring(0, 200)}...
+                        </p>
+                        <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <span>By {selectedArticle.author}</span>
+                            <span>•</span>
+                            <span>{new Date(selectedArticle.publishedAt).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+
+                    <div className="p-6 bg-gray-50 border-t border-gray-100 space-y-3">
+                        <div className="grid gap-3 grid-cols-2">
+                            <button 
+                                onClick={downloadClipping}
+                                disabled={!generatedClipping}
+                                className="flex flex-col items-center justify-center p-3 bg-white border border-gray-300 rounded hover:bg-gray-100 hover:border-gray-400 transition-all group disabled:opacity-50"
+                            >
+                                <Download size={20} className="mb-1 text-news-black group-hover:scale-110 transition-transform"/>
+                                <span className="text-xs font-bold uppercase tracking-wide text-gray-700">Save Clipping</span>
+                            </button>
+                            
+                            <button 
+                                onClick={handleShareClip}
+                                disabled={!generatedClipping}
+                                className="flex flex-col items-center justify-center p-3 bg-white border border-gray-300 rounded hover:bg-gray-100 hover:border-gray-400 transition-all group disabled:opacity-50"
+                            >
+                                <Share2 size={20} className="mb-1 text-blue-600 group-hover:scale-110 transition-transform"/>
+                                <span className="text-xs font-bold uppercase tracking-wide text-gray-700">Share Clip</span>
+                            </button>
+
                             <button 
                                 onClick={() => onNavigate(`/article/${selectedArticle.id}`)}
                                 className="col-span-2 flex flex-col items-center justify-center p-3 bg-news-black text-white rounded hover:bg-gray-800 transition-all group shadow-lg shadow-gray-300"
@@ -787,12 +752,65 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                                 <ArrowRight size={20} className="mb-1 group-hover:translate-x-1 transition-transform"/>
                                 <span className="text-xs font-bold uppercase tracking-wide">Read Full Article</span>
                             </button>
-                         )}
+                        </div>
                     </div>
                 </div>
             </div>
+          ) : (
+            /* NO ARTICLE: Full Screen Image View */
+            <div className="relative w-full h-full flex flex-col items-center justify-center">
+                {/* Close Button Top Right */}
+                <button 
+                  onClick={() => setSelectedRegion(null)}
+                  className="absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-red-600 text-white rounded-full backdrop-blur-sm transition-colors"
+                >
+                    <X size={24} />
+                </button>
 
-          </div>
+                {/* Image Area */}
+                <div className="flex-1 w-full h-full flex items-center justify-center overflow-hidden relative p-4"
+                     onWheel={(e) => {
+                         setClippingScale(s => Math.max(0.5, Math.min(4, s + e.deltaY * -0.001)));
+                     }}
+                >
+                    {isGeneratingClipping ? (
+                        <div className="text-white flex flex-col items-center">
+                            <Loader2 size={48} className="animate-spin mb-4"/>
+                            <p>Generating High-Res Clip...</p>
+                        </div>
+                    ) : generatedClipping ? (
+                        <img 
+                          src={generatedClipping} 
+                          style={{ transform: `scale(${clippingScale})`, transition: 'transform 0.1s ease-out' }}
+                          className="max-w-full max-h-full object-contain shadow-2xl cursor-grab active:cursor-grabbing"
+                          alt="Clipped Content"
+                        />
+                    ) : (
+                        <div className="text-red-400">Failed to load image</div>
+                    )}
+                </div>
+
+                {/* Bottom Controls Bar */}
+                <div className="absolute bottom-8 bg-black/80 backdrop-blur text-white px-6 py-3 rounded-full flex items-center gap-6 shadow-2xl border border-white/10 z-50">
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setClippingScale(s => Math.max(0.5, s - 0.5))} className="p-2 hover:bg-white/20 rounded-full"><ZoomOut size={20}/></button>
+                        <span className="w-12 text-center font-mono text-sm">{Math.round(clippingScale * 100)}%</span>
+                        <button onClick={() => setClippingScale(s => Math.min(4, s + 0.5))} className="p-2 hover:bg-white/20 rounded-full"><ZoomIn size={20}/></button>
+                    </div>
+                    <div className="w-px h-8 bg-white/20"></div>
+                    <div className="flex items-center gap-2">
+                         <button onClick={downloadClipping} disabled={!generatedClipping} className="flex flex-col items-center gap-1 p-2 hover:bg-white/20 rounded-lg group disabled:opacity-50">
+                             <Download size={20} className="group-hover:-translate-y-1 transition-transform"/>
+                             <span className="text-[10px] font-bold uppercase">Save</span>
+                         </button>
+                         <button onClick={handleShareClip} disabled={!generatedClipping} className="flex flex-col items-center gap-1 p-2 hover:bg-white/20 rounded-lg group disabled:opacity-50">
+                             <Share2 size={20} className="group-hover:-translate-y-1 transition-transform"/>
+                             <span className="text-[10px] font-bold uppercase">Share</span>
+                         </button>
+                    </div>
+                </div>
+            </div>
+          )}
         </div>
       )}
     </div>
