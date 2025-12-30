@@ -139,7 +139,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
 
   const isActive = (path: string) => currentPath === path;
   const isDashboard = currentPath.startsWith('/editor') || currentPath.startsWith('/writer');
-  const isEPaperReader = currentPath.startsWith('/epaper');
 
   if (isDashboard) {
       return <div className="min-h-screen bg-gray-50">{children}</div>;
@@ -195,24 +194,10 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   const dashboardLink = currentRole === UserRole.EDITOR || currentRole === UserRole.ADMIN ? '/editor' : currentRole === UserRole.WRITER ? '/writer' : null;
   const DashboardIcon = currentRole === UserRole.EDITOR || currentRole === UserRole.ADMIN ? Shield : PenTool;
 
-  const BreakingTicker = ({ className = '' }: { className?: string }) => (
-    <div className={`bg-news-black text-white text-xs font-medium flex border-b border-gray-800 h-10 items-center overflow-hidden ${className}`}>
-        <div className="bg-news-gold text-black px-6 h-full font-bold uppercase tracking-widest flex items-center gap-2 shrink-0 z-10">
-            <Flame size={14} className="animate-pulse" /> Breaking
-        </div>
-        <div className="flex-1 whitespace-nowrap overflow-hidden relative flex items-center">
-            <div className="animate-marquee inline-block">
-                <span className="mx-8">Welcome to Digital Newsroom. Bringing you the latest updates from around the globe.</span>
-                <span className="mx-8">Exclusive coverage, in-depth analysis, and real-time reporting.</span>
-            </div>
-        </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen flex flex-col bg-news-paper">
       
-      {/* MOBILE HEADER WRAPPER (Top Strip + Brand + Nav + Ticker) */}
+      {/* MOBILE HEADER WRAPPER (Top Strip + Brand + Nav) */}
       <div className="md:hidden flex flex-col bg-white sticky top-0 z-50 shadow-md">
           {/* Date & Account Strip */}
           <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 bg-gray-50">
@@ -238,16 +223,13 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
               </button>
           </div>
 
-          {/* Navigation Bar */}
+          {/* Navigation Bar (Moved Here) */}
           <div className="flex justify-around items-center px-2 border-t border-gray-100 bg-white pb-1">
              <MobileNavIcon to="/" label="HOME" icon={Home} />
              <MobileNavIcon to="/epaper" label="PAPER" icon={Newspaper} />
              <MobileNavIcon to="/classifieds" label="ADS" icon={Briefcase} />
              <MobileNavIcon label={userName ? "PROFILE" : "LOGIN"} icon={User} onClick={handleProfileClick} />
           </div>
-
-          {/* Frozen Breaking Ticker (Mobile Only) */}
-          <BreakingTicker />
       </div>
 
       {/* MOBILE PROFILE DRAWER (SHEET) */}
@@ -417,51 +399,58 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          </div>
       </div>
 
-      {/* BREAKING TICKER (Desktop Only) */}
-      <BreakingTicker className="hidden md:flex" />
+      {/* BREAKING TICKER */}
+      <div className="bg-news-black text-white text-xs font-medium flex border-b border-gray-800 h-10 items-center overflow-hidden">
+          <div className="bg-news-gold text-black px-6 h-full font-bold uppercase tracking-widest flex items-center gap-2 shrink-0 z-10">
+              <Flame size={14} className="animate-pulse" /> Breaking
+          </div>
+          <div className="flex-1 whitespace-nowrap overflow-hidden relative flex items-center">
+              <div className="animate-marquee inline-block">
+                  <span className="mx-8">Welcome to Digital Newsroom. Bringing you the latest updates from around the globe.</span>
+                  <span className="mx-8">Exclusive coverage, in-depth analysis, and real-time reporting.</span>
+              </div>
+          </div>
+      </div>
 
       {/* MAIN CONTENT */}
-      {/* If EPaper, we want full width/height without container constraints */}
-      <main className={`flex-grow ${isEPaperReader ? 'bg-gray-900 w-full' : 'container mx-auto px-4 py-8 mb-16 md:mb-0'}`}>
+      <main className="flex-grow container mx-auto px-4 py-8 mb-16 md:mb-0">
         {children}
       </main>
 
-      {/* FOOTER - Hidden on E-Paper Reader Route */}
-      {!isEPaperReader && (
-        <footer className="bg-news-black text-gray-400 py-16 border-t-4 border-news-gold hidden md:block">
-          <div className="max-w-7xl mx-auto px-4">
-             <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-                <div>
-                    <h2 className="font-serif text-2xl font-bold text-white mb-4">DIGITAL <span className="text-news-gold">NEWSROOM</span></h2>
-                    <p className="text-sm leading-relaxed text-gray-500">The premier destination for in-depth journalism, real-time reporting, and global perspectives.</p>
-                </div>
-                <div>
-                   <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Explore</h4>
-                   <ul className="space-y-3 text-sm">
-                      <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">World News</Link></li>
-                      <li><Link to="/epaper" onNavigate={onNavigate} className="hover:text-news-gold">E-Paper Edition</Link></li>
-                      <li><Link to="/classifieds" onNavigate={onNavigate} className="hover:text-news-gold">Classifieds</Link></li>
-                   </ul>
-                </div>
-                <div>
-                   <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Support</h4>
-                   <ul className="space-y-3 text-sm">
-                      <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">Help Center</Link></li>
-                      <li><Link to="/staff/login" onNavigate={onNavigate} className="hover:text-news-gold">Staff Portal</Link></li>
-                   </ul>
-                </div>
-                <div>
-                   <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Subscribe</h4>
-                   <div className="flex mt-4">
-                      <input type="email" placeholder="Email" className="bg-gray-800 text-white px-4 py-3 w-full text-xs focus:outline-none" />
-                      <button className="bg-news-gold text-black px-4 py-3 text-xs font-bold uppercase">Join</button>
-                   </div>
-                </div>
-             </div>
-             <p className="text-center text-[10px] tracking-widest uppercase text-gray-700 mt-12">© {new Date().getFullYear()} Digital Newsroom Publishing Group. All rights reserved.</p>
-          </div>
-        </footer>
-      )}
+      {/* FOOTER */}
+      <footer className="bg-news-black text-gray-400 py-16 border-t-4 border-news-gold hidden md:block">
+        <div className="max-w-7xl mx-auto px-4">
+           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+              <div>
+                  <h2 className="font-serif text-2xl font-bold text-white mb-4">DIGITAL <span className="text-news-gold">NEWSROOM</span></h2>
+                  <p className="text-sm leading-relaxed text-gray-500">The premier destination for in-depth journalism, real-time reporting, and global perspectives.</p>
+              </div>
+              <div>
+                 <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Explore</h4>
+                 <ul className="space-y-3 text-sm">
+                    <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">World News</Link></li>
+                    <li><Link to="/epaper" onNavigate={onNavigate} className="hover:text-news-gold">E-Paper Edition</Link></li>
+                    <li><Link to="/classifieds" onNavigate={onNavigate} className="hover:text-news-gold">Classifieds</Link></li>
+                 </ul>
+              </div>
+              <div>
+                 <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Support</h4>
+                 <ul className="space-y-3 text-sm">
+                    <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">Help Center</Link></li>
+                    <li><Link to="/staff/login" onNavigate={onNavigate} className="hover:text-news-gold">Staff Portal</Link></li>
+                 </ul>
+              </div>
+              <div>
+                 <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Subscribe</h4>
+                 <div className="flex mt-4">
+                    <input type="email" placeholder="Email" className="bg-gray-800 text-white px-4 py-3 w-full text-xs focus:outline-none" />
+                    <button className="bg-news-gold text-black px-4 py-3 text-xs font-bold uppercase">Join</button>
+                 </div>
+              </div>
+           </div>
+           <p className="text-center text-[10px] tracking-widest uppercase text-gray-700 mt-12">© {new Date().getFullYear()} Digital Newsroom Publishing Group. All rights reserved.</p>
+        </div>
+      </footer>
 
       {/* WEATHER MODAL */}
       {isWeatherModalOpen && (
