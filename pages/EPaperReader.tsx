@@ -4,7 +4,7 @@ import { EPaperPage, EPaperRegion, Article, WatermarkSettings } from '../types';
 import EPaperViewer from '../components/EPaperViewer';
 import { 
   ChevronLeft, ChevronRight, Calendar, ZoomIn, ZoomOut, 
-  Maximize, Minimize, RotateCcw, MousePointer2, X, ArrowRight, Menu, Grid, Scissors, Download, Loader2, Share2, Crop
+  Maximize, Minimize, RotateCcw, MousePointer2, X, ArrowRight, Menu, Grid, Scissors, Download, Loader2, Share2, Crop, ArrowLeft
 } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { format } from 'date-fns';
@@ -344,6 +344,14 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
          {/* Left: Sidebar Toggle & Date Nav */}
          <div className="flex items-center space-x-2 md:space-x-4">
             <button 
+                onClick={() => onNavigate('/')}
+                className="p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded flex items-center gap-1"
+                title="Back to Home"
+            >
+                <ArrowLeft size={20} /> <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">Home</span>
+            </button>
+            
+            <button 
                 onClick={() => setShowMobileSidebar(!showMobileSidebar)}
                 className="md:hidden p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded"
             >
@@ -478,9 +486,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                         transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                         width: 'auto',
                         height: '100%',
-                        aspectRatio: '2/3',
+                        // removed forced aspect ratio
                     }}
-                    className="origin-center shadow-2xl"
+                    className="origin-center shadow-2xl flex items-center justify-center"
                 >
                     <EPaperViewer page={activePage} onRegionClick={handleRegionClick} onNavigate={onNavigate} />
                 </div>

@@ -427,6 +427,14 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         onSelectImage={handleSelectFromGallery}
     />
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+      {/* Mobile Sidebar Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
           <div className="flex justify-between items-center p-6 border-b border-gray-800">
               <h1 className="font-serif text-2xl font-bold text-white">Admin</h1>
@@ -449,7 +457,24 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col md:ml-72 h-full overflow-hidden bg-[#f8f9fa]">
-          <div className="p-4 md:p-8 overflow-y-auto">
+           {/* Mobile Header */}
+           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex items-center justify-between shrink-0 sticky top-0 z-30">
+              <div className="flex items-center gap-3">
+                  <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-md">
+                      <Menu size={24} />
+                  </button>
+                  <h1 className="font-serif text-xl font-bold text-gray-900">
+                    {activeTab === 'articles' ? 'Articles' : 
+                     activeTab === 'epaper' ? 'E-Paper' : 
+                     activeTab === 'classifieds' ? 'Classifieds' : 
+                     activeTab === 'ads' ? 'Ads' : 
+                     activeTab === 'analytics' ? 'Analytics' : 
+                     activeTab === 'settings' ? 'Settings' : 'Dashboard'}
+                  </h1>
+              </div>
+           </div>
+
+          <div className="p-4 md:p-8 overflow-y-auto flex-1">
               {activeTab === 'articles' && (
                   <div className="max-w-6xl mx-auto">
                       <div className="flex justify-between items-center mb-6">

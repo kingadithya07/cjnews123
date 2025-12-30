@@ -70,41 +70,30 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       {/* --- TOP SECTION: E-PAPER (Left) & SLIDER (Right) --- */}
       <div className="max-w-7xl mx-auto grid grid-cols-12 gap-3 md:gap-6">
           
-          {/* 1. Today's Edition Widget (Left Side) */}
-          <div className="col-span-4 lg:col-span-3 order-1 h-full">
+          {/* 1. Today's Edition Widget (Left Side) - FULL VISIBILITY */}
+          <div className="col-span-4 lg:col-span-3 order-1 h-full min-h-[160px]">
              {latestPaper ? (
-                <div className="border border-gray-200 bg-white h-full p-2 md:p-4 flex flex-col shadow-sm rounded-lg relative overflow-hidden group">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-1 md:mb-3 border-b border-gray-100 pb-1 md:pb-2">
-                        <h3 className="font-bold text-gray-900 text-[9px] md:text-xs uppercase tracking-widest flex items-center gap-1 md:gap-2 leading-tight">
-                            <MapPin size={10} className="text-news-accent shrink-0"/> 
-                            <span className="hidden md:inline">Today's Paper</span>
-                            <span className="md:hidden">E-Paper</span>
-                        </h3>
-                        <span className="text-[8px] md:text-[10px] font-bold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded mt-0.5 md:mt-0">
-                             {format(new Date(latestPaper.date), 'dd MMM')}
-                        </span>
-                    </div>
-                     {/* Card Body */}
-                     <Link to="/epaper" onNavigate={onNavigate} className="block relative shadow-inner flex-1 overflow-hidden bg-gray-100 rounded-sm">
-                        <div className="aspect-[3/4] relative overflow-hidden">
-                            <img 
-                                src={latestPaper.imageUrl} 
-                                alt="E-Paper Preview" 
-                                className="w-full h-full object-cover object-top lg:transition-transform lg:duration-500 lg:group-hover:scale-105" 
-                            />
-                            {/* Overlay Gradient for Desktop */}
-                            <div className="absolute inset-0 bg-black/0 lg:group-hover:bg-black/10 transition-colors hidden lg:block"></div>
-                            
-                            {/* Desktop Button (Hover) */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-news-black/95 text-white text-center py-2 md:py-3 transform translate-y-full lg:group-hover:translate-y-0 transition-transform duration-300 hidden lg:block">
-                                <span className="text-xs font-bold uppercase tracking-wider">Read Full Paper</span>
-                            </div>
+                <Link to="/epaper" onNavigate={onNavigate} className="block relative h-full w-full border border-gray-200 bg-gray-900 rounded-lg overflow-hidden group shadow-sm">
+                    {/* Image contained to show full page */}
+                    <img 
+                        src={latestPaper.imageUrl} 
+                        alt="E-Paper Preview" 
+                        className="absolute inset-0 w-full h-full object-contain object-top transition-transform duration-700 group-hover:scale-105" 
+                    />
+                    
+                    {/* Gradient Overlay for Text Readability */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 opacity-60 group-hover:opacity-80 transition-opacity pointer-events-none"></div>
+                    
+                    {/* Bottom Info & CTA - Integrated Layout */}
+                    <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3 bg-gradient-to-t from-black/90 to-transparent z-10 flex flex-col md:flex-row justify-end md:justify-between items-end md:items-end gap-1">
+                        <p className="text-white text-[9px] md:text-xs font-bold opacity-90 drop-shadow-md leading-none mb-0.5 md:mb-0 w-full md:w-auto text-left pl-1">
+                            {format(new Date(latestPaper.date), 'EEE, MMM dd')}
+                        </p>
+                        <div className="pointer-events-auto inline-flex items-center gap-1 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-widest bg-white/20 backdrop-blur-md px-2 py-1 rounded border border-white/30 group-hover:bg-news-gold group-hover:text-black group-hover:border-news-gold transition-all shadow-sm whitespace-nowrap">
+                            Read Edition <ArrowRight size={10} />
                         </div>
-                     </Link>
-                     <div className="mt-2 text-center hidden md:block">
-                        <p className="text-[10px] text-gray-400">Digital Edition • Page {latestPaper.pageNumber}</p>
-                     </div>
-                </div>
+                    </div>
+                </Link>
             ) : (
                  <div className="border border-gray-200 bg-white h-full min-h-[150px] p-2 flex flex-col justify-center items-center text-center shadow-sm rounded-lg text-gray-400">
                      <div className="bg-gray-100 p-2 md:p-4 rounded-full mb-2">
@@ -123,7 +112,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                 onMouseEnter={() => setIsPaused(true)}
                 onMouseLeave={() => setIsPaused(false)}
               >
-                  <div className="w-full h-full overflow-hidden shadow-sm md:shadow-md rounded-lg md:rounded-xl bg-gray-900 border border-gray-200 relative">
+                  {/* Aspect Ratio applied to ensure height consistency */}
+                  <div className="w-full h-full aspect-[16/10] md:aspect-[2/1] overflow-hidden shadow-sm md:shadow-md rounded-lg md:rounded-xl bg-gray-900 border border-gray-200 relative">
                       <div 
                           className="flex transition-transform duration-500 ease-in-out h-full" 
                           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
