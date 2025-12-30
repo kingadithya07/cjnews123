@@ -13,6 +13,58 @@ import { generateId, getDeviceId } from '../utils';
 import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
 
+const RegionEditor = ({ region, page, articles, onSave, onDelete }: { 
+    region: EPaperRegion, 
+    page: EPaperPage, 
+    articles: Article[], 
+    onSave: (p: EPaperPage, r: EPaperRegion) => void, 
+    onDelete: (p: EPaperPage, id: string) => void 
+}) => {
+    const handleChange = (field: keyof EPaperRegion, value: any) => {
+        onSave(page, { ...region, [field]: value });
+    };
+
+    return (
+        <div className="p-3 border rounded bg-gray-50 text-xs space-y-2">
+            <div className="flex justify-between items-center">
+                <span className="font-bold text-gray-500">Region {region.id.substring(0,4)}</span>
+                <button onClick={() => onDelete(page, region.id)} className="text-red-500 hover:text-red-700"><Trash2 size={12}/></button>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+                <div>
+                    <label className="block text-[8px] uppercase font-bold text-gray-400">X %</label>
+                    <input type="number" value={Math.round(region.x)} onChange={e => handleChange('x', Number(e.target.value))} className="w-full p-1 border rounded"/>
+                </div>
+                <div>
+                    <label className="block text-[8px] uppercase font-bold text-gray-400">Y %</label>
+                    <input type="number" value={Math.round(region.y)} onChange={e => handleChange('y', Number(e.target.value))} className="w-full p-1 border rounded"/>
+                </div>
+                <div>
+                    <label className="block text-[8px] uppercase font-bold text-gray-400">W %</label>
+                    <input type="number" value={Math.round(region.width)} onChange={e => handleChange('width', Number(e.target.value))} className="w-full p-1 border rounded"/>
+                </div>
+                <div>
+                    <label className="block text-[8px] uppercase font-bold text-gray-400">H %</label>
+                    <input type="number" value={Math.round(region.height)} onChange={e => handleChange('height', Number(e.target.value))} className="w-full p-1 border rounded"/>
+                </div>
+            </div>
+            <div>
+                <label className="block text-[8px] uppercase font-bold text-gray-400 mb-1">Linked Article</label>
+                <select 
+                    value={region.linkedArticleId || ''} 
+                    onChange={e => handleChange('linkedArticleId', e.target.value)}
+                    className="w-full p-1 border rounded truncate"
+                >
+                    <option value="">-- None (Zoom Only) --</option>
+                    {articles.map(a => (
+                        <option key={a.id} value={a.id}>{a.title.substring(0, 30)}...</option>
+                    ))}
+                </select>
+            </div>
+        </div>
+    );
+};
+
 interface EditorDashboardProps {
   articles: Article[];
   ePaperPages: EPaperPage[];
@@ -95,14 +147,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const imageContainerRef = useRef<HTMLDivElement>(null);
   
   const activePage = ePaperPages.find(p => p.id === activePageId);
-
-  // Classifieds State
-  const [showClassifiedModal, setShowClassifiedModal] = useState(false);
-  const [editingClassified, setEditingClassified] = useState<ClassifiedAd | null>(null);
-
-  // Advertisement State
-  const [showAdModal, setShowAdModal] = useState(false);
-  const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
 
   // Watermark State
   const [localWatermark, setLocalWatermark] = useState<WatermarkSettings>(watermarkSettings);
@@ -602,7 +646,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                         </div>
                                         
                                         {/* Container for the image + overlays */}
-                                        <div className="aspect-[2/3] w-full bg-gray-100 relative overflow-hidden border border-gray-200 p-2 flex items-center justify-center">
+                                        <div 
+                                            key={activePage.id}
+                                            className="w-full bg-gray-100 relative overflow-hidden border border-gray-200 p-2 flex items-center justify-center min-h-[400px]"
+                                        >
                                             
                                             {/* Vertical Slider */}
                                             {editorScale > 1 && (
@@ -627,7 +674,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                 style={{
                                                     transform: `scale(${editorScale}) translateY(${editorPanY}px)`,
                                                     transformOrigin: 'center center',
-                                                    transition: 'transform 0.1s ease-out'
+                                                    transition: 'transform 0.1s ease-out',
+                                                    maxWidth: '100%',
+                                                    maxHeight: '100%'
                                                 }}
                                                 className="relative inline-block shadow-sm transition-transform origin-center"
                                             >
@@ -645,8 +694,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                 >
                                                     <EPaperViewer 
                                                         page={activePage} 
-                                                        className="max-w-full max-h-full" 
-                                                        imageClassName="max-h-[600px]" // Limit height in editor
+                                                        className="max-w-full max-h-full block" 
                                                     />
                                                     
                                                     {/* Draw Mode Overlay */}
@@ -710,243 +758,215 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                  </div>
               )}
-              {/* Other tabs kept as is, abbreviated for change set */}
+
               {activeTab === 'classifieds' && (
                   <div className="max-w-6xl mx-auto">
                       <div className="flex justify-between items-center mb-6">
                            <h1 className="font-serif text-3xl font-bold text-gray-900">Classifieds</h1>
                            <button onClick={() => onAddClassified({ id: generateId(), title: "New Ad", category: adCategories[0], content: "", contactInfo: "", postedAt: new Date().toISOString()})} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Add New</button>
                       </div>
-                      <div className="bg-white rounded border overflow-hidden">
-                          <table className="w-full text-left">
-                             <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase"><tr><th className="px-6 py-4">Title</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Contact</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
-                             <tbody className="divide-y">{classifieds.map(c => <tr key={c.id} className="hover:bg-gray-50"><td className="px-6 py-4">{c.title}</td><td className="px-6 py-4">{c.category}</td><td className="px-6 py-4">{c.contactInfo}</td><td className="px-6 py-4 text-right"><button onClick={() => onDeleteClassified(c.id)} className="text-red-600"><Trash2 size={16}/></button></td></tr>)}</tbody>
-                          </table>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {classifieds.map(ad => (
+                                <div key={ad.id} className="bg-white p-4 border rounded shadow-sm relative group">
+                                    <button onClick={() => { if(window.confirm('Delete ad?')) onDeleteClassified(ad.id); }} className="absolute top-2 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
+                                    <span className="text-[10px] font-bold bg-gray-100 px-2 py-0.5 rounded">{ad.category}</span>
+                                    <h4 className="font-bold mt-2">{ad.title}</h4>
+                                    <p className="text-sm text-gray-600 my-2 line-clamp-3">{ad.content}</p>
+                                    <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
+                                        <Contact size={12}/> {ad.contactInfo}
+                                    </div>
+                                </div>
+                            ))}
                       </div>
                   </div>
               )}
+
               {activeTab === 'taxonomy' && (
-                  <div className="max-w-6xl mx-auto space-y-8">
-                       <h1 className="font-serif text-3xl font-bold text-gray-900 mb-6">Taxonomy Settings</h1>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* Categories */}
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <List size={18} className="text-news-gold" /> Article Categories
-                                </h3>
-                                <form onSubmit={handleAddCategorySubmit} className="flex gap-2 mb-4">
-                                    <input 
-                                        type="text" 
-                                        value={newCategory}
-                                        onChange={(e) => setNewCategory(e.target.value)}
-                                        placeholder="New Category Name"
-                                        className="flex-1 p-2 border rounded text-sm"
-                                    />
-                                    <button type="submit" className="bg-news-black text-white px-3 py-2 rounded text-xs font-bold uppercase hover:bg-gray-800"><Plus size={16}/></button>
-                                </form>
-                                <div className="space-y-2 max-h-64 overflow-y-auto">
-                                    {categories.map(cat => (
-                                        <div key={cat} className="flex justify-between items-center p-2 bg-gray-50 rounded border border-gray-100">
-                                            <span className="text-sm font-medium">{cat}</span>
-                                            <button onClick={() => onDeleteCategory(cat)} className="text-red-500 hover:text-red-700"><Trash2 size={14}/></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            
-                            {/* Tags */}
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <Tag size={18} className="text-news-gold" /> Global Tags
-                                </h3>
-                                <form onSubmit={handleAddTagSubmit} className="flex gap-2 mb-4">
-                                    <input 
-                                        type="text" 
-                                        value={newTag}
-                                        onChange={(e) => setNewTag(e.target.value)}
-                                        placeholder="New Tag Name"
-                                        className="flex-1 p-2 border rounded text-sm"
-                                    />
-                                    <button type="submit" className="bg-news-black text-white px-3 py-2 rounded text-xs font-bold uppercase hover:bg-gray-800"><Plus size={16}/></button>
-                                </form>
-                                <div className="flex flex-wrap gap-2">
-                                    {tags?.map(tag => (
-                                        <div key={tag} className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-600 border border-gray-200">
-                                            <span>#{tag}</span>
-                                            <button onClick={() => onDeleteTag && onDeleteTag(tag)} className="ml-1 text-gray-400 hover:text-red-500"><X size={12}/></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                  <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <div className="bg-white p-6 rounded-lg border">
+                           <h3 className="font-bold text-lg mb-4">Categories</h3>
+                           <form onSubmit={handleAddCategorySubmit} className="flex gap-2 mb-4">
+                               <input type="text" value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="New Category" className="flex-1 border p-2 rounded text-sm"/>
+                               <button type="submit" className="bg-news-black text-white px-3 py-2 rounded text-xs font-bold uppercase">Add</button>
+                           </form>
+                           <div className="space-y-2">
+                               {categories.map(c => (
+                                   <div key={c} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                       <span className="text-sm font-medium">{c}</span>
+                                       <button onClick={() => { if(window.confirm(`Delete category ${c}?`)) onDeleteCategory(c); }} className="text-red-500 hover:text-red-700"><Trash2 size={14}/></button>
+                                   </div>
+                               ))}
+                           </div>
+                       </div>
+                       <div className="bg-white p-6 rounded-lg border">
+                           <h3 className="font-bold text-lg mb-4">Tags</h3>
+                           <form onSubmit={handleAddTagSubmit} className="flex gap-2 mb-4">
+                               <input type="text" value={newTag} onChange={e => setNewTag(e.target.value)} placeholder="New Tag" className="flex-1 border p-2 rounded text-sm"/>
+                               <button type="submit" className="bg-news-black text-white px-3 py-2 rounded text-xs font-bold uppercase">Add</button>
+                           </form>
+                           <div className="flex flex-wrap gap-2">
+                               {tags && tags.map(t => (
+                                   <div key={t} className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-700">
+                                       <span>#{t}</span>
+                                       <button onClick={() => { if(window.confirm(`Delete tag ${t}?`)) onDeleteTag && onDeleteTag(t); }} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                   </div>
+                               ))}
+                           </div>
                        </div>
                   </div>
               )}
-               {activeTab === 'ads' && (
+
+              {activeTab === 'ads' && (
                   <div className="max-w-6xl mx-auto">
                       <div className="flex justify-between items-center mb-6">
                            <h1 className="font-serif text-3xl font-bold text-gray-900">Advertisements</h1>
-                           <button onClick={() => onAddAdvertisement({id: generateId(), title: "New Banner", size: "RECTANGLE", placement: "GLOBAL", isActive: true, imageUrl: 'https://placehold.co/300x250?text=Ad+Space', linkUrl: '#'})} className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Add New</button>
+                           <div className="flex items-center gap-4">
+                               <div className="flex items-center gap-2">
+                                   <span className="text-sm font-bold text-gray-500">Global Ads</span>
+                                   <button 
+                                     onClick={() => onToggleGlobalAds(!globalAdsEnabled)}
+                                     className={`w-10 h-6 rounded-full p-1 transition-colors ${globalAdsEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                                   >
+                                       <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${globalAdsEnabled ? 'translate-x-4' : ''}`}></div>
+                                   </button>
+                               </div>
+                               <button onClick={() => onAddAdvertisement({ id: generateId(), title: 'New Ad', imageUrl: 'https://placehold.co/300x250', linkUrl: '#', size: 'RECTANGLE', placement: 'GLOBAL', isActive: true })} className="bg-news-black text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Create Ad</button>
+                           </div>
                       </div>
-                      <div className="bg-white rounded border overflow-hidden">
-                           <table className="w-full text-left">
-                             <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase"><tr><th className="px-6 py-4">Title</th><th className="px-6 py-4">Size</th><th className="px-6 py-4">Placement</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
-                             <tbody className="divide-y">{advertisements.map(ad => <tr key={ad.id} className="hover:bg-gray-50"><td className="px-6 py-4 flex items-center gap-3"><img src={ad.imageUrl} className="w-16 h-10 object-cover bg-gray-100 rounded"/>{ad.title}</td><td className="px-6 py-4">{ad.size}</td><td className="px-6 py-4">{ad.placement}</td><td className="px-6 py-4">{ad.isActive ? 'Active' : 'Inactive'}</td><td className="px-6 py-4 text-right"><button onClick={() => onDeleteAdvertisement(ad.id)} className="text-red-600"><Trash2 size={16}/></button></td></tr>)}</tbody>
-                          </table>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                          {advertisements.map(ad => (
+                              <div key={ad.id} className={`bg-white border rounded p-4 relative ${!ad.isActive ? 'opacity-50' : ''}`}>
+                                  <div className="absolute top-2 right-2 flex gap-1">
+                                      <button onClick={() => { if(window.confirm('Delete ad?')) onDeleteAdvertisement(ad.id); }} className="bg-white text-red-500 p-1 rounded shadow"><Trash2 size={14}/></button>
+                                  </div>
+                                  <div className="aspect-video bg-gray-100 mb-3 rounded overflow-hidden">
+                                      <img src={ad.imageUrl} className="w-full h-full object-cover"/>
+                                  </div>
+                                  <h4 className="font-bold text-sm mb-1">{ad.title}</h4>
+                                  <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase text-gray-500">
+                                      <span className="bg-gray-100 px-1 rounded">{ad.size}</span>
+                                      <span className="bg-gray-100 px-1 rounded">{ad.placement}</span>
+                                  </div>
+                              </div>
+                          ))}
                       </div>
                   </div>
               )}
-               {activeTab === 'settings' && (
-                  <div className="max-w-4xl mx-auto space-y-6">
-                      <div className="flex justify-between items-center mb-6">
-                           <h1 className="font-serif text-3xl font-bold text-gray-900">Settings</h1>
-                           <button onClick={saveWatermarkSettings} className="bg-news-black hover:bg-gray-800 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2 uppercase tracking-wider"><Save size={16} /> Save Changes</button>
-                      </div>
-                      
-                      {/* Watermark Configuration Card */}
-                      <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
-                           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                   <Crop size={24} />
-                               </div>
-                               <div>
-                                   <h3 className="text-lg font-bold text-gray-900">Watermark Configuration</h3>
-                                   <p className="text-sm text-gray-500">Customize the branding applied to clipped E-Paper regions.</p>
-                               </div>
-                           </div>
-                           
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                               <div className="space-y-4">
-                                   <div>
-                                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Website Name / Brand Text</label>
-                                       <div className="relative">
-                                           <Type className="absolute left-3 top-3 text-gray-400" size={16} />
-                                           <input 
-                                                type="text" 
-                                                value={localWatermark.text}
-                                                onChange={(e) => setLocalWatermark({...localWatermark, text: e.target.value})}
-                                                className="w-full pl-10 p-2.5 border border-gray-300 rounded-lg outline-none focus:border-news-black transition-colors text-sm font-medium"
-                                                placeholder="e.g. Digital Newsroom"
-                                           />
-                                       </div>
-                                   </div>
-                                   
-                                   <div>
-                                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Logo Image</label>
-                                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition-colors relative">
-                                            {localWatermark.logoUrl ? (
-                                                <div className="flex items-center justify-between">
-                                                    <img src={localWatermark.logoUrl} className="h-10 object-contain" alt="Logo Preview" />
-                                                    <button onClick={() => setLocalWatermark({...localWatermark, logoUrl: ''})} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16}/></button>
-                                                </div>
-                                            ) : (
-                                                <div className="py-2 text-gray-400">
-                                                    <Upload size={20} className="mx-auto mb-2 opacity-50"/>
-                                                    <span className="text-xs">Upload PNG/JPG</span>
-                                                </div>
-                                            )}
-                                            <input type="file" accept="image/*" onChange={handleWatermarkLogoUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                                       </div>
-                                       <div className="flex items-center gap-2 mt-2">
-                                           <input 
-                                                type="checkbox" 
-                                                id="showLogo" 
-                                                checked={localWatermark.showLogo} 
-                                                onChange={(e) => setLocalWatermark({...localWatermark, showLogo: e.target.checked})}
-                                                className="rounded border-gray-300 text-news-black focus:ring-news-black"
-                                           />
-                                           <label htmlFor="showLogo" className="text-sm text-gray-600">Show Logo in Clipping</label>
-                                       </div>
-                                   </div>
-                               </div>
 
-                               <div className="space-y-4">
-                                   <div>
-                                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Colors</label>
-                                       <div className="grid grid-cols-2 gap-4">
-                                           <div>
-                                               <div className="flex items-center gap-2 mb-1">
-                                                   <div className="w-4 h-4 rounded border border-gray-200" style={{backgroundColor: localWatermark.backgroundColor}}></div>
-                                                   <span className="text-xs text-gray-600">Background</span>
-                                               </div>
-                                               <input 
-                                                    type="color" 
-                                                    value={localWatermark.backgroundColor} 
-                                                    onChange={(e) => setLocalWatermark({...localWatermark, backgroundColor: e.target.value})}
-                                                    className="w-full h-8 cursor-pointer rounded overflow-hidden"
-                                               />
-                                           </div>
-                                           <div>
-                                               <div className="flex items-center gap-2 mb-1">
-                                                    <div className="w-4 h-4 rounded border border-gray-200" style={{backgroundColor: localWatermark.textColor}}></div>
-                                                    <span className="text-xs text-gray-600">Text</span>
-                                               </div>
-                                               <input 
-                                                    type="color" 
-                                                    value={localWatermark.textColor} 
-                                                    onChange={(e) => setLocalWatermark({...localWatermark, textColor: e.target.value})}
-                                                    className="w-full h-8 cursor-pointer rounded overflow-hidden"
-                                               />
-                                           </div>
-                                       </div>
-                                   </div>
-                                   
-                                   <div className="pt-2">
-                                       <div className="p-4 bg-gray-100 rounded-lg border border-gray-200">
-                                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Live Preview (Approximate)</p>
-                                           <div className="h-12 w-full flex items-center px-4 justify-between" style={{backgroundColor: localWatermark.backgroundColor}}>
-                                                <div className="flex items-center gap-3">
-                                                    {localWatermark.showLogo && localWatermark.logoUrl && (
-                                                        <img src={localWatermark.logoUrl} className="h-6 object-contain" />
-                                                    )}
-                                                    <span className="font-serif font-bold" style={{color: localWatermark.textColor}}>{localWatermark.text}</span>
-                                                </div>
-                                                <span className="text-xs font-sans text-white/80">Jan 01, 2024</span>
-                                           </div>
-                                       </div>
-                                   </div>
-                               </div>
-                           </div>
+              {activeTab === 'analytics' && (
+                  <div className="max-w-7xl mx-auto">
+                      <h1 className="font-serif text-3xl font-bold text-gray-900 mb-6">Analytics Overview</h1>
+                      <AnalyticsDashboard articles={articles} role={UserRole.ADMIN} />
+                  </div>
+              )}
+              
+              {activeTab === 'settings' && (
+                  <div className="max-w-4xl mx-auto space-y-8">
+                      {/* Watermark Settings */}
+                      <div className="bg-white p-6 rounded-lg border">
+                          <h3 className="font-bold text-lg mb-6 border-b pb-2">E-Paper Watermark Settings</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                  <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Brand Text</label>
+                                  <input type="text" value={localWatermark.text} onChange={e => setLocalWatermark({...localWatermark, text: e.target.value})} className="w-full p-2 border rounded"/>
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Font Size</label>
+                                  <input type="number" value={localWatermark.fontSize} onChange={e => setLocalWatermark({...localWatermark, fontSize: Number(e.target.value)})} className="w-full p-2 border rounded"/>
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Background Color</label>
+                                  <div className="flex gap-2">
+                                      <input type="color" value={localWatermark.backgroundColor} onChange={e => setLocalWatermark({...localWatermark, backgroundColor: e.target.value})} className="h-10 w-10 border rounded cursor-pointer"/>
+                                      <input type="text" value={localWatermark.backgroundColor} onChange={e => setLocalWatermark({...localWatermark, backgroundColor: e.target.value})} className="flex-1 p-2 border rounded uppercase"/>
+                                  </div>
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Text Color</label>
+                                  <div className="flex gap-2">
+                                      <input type="color" value={localWatermark.textColor} onChange={e => setLocalWatermark({...localWatermark, textColor: e.target.value})} className="h-10 w-10 border rounded cursor-pointer"/>
+                                      <input type="text" value={localWatermark.textColor} onChange={e => setLocalWatermark({...localWatermark, textColor: e.target.value})} className="flex-1 p-2 border rounded uppercase"/>
+                                  </div>
+                              </div>
+                              <div className="col-span-2">
+                                  <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Logo URL</label>
+                                  <div className="flex gap-2">
+                                      <input type="text" value={localWatermark.logoUrl} onChange={e => setLocalWatermark({...localWatermark, logoUrl: e.target.value})} className="flex-1 p-2 border rounded"/>
+                                      <label className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded cursor-pointer border text-xs font-bold uppercase flex items-center">
+                                          Upload <input type="file" accept="image/*" onChange={handleWatermarkLogoUpload} className="hidden"/>
+                                      </label>
+                                  </div>
+                              </div>
+                              <div className="col-span-2">
+                                  <button onClick={saveWatermarkSettings} className="bg-news-black text-white px-6 py-2 rounded text-xs font-bold uppercase tracking-widest">Save Settings</button>
+                              </div>
+                          </div>
                       </div>
-                      
-                      {/* Global Ads Switch */}
-                      <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                           <div className="flex items-center gap-3">
-                               <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-                                   <Megaphone size={24} />
-                               </div>
-                               <div>
-                                   <h3 className="text-lg font-bold text-gray-900">Global Advertisements</h3>
-                                   <p className="text-sm text-gray-500">Toggle all ad units across the platform instantly.</p>
-                               </div>
-                           </div>
-                           <button 
-                                onClick={() => onToggleGlobalAds(!globalAdsEnabled)}
-                                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${globalAdsEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
-                           >
-                               <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${globalAdsEnabled ? 'translate-x-7' : 'translate-x-1'}`}/>
-                           </button>
+
+                      {/* Device Approvals */}
+                      <div className="bg-white p-6 rounded-lg border">
+                          <h3 className="font-bold text-lg mb-6 border-b pb-2">Pending Device Approvals</h3>
+                          <div className="space-y-4">
+                              {devices.filter(d => d.status === 'pending').length === 0 ? (
+                                  <p className="text-sm text-gray-500 italic">No pending device requests.</p>
+                              ) : (
+                                  devices.filter(d => d.status === 'pending').map(d => (
+                                      <div key={d.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-100 rounded-lg">
+                                          <div>
+                                              <div className="flex items-center gap-2">
+                                                  <span className="font-bold text-gray-900">{d.deviceName}</span>
+                                                  <span className="text-[10px] bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded font-bold uppercase">Pending</span>
+                                              </div>
+                                              <div className="text-xs text-gray-500 mt-1 flex gap-3">
+                                                  <span>{d.deviceType}</span>
+                                                  <span>•</span>
+                                                  <span>{d.location}</span>
+                                                  <span>•</span>
+                                                  <span className="font-mono">{d.id}</span>
+                                              </div>
+                                          </div>
+                                          <div className="flex gap-2">
+                                              <button onClick={() => onRejectDevice(d.id)} className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded text-xs font-bold hover:bg-gray-50">Reject</button>
+                                              <button onClick={() => onApproveDevice(d.id)} className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700">Approve</button>
+                                          </div>
+                                      </div>
+                                  ))
+                              )}
+                          </div>
+
+                          <h3 className="font-bold text-lg mt-8 mb-6 border-b pb-2">Trusted Devices</h3>
+                          <div className="space-y-2">
+                              {devices.filter(d => d.status === 'approved').map(d => (
+                                  <div key={d.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded border border-transparent hover:border-gray-100">
+                                      <div className="flex items-center gap-3">
+                                          <div className={`w-2 h-2 rounded-full ${d.isCurrent ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                          <div>
+                                              <div className="text-sm font-medium">{d.deviceName} {d.isPrimary && <span className="text-[10px] text-news-accent font-bold ml-2">(PRIMARY)</span>}</div>
+                                              <div className="text-xs text-gray-400">{d.lastActive}</div>
+                                          </div>
+                                      </div>
+                                      {!d.isCurrent && (
+                                          <button onClick={() => { if(window.confirm('Revoke access?')) onRevokeDevice(d.id); }} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase">Revoke</button>
+                                      )}
+                                  </div>
+                              ))}
+                          </div>
                       </div>
                   </div>
               )}
-               {activeTab === 'inbox' && (
-                  <div className="max-w-6xl mx-auto text-center py-20 bg-white border rounded-lg">
-                      <Inbox size={48} className="mx-auto text-gray-300 mb-4" />
-                      <h1 className="font-serif text-2xl font-bold text-gray-800">Communication Center</h1>
-                      <div className="max-w-md mx-auto mt-6 p-6 bg-gray-50 rounded-lg border border-gray-100 text-left">
-                          <h4 className="font-bold text-sm mb-2">Recent Notifications</h4>
-                          <ul className="space-y-2 text-sm text-gray-600">
-                              <li className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500"></div> System Updated successfully.</li>
-                              <li className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> New article draft received from Writer.</li>
-                              <li className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-400"></div> Daily Analytics Report ready.</li>
-                          </ul>
-                      </div>
+
+              {activeTab === 'inbox' && (
+                  <div className="max-w-4xl mx-auto text-center py-20 text-gray-400">
+                      <Inbox size={48} className="mx-auto mb-4 opacity-20"/>
+                      <h3 className="text-lg font-bold text-gray-600">No New Messages</h3>
+                      <p className="text-sm">Internal communications will appear here.</p>
                   </div>
               )}
-          </div>
+
+           </div>
       </div>
 
-      {/* Modals rendered here */}
-      {showArticleModal && (
+      {showEditorModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
@@ -954,7 +974,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                 <button onClick={() => setShowArticleModal(false)}><X size={20}/></button>
             </div>
             <div className="p-6 overflow-y-auto space-y-4">
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">
                         <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline"/>
                         <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px]" placeholder="Summary / Sub-headline..."></textarea>
@@ -996,127 +1016,78 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                 </div>
 
                 <div className="relative">
-                    <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]"/>
-                    <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded">
-                        {wordCount} Words
-                    </div>
+                  <RichTextEditor content={modalContent} onChange={setModalContent} className="min-h-[400px]" onImageUpload={handleContentImageUpload} />
+                  <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded">
+                      {wordCount} Words
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 border-t pt-4">
+                     <div>
+                         <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Status</label>
+                         <select value={modalStatus} onChange={(e) => setModalStatus(e.target.value as ArticleStatus)} className="p-2 border rounded text-sm bg-white">
+                             <option value={ArticleStatus.DRAFT}>Draft</option>
+                             <option value={ArticleStatus.PENDING}>Pending Review</option>
+                             <option value={ArticleStatus.PUBLISHED}>Published</option>
+                         </select>
+                     </div>
                 </div>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
               <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>
-              <button onClick={handleArticleModalSubmit} disabled={isUploading} className="px-6 py-2 bg-green-600 text-white rounded text-sm font-bold shadow disabled:opacity-50">
-                  {isUploading ? 'Please wait...' : 'Save Article'}
+              <button onClick={handleArticleModalSubmit} disabled={isUploading} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800 disabled:opacity-50">
+                  {isUploading ? 'Uploading...' : 'Save Article'}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* NEW: ADD E-PAPER PAGE MODAL */}
+      
       {showAddPageModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg w-full max-w-md animate-in zoom-in-95">
-                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-800">Upload E-Paper Page</h3>
-                    <button onClick={() => setShowAddPageModal(false)}><X size={20}/></button>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Edition Date</label>
-                        <div className="relative">
-                            <Calendar className="absolute left-3 top-2.5 text-gray-400" size={16}/>
-                            <input 
-                                type="date" 
-                                value={newPageDate} 
-                                onChange={(e) => setNewPageDate(e.target.value)} 
-                                className="w-full pl-10 p-2 border rounded font-mono text-sm"
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Page Number</label>
-                        <input 
-                            type="number" 
-                            min="1"
-                            value={newPageNumber} 
-                            onChange={(e) => setNewPageNumber(parseInt(e.target.value))} 
-                            className="w-full p-2 border rounded font-mono text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Page Image (JPG/PNG)</label>
-                        <div className="border-2 border-dashed p-6 rounded bg-gray-50 text-center hover:bg-gray-100 transition-colors relative">
-                             {isPageUploading ? (
-                                <div className="flex flex-col items-center">
-                                    <Loader2 className="animate-spin text-news-accent mb-2" />
-                                    <span className="text-xs font-bold">Uploading...</span>
-                                </div>
-                             ) : newPageImage ? (
-                                <div className="relative group">
-                                     <img src={newPageImage} className="max-h-32 mx-auto shadow-sm rounded" />
-                                     <button 
-                                        onClick={() => setNewPageImage('')}
-                                        className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full shadow-lg"
-                                     >
-                                        <X size={12} />
-                                     </button>
-                                     <p className="text-xs text-green-600 font-bold mt-2 flex items-center justify-center gap-1"><CheckCircle size={12}/> Ready to save</p>
-                                </div>
-                             ) : (
-                                <>
-                                    <Upload className="mx-auto text-gray-400 mb-2" size={24} />
-                                    <p className="text-xs text-gray-500 font-medium">Click to upload page image</p>
-                                    <input type="file" accept="image/*" onChange={handleEPaperUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                                </>
-                             )}
-                        </div>
-                    </div>
-                </div>
-                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
-                    <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-xs font-bold text-gray-600 uppercase">Cancel</button>
-                    <button 
-                        onClick={handleSubmitNewPage} 
-                        disabled={!newPageImage || isPageUploading}
-                        className="px-6 py-2 bg-news-black text-white rounded text-xs font-bold uppercase disabled:opacity-50"
-                    >
-                        Save Page
-                    </button>
-                </div>
-            </div>
-        </div>
+          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                  <h3 className="font-bold text-lg mb-4">Upload New Page</h3>
+                  <div className="space-y-4">
+                      <div>
+                          <label className="block text-sm font-bold mb-1">Date</label>
+                          <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full border p-2 rounded"/>
+                      </div>
+                      <div>
+                          <label className="block text-sm font-bold mb-1">Page Number</label>
+                          <input type="number" value={newPageNumber} onChange={e => setNewPageNumber(Number(e.target.value))} className="w-full border p-2 rounded"/>
+                      </div>
+                      <div>
+                          <label className="block text-sm font-bold mb-1">Page Image</label>
+                          <div className="border-2 border-dashed p-6 text-center rounded bg-gray-50">
+                              {isPageUploading ? (
+                                  <div className="flex flex-col items-center gap-2">
+                                      <Loader2 className="animate-spin text-news-accent" />
+                                      <span className="text-xs font-bold">Uploading...</span>
+                                  </div>
+                              ) : newPageImage ? (
+                                  <div className="relative">
+                                      <img src={newPageImage} className="max-h-32 mx-auto shadow-sm"/>
+                                      <button onClick={() => setNewPageImage('')} className="text-xs text-red-500 underline mt-2">Remove</button>
+                                  </div>
+                              ) : (
+                                  <label className="cursor-pointer">
+                                      <span className="text-news-accent font-bold text-sm">Click to Upload</span>
+                                      <input type="file" accept="image/*" onChange={handleEPaperUpload} className="hidden"/>
+                                  </label>
+                              )}
+                          </div>
+                      </div>
+                  </div>
+                  <div className="flex justify-end gap-3 mt-6">
+                      <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-sm font-bold">Cancel</button>
+                      <button onClick={handleSubmitNewPage} disabled={!newPageImage} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold disabled:opacity-50">Add Page</button>
+                  </div>
+              </div>
+          </div>
       )}
     </div>
     </>
   );
-};
-
-const RegionEditor: React.FC<{region: EPaperRegion, page: EPaperPage, articles: Article[], onSave: (p: EPaperPage, r: EPaperRegion) => void, onDelete: (p: EPaperPage, id: string) => void}> = ({ region, page, articles, onSave, onDelete }) => {
-    const [localRegion, setLocalRegion] = useState(region);
-    useEffect(() => setLocalRegion(region), [region]);
-    
-    const handleSave = () => onSave(page, localRegion);
-
-    return (
-        <div className="p-3 bg-gray-50 rounded border text-xs space-y-3">
-            <div className="flex justify-between items-center">
-                <p className="font-bold text-gray-600">Region #{region.id.substring(0,4)}</p>
-                <div>
-                     <button onClick={handleSave} className="text-blue-600 px-2 py-1 rounded hover:bg-blue-100 mr-2"><Save size={14}/></button>
-                     <button onClick={() => onDelete(page, region.id)} className="text-red-600 px-2 py-1 rounded hover:bg-red-100"><Trash2 size={14}/></button>
-                </div>
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-                <input type="number" value={Math.round(localRegion.x)} onChange={e => setLocalRegion(r => ({...r, x: parseFloat(e.target.value)}))} className="w-full p-1 border rounded" placeholder="X" />
-                <input type="number" value={Math.round(localRegion.y)} onChange={e => setLocalRegion(r => ({...r, y: parseFloat(e.target.value)}))} className="w-full p-1 border rounded" placeholder="Y" />
-                <input type="number" value={Math.round(localRegion.width)} onChange={e => setLocalRegion(r => ({...r, width: parseFloat(e.target.value)}))} className="w-full p-1 border rounded" placeholder="W" />
-                <input type="number" value={Math.round(localRegion.height)} onChange={e => setLocalRegion(r => ({...r, height: parseFloat(e.target.value)}))} className="w-full p-1 border rounded" placeholder="H" />
-            </div>
-            <select value={localRegion.linkedArticleId} onChange={e => setLocalRegion(r => ({...r, linkedArticleId: e.target.value}))} className="w-full p-1 border rounded bg-white">
-                <option value="">No Linked Article</option>
-                {articles.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
-            </select>
-        </div>
-    );
 };
 
 export default EditorDashboard;

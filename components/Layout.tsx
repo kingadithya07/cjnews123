@@ -424,40 +424,42 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
         {children}
       </main>
 
-      {/* FOOTER */}
-      <footer className="bg-news-black text-gray-400 py-16 border-t-4 border-news-gold hidden md:block">
-        <div className="max-w-7xl mx-auto px-4">
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-              <div>
-                  <h2 className="font-serif text-2xl font-bold text-white mb-4">DIGITAL <span className="text-news-gold">NEWSROOM</span></h2>
-                  <p className="text-sm leading-relaxed text-gray-500">The premier destination for in-depth journalism, real-time reporting, and global perspectives.</p>
-              </div>
-              <div>
-                 <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Explore</h4>
-                 <ul className="space-y-3 text-sm">
-                    <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">World News</Link></li>
-                    <li><Link to="/epaper" onNavigate={onNavigate} className="hover:text-news-gold">E-Paper Edition</Link></li>
-                    <li><Link to="/classifieds" onNavigate={onNavigate} className="hover:text-news-gold">Classifieds</Link></li>
-                 </ul>
-              </div>
-              <div>
-                 <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Support</h4>
-                 <ul className="space-y-3 text-sm">
-                    <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">Help Center</Link></li>
-                    <li><Link to="/staff/login" onNavigate={onNavigate} className="hover:text-news-gold">Staff Portal</Link></li>
-                 </ul>
-              </div>
-              <div>
-                 <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Subscribe</h4>
-                 <div className="flex mt-4">
-                    <input type="email" placeholder="Email" className="bg-gray-800 text-white px-4 py-3 w-full text-xs focus:outline-none" />
-                    <button className="bg-news-gold text-black px-4 py-3 text-xs font-bold uppercase">Join</button>
-                 </div>
-              </div>
-           </div>
-           <p className="text-center text-[10px] tracking-widest uppercase text-gray-700 mt-12">© {new Date().getFullYear()} Digital Newsroom Publishing Group. All rights reserved.</p>
-        </div>
-      </footer>
+      {/* FOOTER - Hidden on E-Paper Reader Route */}
+      {currentPath !== '/epaper' && (
+        <footer className="bg-news-black text-gray-400 py-16 border-t-4 border-news-gold hidden md:block">
+          <div className="max-w-7xl mx-auto px-4">
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+                <div>
+                    <h2 className="font-serif text-2xl font-bold text-white mb-4">DIGITAL <span className="text-news-gold">NEWSROOM</span></h2>
+                    <p className="text-sm leading-relaxed text-gray-500">The premier destination for in-depth journalism, real-time reporting, and global perspectives.</p>
+                </div>
+                <div>
+                   <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Explore</h4>
+                   <ul className="space-y-3 text-sm">
+                      <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">World News</Link></li>
+                      <li><Link to="/epaper" onNavigate={onNavigate} className="hover:text-news-gold">E-Paper Edition</Link></li>
+                      <li><Link to="/classifieds" onNavigate={onNavigate} className="hover:text-news-gold">Classifieds</Link></li>
+                   </ul>
+                </div>
+                <div>
+                   <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Support</h4>
+                   <ul className="space-y-3 text-sm">
+                      <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">Help Center</Link></li>
+                      <li><Link to="/staff/login" onNavigate={onNavigate} className="hover:text-news-gold">Staff Portal</Link></li>
+                   </ul>
+                </div>
+                <div>
+                   <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Subscribe</h4>
+                   <div className="flex mt-4">
+                      <input type="email" placeholder="Email" className="bg-gray-800 text-white px-4 py-3 w-full text-xs focus:outline-none" />
+                      <button className="bg-news-gold text-black px-4 py-3 text-xs font-bold uppercase">Join</button>
+                   </div>
+                </div>
+             </div>
+             <p className="text-center text-[10px] tracking-widest uppercase text-gray-700 mt-12">© {new Date().getFullYear()} Digital Newsroom Publishing Group. All rights reserved.</p>
+          </div>
+        </footer>
+      )}
 
       {/* WEATHER MODAL */}
       {isWeatherModalOpen && (

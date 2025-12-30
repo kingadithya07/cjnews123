@@ -399,7 +399,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     <div className="flex flex-col h-[calc(100vh-80px)] bg-gray-900 text-white overflow-hidden relative">
       
       {/* Top Toolbar */}
-      <div className="flex items-center justify-between px-2 md:px-4 py-3 bg-news-black border-b border-gray-800 shadow-md z-20 gap-2">
+      <div className="flex items-center justify-between px-2 md:px-4 py-3 bg-news-black border-b border-gray-800 shadow-md z-20 gap-2 shrink-0">
          
          {/* Left: Sidebar Toggle & Navigation */}
          <div className="flex items-center justify-start gap-2 w-auto md:min-w-[150px]">
@@ -512,7 +512,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
          {/* Thumbnails Sidebar */}
          <div className={`
              absolute md:static inset-y-0 left-0 z-30 w-64 md:w-48 bg-gray-800 border-r border-gray-700 
-             transform transition-transform duration-300 ease-in-out md:transform-none overflow-y-auto custom-scrollbar
+             transform transition-transform duration-300 ease-in-out md:transform-none overflow-y-auto custom-scrollbar shrink-0
              ${showMobileSidebar ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
          `}>
             <div className="flex justify-between items-center p-4 border-b border-gray-700 md:hidden">
@@ -617,7 +617,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                     </div>
 
                     {/* Center Content Container */}
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-full h-full flex items-center justify-center p-4">
                         <div 
                             ref={contentRef}
                             style={{ 
@@ -626,13 +626,14 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                                 transformOrigin: 'center',
                                 willChange: 'transform' // Improve scrolling performance
                             }}
-                            className="origin-center"
+                            className="origin-center flex items-center justify-center max-w-full max-h-full"
                         >
                             <EPaperViewer 
                                 page={activePage} 
                                 onRegionClick={handleRegionClick} 
                                 onNavigate={onNavigate}
-                                className="max-w-[95vw] max-h-[85vh] shadow-2xl"
+                                className="max-w-full max-h-full shadow-2xl"
+                                imageClassName="max-h-[calc(100vh-140px)] w-auto object-contain"
                             />
                         </div>
                     </div>
@@ -673,7 +674,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
           {selectedArticle ? (
             /* WITH ARTICLE: Standard Split View */
             <div className="bg-white text-news-black rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row max-h-[85vh]">
-                
+                {/* ... (Existing modal content unchanged) ... */}
                 {/* Left: The Generated Clipping */}
                 <div className="w-full md:w-1/2 bg-gray-100 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-200 relative min-h-[350px] md:min-h-auto">
                 <div className="absolute top-4 left-4 bg-white/80 backdrop-blur px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1 border border-gray-200 z-10">
