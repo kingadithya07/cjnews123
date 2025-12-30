@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { EPaperPage, Article, EPaperRegion, ArticleStatus, ClassifiedAd, Advertisement, AdSize, AdPlacement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
 import { 
   Trash2, Upload, Plus, Save, FileText, Image as ImageIcon, 
-  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2, Lock, Library, Calendar
+  Layout, Settings, X, Check, MousePointer2, RotateCcw, ZoomIn, ZoomOut, RotateCw, Crop, Eye, BarChart3, Search, Filter, AlertCircle, CheckCircle, PenSquare, Tag, Megaphone, MonitorPlay, ToggleLeft, ToggleRight, Globe, Home, Menu, Grid, Users, Contact, LogOut, Inbox, List, Newspaper, DollarSign, MapPin, ChevronDown, ShieldCheck, Monitor, Smartphone, Tablet, ExternalLink, Loader2, Lock, Library, Calendar, Pencil, Ban
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -83,6 +83,14 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [newPageNumber, setNewPageNumber] = useState(1);
   const [newPageImage, setNewPageImage] = useState('');
   const [isPageUploading, setIsPageUploading] = useState(false);
+  
+  // E-Paper Drawing State
+  const [drawMode, setDrawMode] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawStart, setDrawStart] = useState<{x: number, y: number} | null>(null);
+  const [drawPreview, setDrawPreview] = useState<{x: number, y: number, w: number, h: number} | null>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+  
   const activePage = ePaperPages.find(p => p.id === activePageId);
 
   // Classifieds State
@@ -132,7 +140,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const handleContentImageUpload = async (file: File): Promise<string> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${generateId()}.${fileExt}`;
-    const filePath = `content/${fileName}`; // Use a different folder for content images
+    const filePath = `content/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('images')
@@ -156,7 +164,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       const fileName = `epaper/${newPageDate}/${newPageNumber}_${generateId()}.${fileExt}`;
       
       const { error: uploadError } = await supabase.storage
-        .from('images') // Using same bucket for simplicity
+        .from('images') 
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
@@ -220,14 +228,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   };
   
   const handleSaveRegion = async (page: EPaperPage, region: EPaperRegion) => {
-      // 1. Optimistic UI
       const updatedRegions = page.regions.map(r => r.id === region.id ? region : r);
       onUpdatePage({ ...page, regions: updatedRegions });
-      
-      // 2. Database Insert
-      // Note: In a real relational DB, you'd upsert into an 'epaper_regions' table here.
-      // Since App.tsx currently handles 'epaper_pages' but not explicit child region logic deep inside onUpdatePage,
-      // we do the direct call here for robustness.
       
       const { error } = await supabase.from('epaper_regions').upsert({
           id: region.id,
@@ -242,6 +244,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       if (error) console.error("Region save failed:", error);
   };
   
+  // MANUAL ADD (Static Square)
   const handleAddRegion = async (page: EPaperPage) => {
       const newRegion: EPaperRegion = {
           id: generateId(),
@@ -260,6 +263,81 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           width: newRegion.width, 
           height: newRegion.height
       });
+  };
+
+  // FREE STYLE DRAW ADD
+  const handleDrawStart = (e: React.MouseEvent) => {
+    if (!drawMode || !imageContainerRef.current) return;
+    e.preventDefault();
+    
+    const rect = imageContainerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    setIsDrawing(true);
+    setDrawStart({ x, y });
+    setDrawPreview({ x, y, w: 0, h: 0 });
+  };
+
+  const handleDrawMove = (e: React.MouseEvent) => {
+    if (!isDrawing || !drawStart || !imageContainerRef.current) return;
+    
+    const rect = imageContainerRef.current.getBoundingClientRect();
+    const currentX = ((e.clientX - rect.left) / rect.width) * 100;
+    const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    // Calculate top-left and size allowing drag in any direction
+    const x = Math.min(drawStart.x, currentX);
+    const y = Math.min(drawStart.y, currentY);
+    const w = Math.abs(currentX - drawStart.x);
+    const h = Math.abs(currentY - drawStart.y);
+    
+    // Constrain to image boundaries (0-100%)
+    const clampedX = Math.max(0, Math.min(x, 100));
+    const clampedY = Math.max(0, Math.min(y, 100));
+    const clampedW = Math.min(w, 100 - clampedX);
+    const clampedH = Math.min(h, 100 - clampedY);
+
+    setDrawPreview({ x: clampedX, y: clampedY, w: clampedW, h: clampedH });
+  };
+
+  const handleDrawEnd = async () => {
+    if (!isDrawing || !drawPreview || !activePage) {
+        setIsDrawing(false);
+        setDrawStart(null);
+        setDrawPreview(null);
+        return;
+    }
+    
+    // Create region if size is significant (>1%)
+    if (drawPreview.w > 1 && drawPreview.h > 1) {
+        const newRegion: EPaperRegion = {
+            id: generateId(),
+            x: drawPreview.x,
+            y: drawPreview.y,
+            width: drawPreview.w,
+            height: drawPreview.h,
+            linkedArticleId: ''
+        };
+        
+        // Optimistic Update
+        const updatedRegions = [...activePage.regions, newRegion];
+        onUpdatePage({...activePage, regions: updatedRegions});
+
+        // Database Insert
+        await supabase.from('epaper_regions').insert({
+            id: newRegion.id,
+            page_id: activePage.id,
+            x: newRegion.x,
+            y: newRegion.y,
+            width: newRegion.width,
+            height: newRegion.height
+        });
+    }
+
+    setIsDrawing(false);
+    setDrawStart(null);
+    setDrawPreview(null);
   };
   
   const handleDeleteRegion = async (page: EPaperPage, regionId: string) => {
@@ -381,19 +459,61 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           <div className="lg:col-span-9">
                             {activePage ? (
                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                    {/* EDITOR / VIEWER */}
                                     <div className="bg-white p-4 border rounded-lg shadow-sm">
-                                        <div className="aspect-[2/3] w-full bg-gray-100 relative">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Preview</span>
+                                                {drawMode && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold uppercase animate-pulse">Draw Mode Active</span>}
+                                            </div>
+                                            <button 
+                                                onClick={() => setDrawMode(!drawMode)} 
+                                                className={`text-xs px-3 py-1.5 rounded font-bold uppercase flex items-center gap-2 transition-colors ${drawMode ? 'bg-news-accent text-white shadow-lg' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                            >
+                                                {drawMode ? <><Ban size={14}/> Stop Drawing</> : <><Pencil size={14}/> Draw Region</>}
+                                            </button>
+                                        </div>
+                                        
+                                        <div 
+                                            ref={imageContainerRef}
+                                            className={`aspect-[2/3] w-full bg-gray-100 relative select-none ${drawMode ? 'cursor-crosshair' : 'cursor-default'}`}
+                                            onMouseDown={handleDrawStart}
+                                            onMouseMove={handleDrawMove}
+                                            onMouseUp={handleDrawEnd}
+                                            onMouseLeave={handleDrawEnd}
+                                        >
                                             <EPaperViewer page={activePage} />
+                                            
+                                            {/* Draw Mode Overlay: Captures events over existing regions when active */}
+                                            {drawMode && <div className="absolute inset-0 z-20" />}
+                                            
+                                            {/* Live Preview Box */}
+                                            {drawPreview && (
+                                                <div 
+                                                    className="absolute border-2 border-news-accent bg-news-accent/20 z-30"
+                                                    style={{
+                                                        left: `${drawPreview.x}%`,
+                                                        top: `${drawPreview.y}%`,
+                                                        width: `${drawPreview.w}%`,
+                                                        height: `${drawPreview.h}%`
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="mt-2 text-[10px] text-gray-400 text-center">
+                                            {drawMode ? 'Click and drag to define a new region.' : 'Enable Draw Mode to add regions freely.'}
                                         </div>
                                     </div>
+                                    
+                                    {/* REGION LIST */}
                                     <div className="bg-white p-4 border rounded-lg max-h-[70vh] overflow-y-auto">
                                         <div className="flex justify-between items-center mb-4">
                                             <div>
-                                                <h3 className="font-bold text-gray-800">Interactive Regions</h3>
-                                                <p className="text-xs text-gray-500">Map articles to areas on the page image.</p>
+                                                <h3 className="font-bold text-gray-800">Regions</h3>
+                                                <p className="text-xs text-gray-500">Map articles to areas on the page.</p>
                                             </div>
-                                            <button onClick={() => handleAddRegion(activePage)} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 transition-colors">
-                                                <Plus size={14} className="inline mr-1"/> Add Region
+                                            <button onClick={() => handleAddRegion(activePage)} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-bold hover:bg-gray-200 transition-colors border border-gray-200">
+                                                <Plus size={14} className="inline mr-1"/> Manual Add
                                             </button>
                                         </div>
                                         <div className="space-y-3">
@@ -401,6 +521,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                 <div className="text-center py-8 text-gray-400 border-2 border-dashed rounded">
                                                     <MousePointer2 className="mx-auto mb-2 opacity-50" />
                                                     <p className="text-xs">No regions added yet.</p>
+                                                    <p className="text-[10px] mt-1">Use 'Draw Region' to start.</p>
                                                 </div>
                                             )}
                                             {activePage.regions.map(region => (
@@ -618,10 +739,10 @@ const RegionEditor: React.FC<{region: EPaperRegion, page: EPaperPage, articles: 
                 </div>
             </div>
             <div className="grid grid-cols-4 gap-2">
-                <input type="number" value={localRegion.x} onChange={e => setLocalRegion(r => ({...r, x: parseInt(e.target.value)}))} className="w-full p-1 border rounded" placeholder="X" />
-                <input type="number" value={localRegion.y} onChange={e => setLocalRegion(r => ({...r, y: parseInt(e.target.value)}))} className="w-full p-1 border rounded" placeholder="Y" />
-                <input type="number" value={localRegion.width} onChange={e => setLocalRegion(r => ({...r, width: parseInt(e.target.value)}))} className="w-full p-1 border rounded" placeholder="W" />
-                <input type="number" value={localRegion.height} onChange={e => setLocalRegion(r => ({...r, height: parseInt(e.target.value)}))} className="w-full p-1 border rounded" placeholder="H" />
+                <input type="number" value={Math.round(localRegion.x)} onChange={e => setLocalRegion(r => ({...r, x: parseFloat(e.target.value)}))} className="w-full p-1 border rounded" placeholder="X" />
+                <input type="number" value={Math.round(localRegion.y)} onChange={e => setLocalRegion(r => ({...r, y: parseFloat(e.target.value)}))} className="w-full p-1 border rounded" placeholder="Y" />
+                <input type="number" value={Math.round(localRegion.width)} onChange={e => setLocalRegion(r => ({...r, width: parseFloat(e.target.value)}))} className="w-full p-1 border rounded" placeholder="W" />
+                <input type="number" value={Math.round(localRegion.height)} onChange={e => setLocalRegion(r => ({...r, height: parseFloat(e.target.value)}))} className="w-full p-1 border rounded" placeholder="H" />
             </div>
             <select value={localRegion.linkedArticleId} onChange={e => setLocalRegion(r => ({...r, linkedArticleId: e.target.value}))} className="w-full p-1 border rounded bg-white">
                 <option value="">No Linked Article</option>
