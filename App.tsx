@@ -74,7 +74,11 @@ function App() {
           else if (payload.eventType === 'DELETE') setArticles(prev => prev.filter(a => a.id !== payload.old.id));
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => {
-          // E-Paper structure is complex (regions), simplest to refetch to ensure integrity
+          // Page metadata changed
+          fetchData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_regions' }, () => {
+          // Regions changed (added/removed/edited)
           fetchData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, (payload) => {
@@ -259,7 +263,8 @@ function App() {
     }).eq('id', page.id);
 
     if(error) console.error("Page update error", error);
-    fetchData(); 
+    // Note: We don't fetch here manually for Regions update because subscription handles it
+    // But for metadata updates it's fine.
   }
 
 
