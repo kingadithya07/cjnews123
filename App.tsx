@@ -63,8 +63,22 @@ function App() {
     }
   };
 
+  // --- REAL-TIME SUBSCRIPTION ---
   useEffect(() => {
     fetchData();
+
+    // Subscribe to changes across all critical tables
+    const channel = supabase
+      .channel('newsroom_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // --- ROUTING LOGIC ---
@@ -206,11 +220,12 @@ function App() {
     });
 
     if (error) {
-      console.error("Failed to add page:", error);
-      alert("Failed to save page to backend: " + error.message);
-      fetchData(); // Revert
+      console.error("Failed to add page to backend:", error);
+      alert("Database error: Could not sync page. Ensure 'epaper_pages' table exists in Supabase. " + error.message);
+      fetchData(); // Revert from backend state
     } else {
-      fetchData(); // Sync exact structure
+      console.log("Archive page successfully synced.");
+      fetchData(); // Sync exact structure (including any server defaults)
     }
   };
 
@@ -227,13 +242,6 @@ function App() {
   };
 
   const handleUpdatePage = async (page: EPaperPage) => {
-    // Mostly used for updating regions
-    // This assumes specific logic exists in EditorDashboard to handle regions separately if using a relational table,
-    // but here we just refresh to ensure sync or handle basic updates.
-    // For this app architecture, regions are usually children rows.
-    
-    // We will trust the child component to handle the specific region upserts via supabase, 
-    // but if we are updating the page metadata itself:
     const { error } = await supabase.from('epaper_pages').update({
         date: page.date,
         pageNumber: page.pageNumber

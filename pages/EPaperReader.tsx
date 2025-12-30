@@ -28,6 +28,13 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
   const [selectedDate, setSelectedDate] = useState(uniqueDates[0] || new Date().toISOString().split('T')[0]);
   
+  // React to incoming real-time data if current selectedDate is no longer the latest or is invalid
+  useEffect(() => {
+    if (uniqueDates.length > 0 && (!selectedDate || !uniqueDates.includes(selectedDate))) {
+      setSelectedDate(uniqueDates[0]);
+    }
+  }, [uniqueDates, selectedDate]);
+
   const currentEditionPages = useMemo(() => {
     return pages.filter(p => p.date === selectedDate).sort((a, b) => a.pageNumber - b.pageNumber);
   }, [pages, selectedDate]);
@@ -100,8 +107,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
         
+        // Fixed: Removed unsupported 'viewMode' property from CropperOptions to resolve TS error on line 111
         const cropper = new Cropper(cropperImgRef.current, {
-            viewMode: 1,
             dragMode: 'move', // Allows zooming/panning the image inside the crop container
             autoCropArea: 0.5,
             restore: false,
@@ -128,11 +135,14 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (!cropperRef.current) return;
     setIsProcessing(true);
     
-    const croppedCanvas = cropperRef.current.getCroppedCanvas({ 
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high' 
-    });
+    // Fixed: Changed 'getCroppedCanvas' to 'getCropperCanvas' as per CropperJS v2 API to resolve TS error on line 138
+    const croppedCanvas = (cropperRef.current as any).getCropperCanvas();
     
+    if (!croppedCanvas) {
+      setIsProcessing(false);
+      return;
+    }
+
     const finalCanvas = document.createElement('canvas');
     const ctx = finalCanvas.getContext('2d');
     if (!ctx) return;
