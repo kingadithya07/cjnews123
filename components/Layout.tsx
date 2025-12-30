@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { UserRole } from '../types';
-import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, LayoutDashboard, Settings, ChevronRight } from 'lucide-react';
+// Fixed missing icon imports: Briefcase and MoreHorizontal
+import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
@@ -25,8 +26,7 @@ interface WeatherState {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [time, setTime] = useState(new Date());
   
   // Lazy initialize state from localStorage to prevent flash of default content
@@ -158,57 +158,40 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   );
 
   const MobileNavIcon = ({ to, label, icon: Icon, onClick }: { to?: string, label: string, icon: any, onClick?: () => void }) => {
-    const active = to ? isActive(to) : (label === 'PROFILE' && isProfileSheetOpen);
-    
-    const handleClick = () => {
-        if (onClick) onClick();
-        else if (to) onNavigate(to);
-    };
-
-    return (
-      <button onClick={handleClick} className="flex-1 flex justify-center w-full group">
-        <div className={`flex flex-col items-center gap-1 py-2`}>
-          <div className={`p-1.5 rounded-full transition-all duration-300 ${active ? 'bg-news-accent text-white shadow-md' : 'text-gray-400 group-hover:text-gray-600'}`}>
-              {label === 'PROFILE' && userAvatar ? (
-                 <img src={userAvatar} className="w-5 h-5 rounded-full object-cover" alt="Profile"/>
-              ) : (
-                 <Icon size={18} />
-              )}
-          </div>
-          <span className={`text-[8px] font-bold uppercase tracking-widest ${active ? 'text-news-accent' : 'text-gray-400'}`}>
-            {label}
-          </span>
+    const active = to ? isActive(to) : false;
+    const content = (
+      <div className={`flex flex-col items-center gap-1 py-2`}>
+        <div className={`p-1.5 rounded-full transition-colors ${active ? 'bg-news-accent/10 text-news-accent' : 'text-gray-500'}`}>
+             {label === 'PROFILE' && userAvatar ? (
+                 <img src={userAvatar} alt="Profile" className="w-5 h-5 rounded-full object-cover" />
+             ) : (
+                 <Icon size={20} />
+             )}
         </div>
-      </button>
+        <span className={`text-[9px] font-bold uppercase tracking-widest ${active ? 'text-news-accent' : 'text-gray-500'}`}>
+          {label}
+        </span>
+      </div>
     );
+    if (to) return <Link to={to} onNavigate={onNavigate} className="flex-1 flex justify-center">{content}</Link>;
+    return <button onClick={onClick} className="flex-1 flex justify-center">{content}</button>;
   };
 
-  const handleProfileClick = () => {
-      if (userName) {
-          setIsProfileSheetOpen(true);
-      } else {
-          onNavigate('/login');
-      }
-  };
-
-  const dashboardLink = currentRole === UserRole.EDITOR || currentRole === UserRole.ADMIN ? '/editor' : currentRole === UserRole.WRITER ? '/writer' : null;
-  const DashboardIcon = currentRole === UserRole.EDITOR || currentRole === UserRole.ADMIN ? Shield : PenTool;
+  const dashboardLink = currentRole === UserRole.EDITOR ? '/editor' : currentRole === UserRole.WRITER ? '/writer' : null;
+  const DashboardIcon = currentRole === UserRole.EDITOR ? Shield : PenTool;
 
   return (
     <div className="min-h-screen flex flex-col bg-news-paper">
       
-      {/* MOBILE HEADER WRAPPER (Top Strip + Brand + Nav) */}
-      <div className="md:hidden flex flex-col bg-white sticky top-0 z-50 shadow-md">
-          {/* Date & Account Strip */}
+      {/* MOBILE TOP BAR */}
+      <div className="md:hidden flex flex-col bg-white">
           <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 bg-gray-50">
               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{format(new Date(), 'dd MMM yyyy')}</span>
-              <button onClick={handleProfileClick} className="text-[10px] font-bold text-news-gold uppercase flex items-center gap-1">
+              <Link to={userName ? (dashboardLink || '/login') : '/login'} onNavigate={onNavigate} className="text-[10px] font-bold text-news-gold uppercase">
                  {userName ? 'Account' : 'Login'}
-              </button>
+              </Link>
           </div>
-          
-          {/* Brand Header */}
-          <div className="px-5 py-4 flex justify-between items-center bg-white">
+          <div className="px-5 py-6 flex justify-between items-center">
               <Link to="/" onNavigate={onNavigate}>
                 <h1 className="font-display text-3xl font-black tracking-tighter text-news-black flex items-baseline leading-none">
                     <span>DIGITAL</span>
@@ -223,108 +206,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                   <WeatherIcon condition={weatherState.condition} size={16} />
               </button>
           </div>
-
-          {/* Navigation Bar (Moved Here) */}
-          <div className="flex justify-around items-center px-2 border-t border-gray-100 bg-white pb-1">
+          <div className="flex justify-between items-center px-2 bg-white border-y border-gray-200 sticky top-0 z-50 h-[65px] shadow-sm">
              <MobileNavIcon to="/" label="HOME" icon={Home} />
              <MobileNavIcon to="/epaper" label="PAPER" icon={Newspaper} />
              <MobileNavIcon to="/classifieds" label="ADS" icon={Briefcase} />
-             <MobileNavIcon label={userName ? "PROFILE" : "LOGIN"} icon={User} onClick={handleProfileClick} />
+             <MobileNavIcon to={userName ? (dashboardLink || '/login') : '/login'} label="PROFILE" icon={userName && dashboardLink ? DashboardIcon : User} />
+             <MobileNavIcon label={isMobileMenuOpen ? "CLOSE" : "MORE"} icon={isMobileMenuOpen ? X : MoreHorizontal} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
           </div>
       </div>
-
-      {/* MOBILE PROFILE DRAWER (SHEET) */}
-      {isProfileSheetOpen && (
-          <div className="fixed inset-0 z-[60] md:hidden">
-              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsProfileSheetOpen(false)}></div>
-              <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom duration-300">
-                  <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-6"></div>
-                  
-                  <div className="px-6 pb-8">
-                      {/* User Header */}
-                      <div className="flex items-center gap-4 mb-8">
-                          <div className="w-16 h-16 rounded-full bg-gray-100 border-2 border-white shadow-md overflow-hidden shrink-0">
-                              {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover"/> : <User size={32} className="m-auto mt-4 text-gray-400"/>}
-                          </div>
-                          <div>
-                              <h3 className="font-serif font-bold text-xl text-gray-900">{userName}</h3>
-                              <span className={`inline-block text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest border ${
-                                  currentRole === UserRole.ADMIN ? 'bg-red-600 border-red-700' : 
-                                  currentRole === UserRole.EDITOR ? 'bg-news-gold border-yellow-600 text-black' : 
-                                  currentRole === UserRole.WRITER ? 'bg-blue-600 border-blue-700' : 'bg-gray-500 border-gray-600'
-                              }`}>
-                                  {currentRole} Access
-                              </span>
-                          </div>
-                      </div>
-
-                      {/* Menu Links */}
-                      <div className="space-y-2">
-                          {dashboardLink && (
-                              <button 
-                                onClick={() => { onNavigate(dashboardLink); setIsProfileSheetOpen(false); }}
-                                className="w-full flex items-center justify-between p-4 bg-news-black text-white rounded-xl shadow-lg group active:scale-95 transition-transform"
-                              >
-                                  <div className="flex items-center gap-3">
-                                      <div className="p-2 bg-white/10 rounded-lg text-news-gold"><LayoutDashboard size={20}/></div>
-                                      <div className="text-left">
-                                          <span className="block text-xs font-bold uppercase tracking-widest text-gray-400">Management</span>
-                                          <span className="block font-bold">Go to Dashboard</span>
-                                      </div>
-                                  </div>
-                                  <ChevronRight size={20} className="text-gray-500 group-hover:text-white transition-colors"/>
-                              </button>
-                          )}
-
-                          <button className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-xl transition-colors text-gray-700">
-                              <Settings size={20} className="text-gray-400"/>
-                              <span className="font-medium text-sm">Account Settings</span>
-                          </button>
-                          
-                          <button className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-xl transition-colors text-gray-700">
-                              <Shield size={20} className="text-gray-400"/>
-                              <span className="font-medium text-sm">Privacy & Security</span>
-                          </button>
-
-                          <div className="h-px bg-gray-100 my-2"></div>
-
-                          <button 
-                            onClick={() => { onNavigate('/login'); setIsProfileSheetOpen(false); }}
-                            className="w-full flex items-center gap-4 p-4 hover:bg-red-50 rounded-xl transition-colors text-red-600"
-                          >
-                              <LogOut size={20}/>
-                              <span className="font-bold text-sm">Sign Out</span>
-                          </button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* MOBILE MORE MENU OVERLAY */}
-      {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-40 bg-white pt-24 pb-20 px-6 overflow-y-auto animate-in fade-in slide-in-from-top-5 md:hidden">
-              <div className="space-y-6">
-                  <div>
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Sections</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                          <Link to="#" onNavigate={onNavigate} onClick={() => setIsMobileMenuOpen(false)} className="p-4 bg-gray-50 rounded-lg font-bold text-gray-700 text-sm hover:bg-gray-100 border border-gray-100">World News</Link>
-                          <Link to="#" onNavigate={onNavigate} onClick={() => setIsMobileMenuOpen(false)} className="p-4 bg-gray-50 rounded-lg font-bold text-gray-700 text-sm hover:bg-gray-100 border border-gray-100">Technology</Link>
-                          <Link to="#" onNavigate={onNavigate} onClick={() => setIsMobileMenuOpen(false)} className="p-4 bg-gray-50 rounded-lg font-bold text-gray-700 text-sm hover:bg-gray-100 border border-gray-100">Business</Link>
-                          <Link to="#" onNavigate={onNavigate} onClick={() => setIsMobileMenuOpen(false)} className="p-4 bg-gray-50 rounded-lg font-bold text-gray-700 text-sm hover:bg-gray-100 border border-gray-100">Culture</Link>
-                      </div>
-                  </div>
-                  
-                  <div>
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Support</h4>
-                      <div className="space-y-2">
-                          <Link to="#" onNavigate={onNavigate} onClick={() => setIsMobileMenuOpen(false)} className="block p-3 border border-gray-100 rounded-lg text-sm text-gray-600">Help Center</Link>
-                          <Link to="/staff/login" onNavigate={onNavigate} onClick={() => setIsMobileMenuOpen(false)} className="block p-3 border border-gray-100 rounded-lg text-sm text-gray-600">Staff Login</Link>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
 
       {/* DESKTOP TOP BAR */}
       <div className="hidden md:flex bg-white border-b border-gray-200 text-xs text-gray-500 py-1.5 px-4 font-sans tracking-widest uppercase justify-between items-center sticky top-0 z-50">
@@ -336,7 +225,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
              {userName ? (
                  <div className="flex items-center gap-3">
                      {dashboardLink && (
-                        <Link to={dashboardLink} onNavigate={onNavigate} className="bg-news-black text-news-gold px-3 py-1 rounded text-[10px] font-bold hover:bg-gray-800 transition-colors">DASHBOARD</Link>
+                        <Link to={dashboardLink} onNavigate={onNavigate} className="bg-news-black text-news-gold px-3 py-1 rounded text-[10px] font-bold">DASHBOARD</Link>
                      )}
                      <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
                          {userAvatar ? <img src={userAvatar} className="w-5 h-5 rounded-full object-cover" /> : <User size={12}/>}
@@ -414,12 +303,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       </div>
 
       {/* MAIN CONTENT */}
-      <main className="flex-grow container mx-auto px-4 py-8 mb-16 md:mb-0">
+      <main className="flex-grow container mx-auto px-4 py-8">
         {children}
       </main>
 
       {/* FOOTER */}
-      <footer className="bg-news-black text-gray-400 py-16 border-t-4 border-news-gold hidden md:block">
+      <footer className="bg-news-black text-gray-400 py-16 border-t-4 border-news-gold">
         <div className="max-w-7xl mx-auto px-4">
            <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
               <div>

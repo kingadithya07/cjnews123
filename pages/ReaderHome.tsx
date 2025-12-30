@@ -19,14 +19,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
   const sliderArticles = articles.slice(0, 5); // Top 5 for Slider
   const secondaryArticles = articles.slice(1, 7); // Next batch for Latest
   const sideListArticles = articles.slice(3, 8); // Overlapping batch for Trending
-  
-  // Logic to find Page 1 of the latest date available
-  // 1. Sort pages by date descending to find the newest date
-  const sortedByDate = [...ePaperPages].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const latestDate = sortedByDate[0]?.date;
-  
-  // 2. Find Page 1 for that date. If Page 1 isn't uploaded yet, fallback to the first available page for that date.
-  const latestPaper = ePaperPages.find(p => p.date === latestDate && p.pageNumber === 1) || sortedByDate[0];
+  const latestPaper = ePaperPages[0];
   
   // Mobile Tab State
   const [mobileTab, setMobileTab] = useState<'latest' | 'trending'>('latest');
@@ -70,8 +63,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       {/* --- TOP SECTION: E-PAPER (Left) & SLIDER (Right) --- */}
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* 1. Today's Edition Widget (Desktop: Left 3 cols, Mobile: Order 2 - Below Slider) */}
-          <div className="col-span-1 lg:col-span-3 order-2 lg:order-1">
+          {/* 1. Today's Edition Widget (Desktop: Left 3 cols, Mobile: Hidden/Stacked) */}
+          <div className="hidden lg:block lg:col-span-3">
              {latestPaper ? (
                 <div className="border border-gray-200 bg-white h-full p-4 flex flex-col shadow-sm rounded-lg">
                     <div className="flex justify-between items-center mb-3 border-b border-gray-100 pb-2">
@@ -79,38 +72,26 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                             <MapPin size={12} className="text-news-accent"/> Today's Paper
                         </h3>
                         <span className="text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded">
-                             {format(new Date(latestPaper.date), 'dd MMM')}
+                             {format(new Date(), 'dd MMM')}
                         </span>
                     </div>
-                     {/* Mobile: Standard layout. Desktop: Interactive hover card. */}
                      <Link to="/epaper" onNavigate={onNavigate} className="block group relative shadow-md flex-1 overflow-hidden bg-gray-100">
-                        <div className="aspect-[3/4] relative overflow-hidden">
-                            <img 
-                                src={latestPaper.imageUrl} 
-                                alt="E-Paper Preview" 
-                                className="w-full h-full object-cover object-top lg:transition-transform lg:duration-500 lg:group-hover:scale-105" 
-                            />
-                            {/* Overlay Gradient for Desktop */}
-                            <div className="absolute inset-0 bg-black/0 lg:group-hover:bg-black/10 transition-colors hidden lg:block"></div>
-                            
-                            {/* Desktop Button (Hover) */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-news-black/95 text-white text-center py-3 transform translate-y-full lg:group-hover:translate-y-0 transition-transform duration-300 hidden lg:block">
-                                <span className="text-xs font-bold uppercase tracking-wider">Read Full Paper</span>
-                            </div>
-                        </div>
-                        {/* Mobile Static Button */}
-                        <div className="bg-news-black text-white text-center py-3 lg:hidden">
-                            <span className="text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2">
-                                <User size={14}/> Read Full Paper
-                            </span>
+                        <img 
+                            src={latestPaper.imageUrl} 
+                            alt="E-Paper Preview" 
+                            className="w-full h-full object-cover object-top grayscale transition-all duration-500 group-hover:grayscale-0 group-hover:scale-105" 
+                        />
+                        <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-news-black/95 text-white text-center py-3 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                            <span className="text-xs font-bold uppercase tracking-wider">Read Full Paper</span>
                         </div>
                      </Link>
                      <div className="mt-3 text-center">
-                        <p className="text-[10px] text-gray-400">Digital Edition • Page {latestPaper.pageNumber}</p>
+                        <p className="text-[10px] text-gray-400">Digital Edition Available Daily</p>
                      </div>
                 </div>
             ) : (
-                 <div className="border border-gray-200 bg-white h-full min-h-[300px] lg:min-h-0 p-4 flex flex-col justify-center items-center text-center shadow-sm rounded-lg text-gray-400">
+                 <div className="border border-gray-200 bg-white h-full p-4 flex flex-col justify-center items-center text-center shadow-sm rounded-lg text-gray-400">
                      <div className="bg-gray-100 p-4 rounded-full mb-3">
                          <MapPin size={24} className="opacity-20" />
                      </div>
@@ -119,8 +100,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
             )}
           </div>
 
-          {/* 2. Unified Landscape Slider (Desktop: Right 9 cols, Mobile: Full Width, Order 1) */}
-          <div className="col-span-1 lg:col-span-9 order-1 lg:order-2">
+          {/* 2. Unified Landscape Slider (Desktop: Right 9 cols, Mobile: Full Width) */}
+          <div className="col-span-1 lg:col-span-9">
               {sliderArticles.length > 0 ? (
               <div 
                 className="relative w-full bg-white md:bg-gray-100 group h-full"
@@ -143,8 +124,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                     className="w-full h-auto object-contain"
                                   />
                                   
-                                  {/* Gradient Overlay for Text Readability - Enhanced for Mobile */}
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent"></div>
+                                  {/* Gradient Overlay for Text Readability */}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
                                   
                                   {/* Category Tag (Top Left) */}
                                   <span className="absolute top-4 left-4 bg-news-gold text-black text-[10px] md:text-xs font-bold px-2 py-1 uppercase tracking-widest shadow-sm z-10">
@@ -234,7 +215,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
             
             {/* --- MOBILE: TABS FOR LATEST / TRENDING --- */}
             <div className="md:hidden">
-               <div className="flex border-b border-gray-200 mb-6 sticky top-[130px] bg-[#f9f9f7] z-30 pt-2">
+               <div className="flex border-b border-gray-200 mb-6 sticky top-[60px] bg-[#f9f9f7] z-20 pt-2">
                    <button 
                      onClick={() => setMobileTab('latest')} 
                      className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest transition-colors ${mobileTab === 'latest' ? 'border-b-2 border-news-black text-news-black' : 'text-gray-400 hover:text-gray-600'}`}
