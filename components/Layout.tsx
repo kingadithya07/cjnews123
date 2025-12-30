@@ -139,6 +139,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
 
   const isActive = (path: string) => currentPath === path;
   const isDashboard = currentPath.startsWith('/editor') || currentPath.startsWith('/writer');
+  const isEPaperReader = currentPath.startsWith('/epaper');
 
   if (isDashboard) {
       return <div className="min-h-screen bg-gray-50">{children}</div>;
@@ -420,12 +421,13 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       <BreakingTicker className="hidden md:flex" />
 
       {/* MAIN CONTENT */}
-      <main className="flex-grow container mx-auto px-4 py-8 mb-16 md:mb-0">
+      {/* If EPaper, we want full width/height without container constraints */}
+      <main className={`flex-grow ${isEPaperReader ? 'bg-gray-900 w-full' : 'container mx-auto px-4 py-8 mb-16 md:mb-0'}`}>
         {children}
       </main>
 
       {/* FOOTER - Hidden on E-Paper Reader Route */}
-      {currentPath !== '/epaper' && (
+      {!isEPaperReader && (
         <footer className="bg-news-black text-gray-400 py-16 border-t-4 border-news-gold hidden md:block">
           <div className="max-w-7xl mx-auto px-4">
              <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">

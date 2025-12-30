@@ -633,7 +633,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                                 onRegionClick={handleRegionClick} 
                                 onNavigate={onNavigate}
                                 className="max-w-full max-h-full shadow-2xl"
-                                imageClassName="max-h-[calc(100vh-140px)] w-auto object-contain"
+                                imageClassName="max-h-[85vh] w-auto"
                             />
                         </div>
                     </div>
