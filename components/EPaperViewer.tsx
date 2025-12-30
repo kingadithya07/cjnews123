@@ -6,9 +6,11 @@ interface EPaperViewerProps {
   page: EPaperPage;
   onRegionClick?: (region: EPaperRegion) => void;
   onNavigate?: (path: string) => void;
+  className?: string;
+  imageClassName?: string;
 }
 
-const EPaperViewer: React.FC<EPaperViewerProps> = ({ page, onRegionClick, onNavigate }) => {
+const EPaperViewer: React.FC<EPaperViewerProps> = ({ page, onRegionClick, onNavigate, className = '', imageClassName = '' }) => {
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
 
   const handleRegionClick = (region: EPaperRegion, e: React.MouseEvent) => {
@@ -27,44 +29,42 @@ const EPaperViewer: React.FC<EPaperViewerProps> = ({ page, onRegionClick, onNavi
   };
 
   return (
-    // Outer flex container centers the image content in the parent space
-    <div className="relative w-full h-full flex items-center justify-center select-none pointer-events-none">
-       {/* Inner wrapper shrinks to fit the image dimensions exactly */}
-       <div className="relative h-full w-auto pointer-events-auto inline-block">
-          <img 
-            src={page.imageUrl} 
-            alt={`Page ${page.pageNumber}`} 
-            className="h-full w-auto max-w-none object-contain block"
-            draggable={false}
-          />
-          
-          {/* Overlay Regions are relative to the shrink-wrapped container */}
-          {page.regions.map((region) => (
-            <div
-              key={region.id}
-              onClick={(e) => handleRegionClick(region, e)}
-              onMouseEnter={() => setHoveredRegion(region.id)}
-              onMouseLeave={() => setHoveredRegion(null)}
-              className={`absolute cursor-pointer transition-all duration-200 border-2 z-10 
-                ${hoveredRegion === region.id 
-                  ? 'bg-news-accent/10 border-news-accent shadow-sm' 
-                  : 'bg-transparent border-transparent hover:border-news-accent/30'
-                }`}
-              style={{
-                left: `${region.x}%`,
-                top: `${region.y}%`,
-                width: `${region.width}%`,
-                height: `${region.height}%`,
-              }}
-            >
-              {hoveredRegion === region.id && (
-                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-news-black text-white text-[10px] font-bold px-3 py-1 rounded shadow-lg whitespace-nowrap z-20 pointer-events-none border border-gray-700 hidden md:block">
-                   Click to Clip / Read
-                </div>
-              )}
-            </div>
-          ))}
-       </div>
+    // Inner wrapper shrinks to fit the image dimensions exactly.
+    // Relative positioning creates the coordinate context for regions.
+    <div className={`relative inline-block select-none ${className}`}>
+        <img 
+          src={page.imageUrl} 
+          alt={`Page ${page.pageNumber}`} 
+          className={`block w-auto h-auto max-w-full max-h-full object-contain pointer-events-auto ${imageClassName}`}
+          draggable={false}
+        />
+        
+        {/* Overlay Regions */}
+        {page.regions.map((region) => (
+          <div
+            key={region.id}
+            onClick={(e) => handleRegionClick(region, e)}
+            onMouseEnter={() => setHoveredRegion(region.id)}
+            onMouseLeave={() => setHoveredRegion(null)}
+            className={`absolute cursor-pointer transition-all duration-200 border-2 z-10 
+              ${hoveredRegion === region.id 
+                ? 'bg-news-accent/10 border-news-accent shadow-sm' 
+                : 'bg-transparent border-transparent hover:border-news-accent/30'
+              }`}
+            style={{
+              left: `${region.x}%`,
+              top: `${region.y}%`,
+              width: `${region.width}%`,
+              height: `${region.height}%`,
+            }}
+          >
+            {hoveredRegion === region.id && (
+              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-news-black text-white text-[10px] font-bold px-3 py-1 rounded shadow-lg whitespace-nowrap z-20 pointer-events-none border border-gray-700 hidden md:block">
+                 Click to Clip / Read
+              </div>
+            )}
+          </div>
+        ))}
     </div>
   );
 };

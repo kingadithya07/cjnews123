@@ -7,7 +7,7 @@ import {
   Maximize, Minimize, RotateCcw, MousePointer2, X, ArrowRight, Menu, Grid, Scissors, Download, Loader2, Share2, Crop, ArrowLeft
 } from 'lucide-react';
 import { APP_NAME } from '../constants';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 
 interface EPaperReaderProps {
   pages: EPaperPage[];
@@ -24,14 +24,16 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
     return dates.sort().reverse(); // Newest first
   }, [pages]);
 
-  const [selectedDate, setSelectedDate] = useState(uniqueDates[0]);
+  const [selectedDate, setSelectedDate] = useState(uniqueDates[0] || new Date().toISOString().split('T')[0]);
 
   // Audit Fix: Reset selected date if available dates change significantly
   useEffect(() => {
     if (!uniqueDates.includes(selectedDate) && uniqueDates.length > 0) {
-        setSelectedDate(uniqueDates[0]);
+        // Don't auto-reset if user manually picked a date (we show empty state instead)
+        // But if no date is selected initially, pick latest.
+        if (!selectedDate) setSelectedDate(uniqueDates[0]);
     }
-  }, [uniqueDates, selectedDate]);
+  }, [uniqueDates]);
   
   const currentEditionPages = useMemo(() => {
     return pages.filter(p => p.date === selectedDate).sort((a, b) => a.pageNumber - b.pageNumber);
@@ -290,13 +292,42 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
   };
 
   const handleDateChange = (direction: 'prev' | 'next') => {
-    const idx = uniqueDates.indexOf(selectedDate);
-    if (direction === 'prev' && idx < uniqueDates.length - 1) {
-        setSelectedDate(uniqueDates[idx + 1]);
-        setActivePageIndex(0);
+    let targetIndex = -1;
+    let newDate = selectedDate;
+
+    // If currently selected date is in our uniqueDates list
+    if (uniqueDates.includes(selectedDate)) {
+        const idx = uniqueDates.indexOf(selectedDate);
+        if (direction === 'prev') {
+            targetIndex = idx + 1; // Older
+        } else {
+            targetIndex = idx - 1; // Newer
+        }
+    } else {
+        // Fallback if user picked a random date via calendar: find nearest
+        // If we want to move "prev" (older), find first date in uniqueDates smaller than current
+        // If "next" (newer), find first date larger than current
+        const currentTs = new Date(selectedDate).getTime();
+        if (direction === 'prev') {
+            // Find newest date that is older than current
+            const older = uniqueDates.find(d => new Date(d).getTime() < currentTs);
+            if (older) newDate = older;
+        } else {
+            // Find oldest date that is newer than current
+            // uniqueDates is desc, so reverse it or findLast
+            const newer = [...uniqueDates].reverse().find(d => new Date(d).getTime() > currentTs);
+            if (newer) newDate = newer;
+        }
+        
+        if (newDate !== selectedDate) {
+            setSelectedDate(newDate);
+            setActivePageIndex(0);
+        }
+        return;
     }
-    if (direction === 'next' && idx > 0) {
-        setSelectedDate(uniqueDates[idx - 1]);
+
+    if (targetIndex >= 0 && targetIndex < uniqueDates.length) {
+        setSelectedDate(uniqueDates[targetIndex]);
         setActivePageIndex(0);
     }
   };
@@ -333,22 +364,20 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
   // Get linked article data (if any)
   const selectedArticle = selectedRegion && selectedRegion.linkedArticleId ? articles.find(a => a.id === selectedRegion.linkedArticleId) : null;
 
-  if (!activePage) return <div className="p-8 text-center text-white">No E-Paper available for this date.</div>;
-
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] bg-gray-900 text-white overflow-hidden relative">
       
       {/* Top Toolbar */}
       <div className="flex items-center justify-between px-2 md:px-4 py-3 bg-news-black border-b border-gray-800 shadow-md z-20">
          
-         {/* Left: Sidebar Toggle & Date Nav */}
-         <div className="flex items-center space-x-2 md:space-x-4">
+         {/* Left: Sidebar Toggle & Navigation */}
+         <div className="flex items-center justify-start gap-2 md:gap-4 w-1/4 md:w-1/3">
             <button 
                 onClick={() => onNavigate('/')}
                 className="p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded flex items-center gap-1"
                 title="Back to Home"
             >
-                <ArrowLeft size={20} /> <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">Home</span>
+                <ArrowLeft size={20} /> <span className="hidden lg:inline text-xs font-bold uppercase tracking-wider">Home</span>
             </button>
             
             <button 
@@ -358,54 +387,65 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                 <Grid size={20} />
             </button>
 
-            <div className="flex items-center bg-gray-800 rounded-md p-1">
+            {activePage && (
+                <div className="hidden md:block text-sm text-gray-400 font-mono">
+                    Page <span className="text-white font-bold">{activePageIndex + 1}</span> of {currentEditionPages.length}
+                </div>
+            )}
+         </div>
+
+         {/* Center: Date Navigation */}
+         <div className="flex items-center justify-center w-1/2 md:w-1/3">
+            <div className="flex items-center bg-gray-800 rounded-full p-1 border border-gray-700 shadow-sm relative group hover:border-gray-600 transition-colors">
                 <button 
                   onClick={() => handleDateChange('prev')} 
-                  disabled={selectedDate === uniqueDates[uniqueDates.length - 1]}
-                  className="p-1 hover:bg-gray-700 rounded disabled:opacity-30 transition-colors"
+                  disabled={uniqueDates.indexOf(selectedDate) === uniqueDates.length - 1 && uniqueDates.includes(selectedDate)}
+                  className="p-1.5 hover:bg-gray-700 rounded-full disabled:opacity-30 transition-colors text-gray-300 hover:text-white"
+                  title="Previous Edition"
                 >
-                    <ChevronLeft size={16} md:size={20} />
+                    <ChevronLeft size={18} />
                 </button>
-                <div className="flex items-center px-1 md:px-2 space-x-2 text-xs md:text-sm font-medium border-x border-gray-700 mx-1 min-w-[100px] md:min-w-[140px] justify-center relative group">
-                    <Calendar size={12} className="text-news-accent hidden sm:block absolute left-2 pointer-events-none"/>
-                    <select 
+                
+                <div className="relative mx-1 md:mx-2 cursor-pointer flex items-center justify-center px-2 py-1">
+                    <div className="flex items-center space-x-2 text-xs md:text-sm font-bold text-white pointer-events-none">
+                        <Calendar size={14} className="text-news-accent mb-0.5"/>
+                        <span className="tracking-wide">
+                            {isValid(parseISO(selectedDate)) ? format(parseISO(selectedDate), 'MMM dd, yyyy') : selectedDate}
+                        </span>
+                    </div>
+                    {/* Native Date Picker Overlay */}
+                    <input 
+                        type="date" 
                         value={selectedDate} 
                         onChange={(e) => { setSelectedDate(e.target.value); setActivePageIndex(0); }}
-                        className="bg-transparent text-white font-bold text-xs md:text-sm appearance-none outline-none cursor-pointer pl-6 pr-4 py-1 text-center w-full hover:text-news-gold transition-colors"
-                    >
-                        {uniqueDates.map(date => (
-                            <option key={date} value={date} className="text-black bg-white">
-                                {date}
-                            </option>
-                        ))}
-                    </select>
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                        title="Select Date"
+                    />
                 </div>
+
                 <button 
                   onClick={() => handleDateChange('next')}
-                  disabled={selectedDate === uniqueDates[0]} 
-                  className="p-1 hover:bg-gray-700 rounded disabled:opacity-30 transition-colors"
+                  disabled={uniqueDates.indexOf(selectedDate) === 0 && uniqueDates.includes(selectedDate)}
+                  className="p-1.5 hover:bg-gray-700 rounded-full disabled:opacity-30 transition-colors text-gray-300 hover:text-white"
+                  title="Next Edition"
                 >
-                    <ChevronRight size={16} md:size={20} />
+                    <ChevronRight size={18} />
                 </button>
-            </div>
-
-            <div className="hidden sm:block text-sm text-gray-400 font-mono">
-                Page <span className="text-white font-bold">{activePageIndex + 1}</span> of {currentEditionPages.length}
             </div>
          </div>
 
-         {/* Right: Zoom, Share & View Tools */}
-         <div className="flex items-center space-x-2 md:space-x-4">
-             <div className="flex items-center bg-gray-800 rounded-md p-1">
-                <button onClick={handleZoomOut} disabled={scale <= 1} className="p-1.5 hover:bg-gray-700 rounded disabled:opacity-30 hidden sm:block">
+         {/* Right: Zoom & Tools */}
+         <div className="flex items-center justify-end gap-2 w-1/4 md:w-1/3">
+             <div className="hidden md:flex items-center bg-gray-800 rounded-md p-1 mr-2">
+                <button onClick={handleZoomOut} disabled={scale <= 1} className="p-1.5 hover:bg-gray-700 rounded disabled:opacity-30">
                     <ZoomOut size={16} />
                 </button>
-                <span className="px-1 md:px-2 text-[10px] md:text-xs font-mono w-8 md:w-12 text-center hidden sm:block">{Math.round(scale * 100)}%</span>
-                <button onClick={handleZoomIn} disabled={scale >= 4} className="p-1.5 hover:bg-gray-700 rounded disabled:opacity-30 hidden sm:block">
+                <span className="px-2 text-xs font-mono w-12 text-center text-gray-400">{Math.round(scale * 100)}%</span>
+                <button onClick={handleZoomIn} disabled={scale >= 4} className="p-1.5 hover:bg-gray-700 rounded disabled:opacity-30">
                     <ZoomIn size={16} />
                 </button>
-                <div className="w-px h-4 bg-gray-600 mx-1 hidden sm:block"></div>
-                <button onClick={handleReset} className="p-1.5 hover:bg-gray-700 rounded hidden sm:block" title="Reset View">
+                <div className="w-px h-4 bg-gray-600 mx-1"></div>
+                <button onClick={handleReset} className="p-1.5 hover:bg-gray-700 rounded" title="Reset View">
                     <RotateCcw size={16} />
                 </button>
              </div>
@@ -413,17 +453,24 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
              <button 
                 onClick={handlePageShare}
                 className="p-2 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors"
-                title="Share this edition"
+                title="Share"
              >
                 <Share2 size={18} />
              </button>
 
              <button 
                 onClick={toggleFullscreen} 
-                className="flex items-center space-x-2 bg-news-accent hover:bg-red-700 px-2 md:px-3 py-1.5 rounded text-sm font-bold transition-colors"
+                className="p-2 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors md:hidden"
              >
-                {isFullscreen ? <Minimize size={16}/> : <Maximize size={16} />}
-                <span className="hidden sm:inline">{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
+                {isFullscreen ? <Minimize size={18}/> : <Maximize size={18} />}
+             </button>
+
+             <button 
+                onClick={toggleFullscreen} 
+                className="hidden md:flex items-center space-x-2 bg-news-accent hover:bg-red-700 px-3 py-1.5 rounded text-xs font-bold transition-colors"
+             >
+                {isFullscreen ? <Minimize size={14}/> : <Maximize size={14} />}
+                <span>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
              </button>
          </div>
       </div>
@@ -442,7 +489,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                 <button onClick={() => setShowMobileSidebar(false)}><X size={20} className="text-gray-400"/></button>
             </div>
             <div className="p-4 space-y-4">
-               {currentEditionPages.map((page, idx) => (
+               {currentEditionPages.length > 0 ? currentEditionPages.map((page, idx) => (
                   <div 
                     key={page.id} 
                     onClick={() => { setActivePageIndex(idx); setShowMobileSidebar(false); }}
@@ -457,7 +504,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
                         Page {page.pageNumber}
                      </p>
                   </div>
-               ))}
+               )) : (
+                   <div className="text-center text-gray-500 text-xs py-8 italic">No pages found.</div>
+               )}
             </div>
          </div>
          
@@ -478,28 +527,51 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, articles = [], onNav
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
          >
-             {/* Center Content Container */}
-             <div className="w-full h-full flex items-center justify-center p-2 md:p-8">
-                <div 
-                    style={{ 
-                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                        transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-                        width: 'auto',
-                        height: '100%',
-                        // removed forced aspect ratio
-                    }}
-                    className="origin-center shadow-2xl flex items-center justify-center"
-                >
-                    <EPaperViewer page={activePage} onRegionClick={handleRegionClick} onNavigate={onNavigate} />
-                </div>
-             </div>
+             {activePage ? (
+                 <>
+                    {/* Center Content Container */}
+                    <div className="w-full h-full flex items-center justify-center">
+                        <div 
+                            style={{ 
+                                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                                transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                                transformOrigin: 'center',
+                            }}
+                            className="origin-center"
+                        >
+                            <EPaperViewer 
+                                page={activePage} 
+                                onRegionClick={handleRegionClick} 
+                                onNavigate={onNavigate}
+                                className="max-w-[95vw] max-h-[85vh] shadow-2xl"
+                            />
+                        </div>
+                    </div>
 
-             {/* Overlay Hints */}
-             {scale === 1 && !selectedRegion && (
-                 <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-full text-xs backdrop-blur-sm pointer-events-none whitespace-nowrap hidden sm:block">
-                     <span className="flex items-center gap-2">
-                        <MousePointer2 size={12} /> Hover to highlight • Click to clip • Scroll/Zoom to explore
-                     </span>
+                    {/* Overlay Hints */}
+                    {scale === 1 && !selectedRegion && (
+                        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-full text-xs backdrop-blur-sm pointer-events-none whitespace-nowrap hidden sm:block">
+                            <span className="flex items-center gap-2">
+                                <MousePointer2 size={12} /> Hover to highlight • Click to clip • Scroll/Zoom to explore
+                            </span>
+                        </div>
+                    )}
+                 </>
+             ) : (
+                 <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
+                     <div className="bg-gray-800 p-6 rounded-full mb-4">
+                        <Calendar size={48} className="text-gray-600"/>
+                     </div>
+                     <h3 className="text-xl font-bold text-gray-300 mb-2">No Edition Found</h3>
+                     <p className="text-sm mb-6">There is no E-Paper available for {format(parseISO(selectedDate), 'MMM dd, yyyy')}.</p>
+                     {uniqueDates.length > 0 && (
+                         <button 
+                            onClick={() => setSelectedDate(uniqueDates[0])}
+                            className="px-6 py-2 bg-news-accent text-white rounded-lg text-sm font-bold uppercase tracking-widest hover:bg-red-700 transition-colors"
+                         >
+                             View Latest Edition
+                         </button>
+                     )}
                  </div>
              )}
          </div>

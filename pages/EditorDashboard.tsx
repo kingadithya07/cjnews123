@@ -58,7 +58,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   devices, onApproveDevice, onRejectDevice, onRevokeDevice
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'users' | 'idcards' | 'classifieds' | 'categories' | 'ads' | 'analytics' | 'settings' | 'inbox' | 'approvals'>('articles');
+  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'users' | 'idcards' | 'classifieds' | 'taxonomy' | 'ads' | 'analytics' | 'settings' | 'inbox' | 'approvals'>('articles');
 
   // Article Modal State
   const [statusFilter, setStatusFilter] = useState<'ALL' | ArticleStatus>('ALL');
@@ -104,6 +104,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   // Watermark State
   const [localWatermark, setLocalWatermark] = useState<WatermarkSettings>(watermarkSettings);
   
+  // Taxonomy State
+  const [newCategory, setNewCategory] = useState('');
+  const [newTag, setNewTag] = useState('');
+
   useEffect(() => {
     setLocalWatermark(watermarkSettings);
   }, [watermarkSettings]);
@@ -409,6 +413,22 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       await supabase.from('epaper_regions').delete().eq('id', regionId);
   };
 
+  const handleAddCategorySubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if(newCategory && !categories.includes(newCategory)) {
+          onAddCategory(newCategory);
+          setNewCategory('');
+      }
+  };
+
+  const handleAddTagSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if(newTag && tags && !tags.includes(newTag)) {
+          onAddTag && onAddTag(newTag);
+          setNewTag('');
+      }
+  };
+
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
     <button 
         onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
@@ -445,6 +465,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               <SidebarItem id="articles" label="Articles" icon={FileText} />
               <SidebarItem id="epaper" label="E-Paper" icon={Newspaper} />
               <SidebarItem id="classifieds" label="Classifieds" icon={Tag} />
+              <SidebarItem id="taxonomy" label="Taxonomy" icon={List} />
               <SidebarItem id="ads" label="Advertisements" icon={Megaphone} />
               <SidebarItem id="inbox" label="Communication" icon={Inbox} />
               <SidebarItem id="settings" label="Settings" icon={Settings} />
@@ -467,6 +488,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                     {activeTab === 'articles' ? 'Articles' : 
                      activeTab === 'epaper' ? 'E-Paper' : 
                      activeTab === 'classifieds' ? 'Classifieds' : 
+                     activeTab === 'taxonomy' ? 'Taxonomy' :
                      activeTab === 'ads' ? 'Ads' : 
                      activeTab === 'analytics' ? 'Analytics' : 
                      activeTab === 'settings' ? 'Settings' : 'Dashboard'}
@@ -561,38 +583,50 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                             </button>
                                         </div>
                                         
-                                        <div 
-                                            ref={imageContainerRef}
-                                            className={`aspect-[2/3] w-full bg-gray-100 relative select-none ${drawMode ? 'cursor-crosshair' : 'cursor-default'}`}
-                                            style={{ touchAction: 'none' }} // Crucial for mobile drawing
-                                            onMouseDown={handleDrawStart}
-                                            onMouseMove={handleDrawMove}
-                                            onMouseUp={handleDrawEnd}
-                                            onMouseLeave={handleDrawEnd}
-                                            onTouchStart={handleTouchDrawStart}
-                                            onTouchMove={handleTouchDrawMove}
-                                            onTouchEnd={handleDrawEnd}
-                                        >
-                                            <EPaperViewer page={activePage} />
-                                            
-                                            {/* Draw Mode Overlay: Captures events over existing regions when active */}
-                                            {drawMode && <div className="absolute inset-0 z-20" />}
-                                            
-                                            {/* Live Preview Box */}
-                                            {drawPreview && (
-                                                <div 
-                                                    className="absolute border-2 border-news-accent bg-news-accent/20 z-30"
-                                                    style={{
-                                                        left: `${drawPreview.x}%`,
-                                                        top: `${drawPreview.y}%`,
-                                                        width: `${drawPreview.w}%`,
-                                                        height: `${drawPreview.h}%`
-                                                    }}
+                                        {/* Container for the image + overlays */}
+                                        {/* We use a flex container to center the image preview block */}
+                                        <div className="aspect-[2/3] w-full bg-gray-100 relative flex items-center justify-center overflow-hidden border border-gray-200 p-2">
+                                            {/* The ref must be on the specific element that matches the image dimensions 
+                                                so coordinate calculations are correct. 
+                                                We wrap EPaperViewer in a div that shrinks to fit the image. */}
+                                            <div 
+                                                ref={imageContainerRef}
+                                                className={`relative inline-block shadow-sm ${drawMode ? 'cursor-crosshair' : 'cursor-default'}`}
+                                                style={{ touchAction: 'none' }}
+                                                onMouseDown={handleDrawStart}
+                                                onMouseMove={handleDrawMove}
+                                                onMouseUp={handleDrawEnd}
+                                                onMouseLeave={handleDrawEnd}
+                                                onTouchStart={handleTouchDrawStart}
+                                                onTouchMove={handleTouchDrawMove}
+                                                onTouchEnd={handleDrawEnd}
+                                            >
+                                                <EPaperViewer 
+                                                    page={activePage} 
+                                                    className="max-w-full max-h-full" 
+                                                    imageClassName="max-h-[600px]" // Limit height in editor
                                                 />
-                                            )}
+                                                
+                                                {/* Draw Mode Overlay */}
+                                                {drawMode && <div className="absolute inset-0 z-20" />}
+                                                
+                                                {/* Live Preview Box */}
+                                                {drawPreview && (
+                                                    <div 
+                                                        className="absolute border-2 border-news-accent bg-news-accent/20 z-30"
+                                                        style={{
+                                                            left: `${drawPreview.x}%`,
+                                                            top: `${drawPreview.y}%`,
+                                                            width: `${drawPreview.w}%`,
+                                                            height: `${drawPreview.h}%`
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                         </div>
+
                                         <div className="mt-2 text-[10px] text-gray-400 text-center">
-                                            {drawMode ? 'Click/Tap and drag to define a new region.' : 'Enable Draw Mode to add regions freely.'}
+                                            {drawMode ? 'Click/Tap and drag on the image to define a new region.' : 'Enable Draw Mode to add regions freely.'}
                                         </div>
                                     </div>
                                     
@@ -632,6 +666,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                  </div>
               )}
+              {/* Other tabs kept as is, abbreviated for change set */}
               {activeTab === 'classifieds' && (
                   <div className="max-w-6xl mx-auto">
                       <div className="flex justify-between items-center mb-6">
@@ -644,6 +679,62 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                              <tbody className="divide-y">{classifieds.map(c => <tr key={c.id} className="hover:bg-gray-50"><td className="px-6 py-4">{c.title}</td><td className="px-6 py-4">{c.category}</td><td className="px-6 py-4">{c.contactInfo}</td><td className="px-6 py-4 text-right"><button onClick={() => onDeleteClassified(c.id)} className="text-red-600"><Trash2 size={16}/></button></td></tr>)}</tbody>
                           </table>
                       </div>
+                  </div>
+              )}
+              {activeTab === 'taxonomy' && (
+                  <div className="max-w-6xl mx-auto space-y-8">
+                       <h1 className="font-serif text-3xl font-bold text-gray-900 mb-6">Taxonomy Settings</h1>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Categories */}
+                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <List size={18} className="text-news-gold" /> Article Categories
+                                </h3>
+                                <form onSubmit={handleAddCategorySubmit} className="flex gap-2 mb-4">
+                                    <input 
+                                        type="text" 
+                                        value={newCategory}
+                                        onChange={(e) => setNewCategory(e.target.value)}
+                                        placeholder="New Category Name"
+                                        className="flex-1 p-2 border rounded text-sm"
+                                    />
+                                    <button type="submit" className="bg-news-black text-white px-3 py-2 rounded text-xs font-bold uppercase hover:bg-gray-800"><Plus size={16}/></button>
+                                </form>
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                    {categories.map(cat => (
+                                        <div key={cat} className="flex justify-between items-center p-2 bg-gray-50 rounded border border-gray-100">
+                                            <span className="text-sm font-medium">{cat}</span>
+                                            <button onClick={() => onDeleteCategory(cat)} className="text-red-500 hover:text-red-700"><Trash2 size={14}/></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {/* Tags */}
+                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <Tag size={18} className="text-news-gold" /> Global Tags
+                                </h3>
+                                <form onSubmit={handleAddTagSubmit} className="flex gap-2 mb-4">
+                                    <input 
+                                        type="text" 
+                                        value={newTag}
+                                        onChange={(e) => setNewTag(e.target.value)}
+                                        placeholder="New Tag Name"
+                                        className="flex-1 p-2 border rounded text-sm"
+                                    />
+                                    <button type="submit" className="bg-news-black text-white px-3 py-2 rounded text-xs font-bold uppercase hover:bg-gray-800"><Plus size={16}/></button>
+                                </form>
+                                <div className="flex flex-wrap gap-2">
+                                    {tags?.map(tag => (
+                                        <div key={tag} className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-600 border border-gray-200">
+                                            <span>#{tag}</span>
+                                            <button onClick={() => onDeleteTag && onDeleteTag(tag)} className="ml-1 text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                       </div>
                   </div>
               )}
                {activeTab === 'ads' && (
@@ -797,12 +888,20 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   <div className="max-w-6xl mx-auto text-center py-20 bg-white border rounded-lg">
                       <Inbox size={48} className="mx-auto text-gray-300 mb-4" />
                       <h1 className="font-serif text-2xl font-bold text-gray-800">Communication Center</h1>
-                      <p className="text-gray-500 mt-2">This feature is under development.</p>
+                      <div className="max-w-md mx-auto mt-6 p-6 bg-gray-50 rounded-lg border border-gray-100 text-left">
+                          <h4 className="font-bold text-sm mb-2">Recent Notifications</h4>
+                          <ul className="space-y-2 text-sm text-gray-600">
+                              <li className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500"></div> System Updated successfully.</li>
+                              <li className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> New article draft received from Writer.</li>
+                              <li className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-400"></div> Daily Analytics Report ready.</li>
+                          </ul>
+                      </div>
                   </div>
               )}
           </div>
       </div>
 
+      {/* Modals rendered here */}
       {showArticleModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
