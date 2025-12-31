@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { UserRole } from '../types';
+import { UserRole, Article } from '../types';
 import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
@@ -16,6 +16,7 @@ interface LayoutProps {
   userAvatar?: string | null;
   onForceSync?: () => void;
   lastSync?: Date;
+  articles?: Article[];
 }
 
 interface WeatherState {
@@ -26,7 +27,7 @@ interface WeatherState {
   humidity?: number;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, onForceSync, lastSync }) => {
+const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, onForceSync, lastSync, articles = [] }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [time, setTime] = useState(new Date());
   const [isSyncing, setIsSyncing] = useState(false);
@@ -46,6 +47,9 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   const [locationQuery, setLocationQuery] = useState('');
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
+
+  // Filter latest articles for breaking news
+  const breakingNews = articles.slice(0, 8);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -317,9 +321,20 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
               <Flame size={14} className="animate-pulse" /> Breaking
           </div>
           <div className="flex-1 whitespace-nowrap overflow-hidden relative flex items-center">
-              <div className="animate-marquee inline-block">
-                  <span className="mx-8">Welcome to Digital Newsroom. Bringing you the latest updates from around the globe.</span>
-                  <span className="mx-8">Exclusive coverage, in-depth analysis, and real-time reporting.</span>
+              <div className="animate-marquee inline-flex items-center">
+                  {breakingNews.length > 0 ? (
+                      breakingNews.map((article, idx) => (
+                          <React.Fragment key={article.id}>
+                              <span className="mx-4 text-gray-300 font-bold uppercase tracking-wider">{article.title}</span>
+                              {idx < breakingNews.length - 1 && <span className="text-news-gold mx-2">•</span>}
+                          </React.Fragment>
+                      ))
+                  ) : (
+                      <>
+                          <span className="mx-8">Welcome to Digital Newsroom. Bringing you the latest updates from around the globe.</span>
+                          <span className="mx-8">Exclusive coverage, in-depth analysis, and real-time reporting.</span>
+                      </>
+                  )}
               </div>
           </div>
       </div>

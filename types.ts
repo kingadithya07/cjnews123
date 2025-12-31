@@ -37,6 +37,7 @@ export interface Article {
   status: ArticleStatus;
   summary?: string;
   isPremium?: boolean;
+  isFeatured?: boolean;
 }
 
 export interface EPaperRegion {

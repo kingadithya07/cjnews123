@@ -102,7 +102,8 @@ function App() {
           publishedAt: a.publishedAt || a.published_at || new Date().toISOString(),
           status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
           summary: a.summary,
-          isPremium: a.isPremium || a.is_premium || false
+          isPremium: a.isPremium || a.is_premium || false,
+          isFeatured: a.isFeatured || a.is_featured || false
         })) as Article[]);
       }
 
@@ -288,7 +289,8 @@ function App() {
         publishedAt: article.publishedAt,
         published_at: article.publishedAt,
         status: article.status,
-        user_id: userId
+        user_id: userId,
+        is_featured: article.isFeatured
     };
 
     const { error } = await supabase.from('articles').upsert(payload);
@@ -412,6 +414,7 @@ function App() {
       userAvatar={userAvatar}
       onForceSync={() => fetchData(true)}
       lastSync={lastSync}
+      articles={articles}
     >
       {content}
     </Layout>

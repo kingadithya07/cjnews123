@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -30,6 +30,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   const [author, setAuthor] = useState(userName || 'Staff Writer');
   const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
+  const [isFeatured, setIsFeatured] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [showImageGallery, setShowImageGallery] = useState(false);
@@ -116,18 +117,19 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       category,
       imageUrl: imageUrl || 'https://picsum.photos/800/400',
       publishedAt: new Date().toISOString(),
-      status: status
+      status: status,
+      isFeatured: isFeatured
     };
     onSave(newArticle);
     setShowEditorModal(false);
   };
 
   const openNewArticle = () => {
-      setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setShowEditorModal(true);
+      setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setShowEditorModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setCategory(article.category); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setShowEditorModal(true);
+      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setCategory(article.category); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setShowEditorModal(true);
   };
 
   const handleSelectFromGallery = (url: string) => {
@@ -217,7 +219,12 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                                 <tbody className="divide-y">
                                     {existingArticles.map((article) => (
                                         <tr key={article.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4"><span className="font-medium text-gray-900 text-sm">{article.title}</span></td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-gray-900 text-sm">{article.title}</span>
+                                                    {article.isFeatured && <span className="text-[10px] text-news-accent font-bold uppercase flex items-center gap-1 mt-1"><Star size={10} fill="currentColor"/> Featured</span>}
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4 text-xs font-bold">{article.category}</td>
                                             <td className="px-6 py-4 text-xs font-bold">
                                                 <span className={`px-2 py-1 rounded ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{article.status}</span>
@@ -335,6 +342,18 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                       {wordCount} Words
                   </div>
                 </div>
+                
+                <div className="flex items-center gap-3 bg-gray-50 p-3 rounded border border-gray-100 w-fit">
+                    <label className="font-bold text-sm">Feature Mode:</label>
+                    <button 
+                        onClick={() => setIsFeatured(!isFeatured)}
+                        className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold uppercase border transition-colors ${isFeatured ? 'bg-news-accent text-white border-news-accent' : 'bg-white text-gray-500 border-gray-200'}`}
+                    >
+                        <Star size={12} fill={isFeatured ? "currentColor" : "none"} /> 
+                        {isFeatured ? "Featured" : "Standard"}
+                    </button>
+                </div>
+
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
               <button onClick={() => setShowEditorModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>

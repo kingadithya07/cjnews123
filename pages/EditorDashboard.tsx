@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -70,6 +70,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalCategory, setModalCategory] = useState(categories[0] || 'General');
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
+  const [modalIsFeatured, setModalIsFeatured] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showImageGallery, setShowImageGallery] = useState(false);
   
@@ -106,7 +107,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   }, [watermarkSettings]);
 
   // -- SQL HELPERS --
-  const phoneFormatSQL = `-- Full SQL format for phone numbers\nSELECT\n  FORMAT(0112223333, '##-###-####') -- replace with column name\nFROM classifieds;`;
+  const phoneFormatSQL = `SELECT\n   FORMAT(0112223333, '##-###-####') -- replace format with what is shown in the table below.`;
   const dateFormatSQL = `-- Standard SQL for date formatting\nSELECT \n  to_char(published_at, 'DD-Mon-YYYY') \nFROM articles;`;
   const fixPermissionsSQL = `-- FORCE PUBLISH CONFIGURATION\n-- Run this if watermark settings are not visible in Incognito mode\nUPDATE articles \nSET status = 'PUBLISHED' \nWHERE id = '00000000-0000-0000-0000-000000000000';`;
 
@@ -151,6 +152,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setModalCategory(categories[0]);
       setModalImageUrl('');
       setModalStatus(ArticleStatus.PUBLISHED);
+      setModalIsFeatured(false);
       setShowArticleModal(true);
   };
 
@@ -163,6 +165,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setModalCategory(article.category);
       setModalImageUrl(article.imageUrl);
       setModalStatus(article.status);
+      setModalIsFeatured(article.isFeatured || false);
       setShowArticleModal(true);
   };
 
@@ -177,7 +180,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           category: modalCategory,
           imageUrl: modalImageUrl || 'https://placehold.co/800x400?text=No+Image',
           publishedAt: editArticleId ? articles.find(a => a.id === editArticleId)?.publishedAt || new Date().toISOString() : new Date().toISOString(),
-          status: modalStatus
+          status: modalStatus,
+          isFeatured: modalIsFeatured
       };
       onSaveArticle(article);
       setShowArticleModal(false);
@@ -305,7 +309,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   <tbody className="divide-y divide-gray-100">
                                       {articles.map(article => (
                                           <tr key={article.id} className="hover:bg-gray-50">
-                                              <td className="px-6 py-4"><span className="font-bold text-gray-900 text-sm line-clamp-1">{article.title}</span></td>
+                                              <td className="px-6 py-4">
+                                                  <div className="flex flex-col">
+                                                      <span className="font-bold text-gray-900 text-sm line-clamp-1">{article.title}</span>
+                                                      {article.isFeatured && <span className="text-[10px] text-news-accent font-bold uppercase flex items-center gap-1 mt-1"><Star size={10} fill="currentColor"/> Featured</span>}
+                                                  </div>
+                                              </td>
                                               <td className="px-6 py-4 text-sm text-gray-600">{article.author}</td>
                                               <td className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">{article.category}</td>
                                               <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{article.status}</span></td>
@@ -321,6 +330,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                   )}
 
+                  {/* ... (Other tabs remain unchanged) ... */}
                   {/* --- EPAPER TAB --- */}
                   {activeTab === 'epaper' && (
                       <div className="max-w-7xl mx-auto">
@@ -667,12 +677,24 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                         </div>
                     </div>
                     <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]" />
-                    <div className="flex items-center gap-4">
-                        <label className="font-bold text-sm">Status:</label>
-                        <div className="flex gap-2">
-                            {[ArticleStatus.DRAFT, ArticleStatus.PENDING, ArticleStatus.PUBLISHED].map(s => (
-                                <button key={s} onClick={() => setModalStatus(s)} className={`px-3 py-1 rounded text-xs font-bold uppercase border ${modalStatus === s ? 'bg-news-black text-white border-news-black' : 'bg-white text-gray-500 border-gray-200'}`}>{s}</button>
-                            ))}
+                    <div className="flex items-center gap-8 bg-gray-50 p-3 rounded border border-gray-100">
+                        <div className="flex items-center gap-3">
+                            <label className="font-bold text-sm">Status:</label>
+                            <div className="flex gap-2">
+                                {[ArticleStatus.DRAFT, ArticleStatus.PENDING, ArticleStatus.PUBLISHED].map(s => (
+                                    <button key={s} onClick={() => setModalStatus(s)} className={`px-3 py-1 rounded text-xs font-bold uppercase border ${modalStatus === s ? 'bg-news-black text-white border-news-black' : 'bg-white text-gray-500 border-gray-200'}`}>{s}</button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 pl-8 border-l border-gray-200">
+                            <label className="font-bold text-sm">Feature Mode:</label>
+                            <button 
+                                onClick={() => setModalIsFeatured(!modalIsFeatured)}
+                                className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold uppercase border transition-colors ${modalIsFeatured ? 'bg-news-accent text-white border-news-accent' : 'bg-white text-gray-500 border-gray-200'}`}
+                            >
+                                <Star size={12} fill={modalIsFeatured ? "currentColor" : "none"} /> 
+                                {modalIsFeatured ? "Featured" : "Standard"}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -684,6 +706,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         </div>
       )}
 
+      {/* ... (Other modals remain unchanged) ... */}
       {/* PAGE UPLOAD MODAL */}
       {showAddPageModal && (
           <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
