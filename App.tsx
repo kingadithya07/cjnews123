@@ -46,32 +46,19 @@ function App() {
   // --- DATA SYNC FROM SUPABASE ---
   const fetchData = async () => {
     try {
-      // 1. Fetch Articles with robust column fallback
+      // 1. Fetch Articles
       let { data: artData, error: artError } = await supabase
         .from('articles')
         .select('*')
         .order('publishedAt', { ascending: false });
       
-      // If publishedAt fails, try snake_case published_at, then fallback to id
       if (artError) {
-          const secondTry = await supabase
-            .from('articles')
-            .select('*')
-            .order('published_at', { ascending: false });
-          
-          if (secondTry.error) {
-             const finalTry = await supabase.from('articles').select('*').order('id', { ascending: false });
-             artData = finalTry.data;
-             artError = finalTry.error;
-          } else {
-             artData = secondTry.data;
-             artError = null;
-          }
+          // Fallback logic for column names
+          const secondTry = await supabase.from('articles').select('*').order('id', { ascending: false });
+          if (!secondTry.error) artData = secondTry.data;
       }
 
-      if (artError) console.error("Error fetching articles:", artError.message);
-
-      // 2. Fetch E-Paper Pages with robust column fallback
+      // 2. Fetch E-Paper Pages
       let { data: pageData, error: pageError } = await supabase
         .from('epaper_pages')
         .select('*')
@@ -79,27 +66,38 @@ function App() {
         .order('pageNumber', { ascending: true });
       
       if (pageError) {
-          const secondTry = await supabase
-            .from('epaper_pages')
-            .select('*')
-            .order('date', { ascending: false })
-            .order('page_number', { ascending: true });
-          
-          if (!secondTry.error) {
-             pageData = secondTry.data;
-             pageError = null;
-          }
+          const secondTry = await supabase.from('epaper_pages').select('*').order('date', { ascending: false });
+          if (!secondTry.error) pageData = secondTry.data;
       }
-      
-      if (pageError) console.error("Error fetching epaper pages:", pageError.message);
 
       // 3. Fetch Classifieds & Ads
       const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
 
-      // --- MAPPING LAYER (Unifies DB results to Frontend Types) ---
+      // 4. Fetch Global Settings (Stored as a special article)
+      const { data: settingsData } = await supabase
+        .from('articles')
+        .select('content')
+        .eq('id', 'global_settings')
+        .single();
+
+      if (settingsData && settingsData.content) {
+          try {
+              const parsedSettings = JSON.parse(settingsData.content);
+              if (parsedSettings.watermark) {
+                  setWatermarkSettings(parsedSettings.watermark);
+              }
+          } catch (e) {
+              console.error("Failed to parse global settings", e);
+          }
+      }
+
+      // --- MAPPING LAYER ---
       if (artData) {
-        setArticles(artData.map(a => ({
+        // Filter out the config article
+        const visibleArticles = artData.filter(a => a.id !== 'global_settings');
+        
+        setArticles(visibleArticles.map(a => ({
           id: a.id,
           title: a.title,
           subline: a.subline,
@@ -245,6 +243,27 @@ function App() {
       if (avatar) setUserAvatar(avatar);
   };
 
+  const handleSaveWatermarkSettings = async (settings: WatermarkSettings) => {
+      setWatermarkSettings(settings);
+      
+      // Save to 'global_settings' article as a JSON store
+      const payload = {
+          id: 'global_settings',
+          title: 'SYSTEM_CONFIG',
+          content: JSON.stringify({ watermark: settings }),
+          author: 'SYSTEM',
+          category: 'Config',
+          publishedAt: new Date().toISOString(),
+          status: ArticleStatus.DRAFT
+      };
+
+      const { error } = await supabase.from('articles').upsert(payload);
+      if (error) {
+          console.error("Failed to save global settings:", error.message);
+          alert("Failed to save settings globally.");
+      }
+  };
+
   const handleSaveArticle = async (article: Article) => {
     setArticles(prev => {
         const exists = prev.find(a => a.id === article.id);
@@ -297,7 +316,7 @@ function App() {
       id: page.id,
       date: page.date,
       pageNumber: page.pageNumber,
-      page_number: page.pageNumber, // Map to both cases
+      page_number: page.pageNumber,
       imageUrl: page.imageUrl,
       image_url: page.imageUrl,
       user_id: userId
@@ -308,9 +327,6 @@ function App() {
     if (error) {
       console.error("Failed to add page to backend:", error.message);
       alert("Backend Sync Error: " + error.message);
-      fetchData(); 
-    } else {
-      console.log("EPaper page successfully persisted.");
       fetchData(); 
     }
   };
@@ -368,7 +384,7 @@ function App() {
   } else if (path === '/staff/login') {
     content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={(d) => persistDevicesToCloud([...devices, d])} onEmergencyReset={() => {}} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
-    content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={setWatermarkSettings} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} onDeletePage={handleDeletePage} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={() => {}} onDeleteAdCategory={() => {}} onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(); }} onAddAdvertisement={async (ad) => { await supabase.from('advertisements').insert(ad); fetchData(); }} onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(); }} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} />;
+    content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={handleSaveWatermarkSettings} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} onDeletePage={handleDeletePage} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={() => {}} onDeleteAdCategory={() => {}} onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(); }} onAddAdvertisement={async (ad) => { await supabase.from('advertisements').insert(ad); fetchData(); }} onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(); }} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard onSave={handleSaveArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} />;
   } else if (path === '/' || path === '/home') {
@@ -377,7 +393,7 @@ function App() {
     const id = currentPath.split('/article/')[1];
     content = <ArticleView articles={articles} articleId={id} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path === '/epaper') {
-    content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} />;
+    content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} onSaveSettings={handleSaveWatermarkSettings} />;
   } else if (path === '/classifieds') {
     content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />;
   } else {

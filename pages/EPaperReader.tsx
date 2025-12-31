@@ -5,7 +5,7 @@ import EPaperViewer from '../components/EPaperViewer';
 import Cropper from 'cropperjs';
 import { 
   ChevronLeft, ChevronRight, Calendar, ZoomIn, ZoomOut, 
-  X, Grid, ArrowLeft, Loader2, Scissors, Download, Check, LayoutGrid, Eye, Search, Share2, RotateCcw, RefreshCcw, Maximize, MousePointer2, MoveHorizontal, Hand, Image as ImageIcon, Upload
+  X, Grid, ArrowLeft, Loader2, Scissors, Download, Check, LayoutGrid, Eye, Search, Share2, RotateCcw, RefreshCcw, Maximize, MousePointer2, MoveHorizontal, Hand, Image as ImageIcon, Upload, Save
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { APP_NAME } from '../constants';
@@ -17,9 +17,10 @@ interface EPaperReaderProps {
   articles?: Article[];
   onNavigate: (path: string) => void;
   watermarkSettings: WatermarkSettings;
+  onSaveSettings?: (settings: WatermarkSettings) => void;
 }
 
-const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermarkSettings }) => {
+const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermarkSettings, onSaveSettings }) => {
   // --- Mode & Navigation ---
   const [viewMode, setViewMode] = useState<'grid' | 'reader'>('grid');
   
@@ -82,6 +83,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   const [customText, setCustomText] = useState(watermarkSettings.text);
   const [customLogo, setCustomLogo] = useState(watermarkSettings.logoUrl);
   const [isCustomLogoUploading, setIsCustomLogoUploading] = useState(false);
+  const [isSavingDefault, setIsSavingDefault] = useState(false);
 
   useEffect(() => {
     if (viewMode === 'reader') {
@@ -231,6 +233,20 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
       }
   };
 
+  const handleSaveAsDefault = async () => {
+      if (!onSaveSettings) return;
+      setIsSavingDefault(true);
+      const newSettings = {
+          ...watermarkSettings,
+          text: customText,
+          logoUrl: customLogo,
+          showLogo: !!customLogo
+      };
+      await onSaveSettings(newSettings);
+      setIsSavingDefault(false);
+      alert("Settings saved globally. Changes will reflect on all devices.");
+  };
+
   useEffect(() => {
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
@@ -281,7 +297,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     ctx.fillRect(0, croppedCanvas.height, finalCanvas.width, footerHeight);
     
     // Prepare Text Rendering
-    const fontSize = Math.floor(footerHeight * 0.4);
+    const fontSize = Math.floor(footerHeight * 0.35); // Slightly smaller for safety
     ctx.font = `bold ${fontSize}px "Merriweather", serif`;
     ctx.fillStyle = watermarkSettings.textColor;
     ctx.textBaseline = 'middle';
@@ -289,17 +305,18 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     let textX = footerHeight * 0.5; // Start padding
     
     // Draw Logo if available
-    if (watermarkSettings.showLogo && customLogo) {
+    // Check if customLogo is set (even if showLogo is false in global settings, local override applies)
+    if (customLogo) {
         try {
             const logoImg = new Image();
             logoImg.crossOrigin = "anonymous";
             logoImg.src = customLogo;
             await new Promise((resolve, reject) => {
                 logoImg.onload = resolve;
-                logoImg.onerror = resolve; // Continue even if logo fails
+                logoImg.onerror = resolve; 
             });
             
-            // Calculate logo aspect ratio to fit within footer height (with padding)
+            // Calculate logo aspect ratio
             const logoPadding = footerHeight * 0.15;
             const maxLogoHeight = footerHeight - (logoPadding * 2);
             const scaleFactor = maxLogoHeight / logoImg.height;
@@ -314,16 +331,37 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         }
     }
     
-    // Draw Brand Text
+    // Draw Brand Text with basic width check
     ctx.textAlign = 'left';
-    ctx.fillText(customText.toUpperCase(), textX, croppedCanvas.height + (footerHeight / 2));
+    const textY = croppedCanvas.height + (footerHeight / 2);
+    const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
+    
+    // Estimate date width
+    ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
+    const dateWidth = ctx.measureText(`Archive Edition: ${dateStr}`).width;
+    const rightMargin = finalCanvas.width - (footerHeight * 0.5);
+    const maxTextWidth = rightMargin - dateWidth - textX - (footerHeight * 0.5);
+
+    // Reset font for main text
+    ctx.font = `bold ${fontSize}px "Merriweather", serif`;
+    ctx.fillStyle = watermarkSettings.textColor; // Ensure color is set
+    
+    // Truncate text if needed
+    let displayText = customText.toUpperCase();
+    if (ctx.measureText(displayText).width > maxTextWidth) {
+        while (ctx.measureText(displayText + '...').width > maxTextWidth && displayText.length > 0) {
+            displayText = displayText.slice(0, -1);
+        }
+        displayText += '...';
+    }
+    
+    ctx.fillText(displayText, textX, textY);
     
     // Draw Date (Right aligned)
     ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.textAlign = 'right';
-    const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
-    ctx.fillText(`Archive Edition: ${dateStr}`, finalCanvas.width - (footerHeight * 0.5), croppedCanvas.height + (footerHeight / 2));
+    ctx.fillText(`Archive Edition: ${dateStr}`, rightMargin, textY);
     
     setCropPreview(finalCanvas.toDataURL('image/jpeg', 0.95));
     setIsProcessing(false);
@@ -366,7 +404,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         </div>
       )}
 
-      {/* ARCHIVE GRID - Updated to 4-column layout for desktop */}
+      {/* ARCHIVE GRID */}
       {viewMode === 'grid' && (
           <div className="flex-1 overflow-y-auto p-6 md:p-12 animate-in fade-in duration-500">
               <div className="max-w-7xl mx-auto space-y-10">
@@ -376,8 +414,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                         <Calendar size={12} className="text-news-gold"/> Edition: {safeFormat(selectedDate, 'MMMM do, yyyy')}
                       </p>
                   </div>
-                  
-                  {/* Grid Layout: 1 col on mobile, 2 on tablet, 4 on desktop (lg:grid-cols-4) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 pb-20">
                       {currentEditionPages.map((page, idx) => (
                           <div key={page.id} onClick={() => { setActivePageIndex(idx); setViewMode('reader'); }} className="group cursor-pointer space-y-4">
@@ -565,10 +601,24 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
             <div className={`flex-1 overflow-hidden relative flex flex-col ${cropPreview ? 'md:flex-row' : 'flex-col'} bg-[#0a0a0a]`}>
                 <div className={`relative flex flex-col items-center justify-center transition-all duration-700 ${cropPreview ? 'w-full md:w-1/2 border-r border-white/5 h-1/2 md:h-full p-4 grayscale brightness-50' : 'w-full h-full p-2 md:p-8'}`}>
-                    {/* CUSTOMIZATION OVERLAY IN WORKSHOP */}
+                    
+                    {/* CUSTOMIZATION OVERLAY IN WORKSHOP - REPOSITIONED FOR MOBILE */}
                     {!cropPreview && (
-                        <div className="absolute top-4 left-4 right-4 md:left-auto md:right-4 z-20 bg-black/80 backdrop-blur-md p-4 rounded-xl border border-white/10 flex flex-col gap-3 max-w-sm">
-                            <div className="text-[10px] font-black uppercase tracking-widest text-news-gold">Customize Footer</div>
+                        <div className="absolute top-4 left-4 right-4 md:left-auto md:right-4 z-50 bg-black/80 backdrop-blur-md p-4 rounded-xl border border-white/10 flex flex-col gap-3 max-w-sm shadow-2xl animate-in slide-in-from-top-4">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-news-gold flex justify-between items-center">
+                                <span>Footer Branding</span>
+                                {onSaveSettings && (
+                                    <button 
+                                        onClick={handleSaveAsDefault} 
+                                        disabled={isSavingDefault}
+                                        className="text-[8px] bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                        title="Updates settings for all devices"
+                                    >
+                                        {isSavingDefault ? <Loader2 size={10} className="animate-spin"/> : <Save size={10} />}
+                                        Save Global
+                                    </button>
+                                )}
+                            </div>
                             <input 
                                 type="text" 
                                 value={customText} 
@@ -577,13 +627,13 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                                 placeholder="Watermark Text"
                             />
                             <div className="flex items-center gap-3">
-                                <label className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-2 rounded cursor-pointer text-xs text-white font-bold transition-colors border border-white/10">
+                                <label className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-2 rounded cursor-pointer text-xs text-white font-bold transition-colors border border-white/10">
                                     {isCustomLogoUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                                    Upload Logo
+                                    Upload Logo/Image
                                     <input type="file" accept="image/*" className="hidden" onChange={handleCustomLogoUpload} disabled={isCustomLogoUploading} />
                                 </label>
                                 {customLogo && (
-                                    <div className="w-8 h-8 bg-white rounded p-0.5">
+                                    <div className="w-8 h-8 bg-white rounded p-0.5 shrink-0">
                                         <img src={customLogo} className="w-full h-full object-contain" alt="Custom Logo" />
                                     </div>
                                 )}
@@ -592,7 +642,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                     )}
 
                     {workshopScale > 1 && !cropPreview && (
-                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-news-gold text-black px-5 py-1.5 rounded-full font-black uppercase text-[8px] tracking-[0.3em] shadow-2xl animate-bounce pointer-events-none">
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-news-gold text-black px-5 py-1.5 rounded-full font-black uppercase text-[8px] tracking-[0.3em] shadow-2xl animate-bounce pointer-events-none">
                            <Hand size={12} /> Pan Mode Active
                         </div>
                     )}

@@ -1,13 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice } from '../types';
-// Fixed missing icon imports: Check and Scissors
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle
 } from 'lucide-react';
-// Fixed missing import for date-fns format
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
 import RichTextEditor from '../components/RichTextEditor';
@@ -56,14 +54,14 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   articles, ePaperPages, categories, classifieds, advertisements,
   onAddPage, onDeletePage, onDeleteArticle, onSaveArticle, 
   onAddClassified, onDeleteClassified, onAddAdvertisement, onDeleteAdvertisement,
-  onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar
+  onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar,
+  devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'classifieds' | 'ads' | 'analytics' | 'settings'>('articles');
 
   // Article State
   const [showArticleModal, setShowArticleModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editArticleId, setEditArticleId] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState('');
   const [modalSubline, setModalSubline] = useState('');
@@ -76,19 +74,17 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [showImageGallery, setShowImageGallery] = useState(false);
   
   // E-Paper State
-  const [activePageId, setActivePageId] = useState<string | null>(null);
   const [showAddPageModal, setShowAddPageModal] = useState(false);
   const [newPageDate, setNewPageDate] = useState(new Date().toISOString().split('T')[0]);
   const [newPageNumber, setNewPageNumber] = useState(1);
   const [newPageImage, setNewPageImage] = useState('');
   const [isPageUploading, setIsPageUploading] = useState(false);
-  
-  const [editorScale, setEditorScale] = useState(1);
-  const [editorPos, setEditorPos] = useState({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const panStartRef = useRef<{ clientX: number, clientY: number, originX: number, originY: number } | null>(null);
-  
-  const activePage = ePaperPages.find(p => p.id === activePageId);
+
+  // Classifieds & Ads Forms
+  const [showClassifiedModal, setShowClassifiedModal] = useState(false);
+  const [newClassified, setNewClassified] = useState<Partial<ClassifiedAd>>({});
+  const [showAdModal, setShowAdModal] = useState(false);
+  const [newAd, setNewAd] = useState<Partial<Advertisement>>({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true });
 
   // Settings State
   const [profileName, setProfileName] = useState(userName || '');
@@ -97,427 +93,600 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [isLogoUploading, setIsLogoUploading] = useState(false);
+  const [watermarkText, setWatermarkText] = useState(watermarkSettings.text);
+  const [watermarkLogo, setWatermarkLogo] = useState(watermarkSettings.logoUrl);
 
-  useEffect(() => {
-      setEditorScale(1);
-      setEditorPos({ x: 0, y: 0 });
-  }, [activePageId]);
+  // -- HANDLERS --
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    try {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      loader(true);
+      try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${generateId()}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage.from('images').upload(`uploads/${fileName}`, file);
+          if (uploadError) throw uploadError;
+          const { data } = supabase.storage.from('images').getPublicUrl(`uploads/${fileName}`);
+          setter(data.publicUrl);
+      } catch (error: any) {
+          alert("Upload failed: " + error.message);
+      } finally {
+          loader(false);
+      }
+  };
+
+  const handleContentImageUpload = async (file: File): Promise<string> => {
       const fileExt = file.name.split('.').pop();
-      const fileName = `articles/${generateId()}.${fileExt}`;
+      const fileName = `content/${generateId()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
       if (uploadError) throw uploadError;
       const { data } = supabase.storage.from('images').getPublicUrl(fileName);
-      setModalImageUrl(data.publicUrl);
-    } catch (error: any) {
-      alert("Upload Failed: " + error.message);
-    } finally {
-      setIsUploading(false);
-    }
+      return data.publicUrl;
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsAvatarUploading(true);
-    try {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `avatars/${generateId()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from('images').getPublicUrl(fileName);
-        setProfileAvatar(data.publicUrl);
-    } catch (error: any) {
-        alert("Avatar Upload Failed: " + error.message);
-    } finally {
-        setIsAvatarUploading(false);
-    }
+  const openNewArticle = () => {
+      setEditArticleId(null);
+      setModalTitle('');
+      setModalSubline('');
+      setModalContent('');
+      setModalAuthor(userName || 'Editor');
+      setModalCategory(categories[0]);
+      setModalImageUrl('');
+      setModalStatus(ArticleStatus.PUBLISHED);
+      setShowArticleModal(true);
   };
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsLogoUploading(true);
-    try {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `logos/${generateId()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from('images').getPublicUrl(fileName);
-        onUpdateWatermarkSettings({ ...watermarkSettings, logoUrl: data.publicUrl });
-    } catch (error: any) {
-        alert("Logo Upload Failed: " + error.message);
-    } finally {
-        setIsLogoUploading(false);
-    }
+  const openEditArticle = (article: Article) => {
+      setEditArticleId(article.id);
+      setModalTitle(article.title);
+      setModalSubline(article.subline || '');
+      setModalContent(article.content);
+      setModalAuthor(article.author);
+      setModalCategory(article.category);
+      setModalImageUrl(article.imageUrl);
+      setModalStatus(article.status);
+      setShowArticleModal(true);
   };
 
-  const handleEPaperUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsPageUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `epaper/${newPageDate}/${newPageNumber}_${generateId()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
-      if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from('images').getPublicUrl(fileName);
-      setNewPageImage(data.publicUrl);
-    } catch (error: any) { 
-      alert("Failed to upload archive scan: " + error.message); 
-    } finally { 
-      setIsPageUploading(false); 
-    }
-  };
-
-  const handleSubmitNewPage = async () => {
-      if (!newPageImage) { alert("Please upload a page scan first."); return; }
-      const newPage: EPaperPage = { 
-        id: generateId(), 
-        date: newPageDate, 
-        pageNumber: newPageNumber, 
-        imageUrl: newPageImage, 
-        regions: [] 
+  const handleSaveArticleInternal = () => {
+      if (!modalTitle) { alert("Title required"); return; }
+      const article: Article = {
+          id: editArticleId || generateId(),
+          title: modalTitle,
+          subline: modalSubline,
+          content: modalContent,
+          author: modalAuthor,
+          category: modalCategory,
+          imageUrl: modalImageUrl || 'https://placehold.co/800x400?text=No+Image',
+          publishedAt: editArticleId ? articles.find(a => a.id === editArticleId)?.publishedAt || new Date().toISOString() : new Date().toISOString(),
+          status: modalStatus
       };
-      await onAddPage(newPage);
+      onSaveArticle(article);
+      setShowArticleModal(false);
+  };
+
+  const handleAddPageInternal = () => {
+      if (!newPageImage) { alert("Page image required"); return; }
+      const page: EPaperPage = {
+          id: generateId(),
+          date: newPageDate,
+          pageNumber: Number(newPageNumber),
+          imageUrl: newPageImage,
+          regions: []
+      };
+      onAddPage(page);
       setShowAddPageModal(false);
       setNewPageImage('');
-      setNewPageNumber(prev => prev + 1);
   };
-
-  const handleArticleModalSubmit = () => {
-    if (!modalTitle) { alert("Headline is required"); return; }
-    const articleData: Article = { id: editArticleId || generateId(), title: modalTitle, subline: modalSubline, author: modalAuthor, content: modalContent, category: modalCategory, publishedAt: new Date().toISOString(), imageUrl: modalImageUrl || 'https://placehold.co/800x400?text=No+Image', status: modalStatus };
-    onSaveArticle(articleData);
-    setShowArticleModal(false);
-  };
-
-  const openCreateArticleModal = () => { setModalMode('create'); setEditArticleId(null); setModalTitle(''); setModalSubline(''); setModalContent(''); setModalImageUrl(''); setModalAuthor('Editor'); setModalStatus(ArticleStatus.PUBLISHED); setShowArticleModal(true); };
-  const openEditArticleModal = (article: Article) => { setModalMode('edit'); setEditArticleId(article.id); setModalTitle(article.title); setModalSubline(article.subline || ''); setModalContent(article.content); setModalCategory(article.category); setModalImageUrl(article.imageUrl); setModalAuthor(article.author); setModalStatus(article.status); setShowArticleModal(true); };
-
-  const handleStageMouseDown = (e: React.MouseEvent) => {
-      e.preventDefault(); setIsPanning(true); panStartRef.current = { clientX: e.clientX, clientY: e.clientY, originX: editorPos.x, originY: editorPos.y };
-  };
-  const handleStageMouseMove = (e: React.MouseEvent) => {
-      if (isPanning && panStartRef.current) { e.preventDefault(); const deltaX = e.clientX - panStartRef.current.clientX; const deltaY = e.clientY - panStartRef.current.clientY; setEditorPos({ x: panStartRef.current.originX + deltaX, y: panStartRef.current.originY + deltaY }); }
-  };
-  const handleStageMouseUp = () => { setIsPanning(false); panStartRef.current = null; };
 
   const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
-    try {
-      const updates: any = { 
-        data: { 
-          full_name: profileName,
-          avatar_url: profileAvatar
-        } 
-      };
-      if (newPassword) {
-        updates.password = newPassword;
+      setIsSavingSettings(true);
+      try {
+          // 1. Update Profile
+          const updates: any = { data: { full_name: profileName, avatar_url: profileAvatar } };
+          if (newPassword) updates.password = newPassword;
+          const { error } = await supabase.auth.updateUser(updates);
+          if (error) throw error;
+          
+          // 2. Update Watermark
+          onUpdateWatermarkSettings({
+              ...watermarkSettings,
+              text: watermarkText,
+              logoUrl: watermarkLogo
+          });
+          
+          alert("Settings updated successfully");
+          setNewPassword('');
+      } catch (e: any) {
+          alert("Error: " + e.message);
+      } finally {
+          setIsSavingSettings(false);
       }
-      const { error } = await supabase.auth.updateUser(updates);
-      if (error) throw error;
-      alert("Settings updated successfully!");
-      setNewPassword('');
-    } catch (err: any) {
-      alert("Error updating profile: " + err.message);
-    } finally {
-      setIsSavingSettings(false);
-    }
   };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
-    <button onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-6 py-4 transition-colors ${activeTab === id ? 'text-white border-l-4 border-news-gold bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-4 border-transparent'}`}><Icon size={18} /><span className="text-xs font-bold uppercase tracking-widest">{label}</span></button>
+      <button 
+          onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
+          className={`w-full flex items-center gap-4 px-6 py-4 transition-colors ${activeTab === id ? 'text-white border-l-4 border-news-gold bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-4 border-transparent'}`}
+      >
+          <Icon size={18} />
+          <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
+      </button>
   );
 
   return (
     <>
-    <ImageGalleryModal isOpen={showImageGallery} onClose={() => setShowImageGallery(false)} onSelectImage={(url) => { setModalImageUrl(url); setShowImageGallery(false); }}/>
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-          <div className="flex justify-between items-center p-6 border-b border-gray-800"><h1 className="font-serif text-2xl font-bold text-white">Digital Admin</h1><button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={24} /></button></div>
-          <div className="flex-1 overflow-y-auto py-4"><SidebarItem id="analytics" label="Analytics" icon={BarChart3} /><SidebarItem id="articles" label="Articles" icon={FileText} /><SidebarItem id="epaper" label="E-Paper" icon={Newspaper} /><SidebarItem id="classifieds" label="Classifieds" icon={Tag} /><SidebarItem id="ads" label="Ads" icon={Megaphone} /><SidebarItem id="settings" label="Settings" icon={Settings} /></div>
-          <div className="p-6 border-t border-gray-800"><button onClick={() => onNavigate('/')} className="flex items-center gap-3 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-widest w-full px-4 py-3 border border-gray-700 rounded transition-colors justify-center"><Globe size={16} /> View Website</button></div>
-      </div>
+      <ImageGalleryModal 
+        isOpen={showImageGallery}
+        onClose={() => setShowImageGallery(false)}
+        onSelectImage={(url) => { setModalImageUrl(url); setShowImageGallery(false); }}
+      />
+      
+      <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+          {/* SIDEBAR */}
+          <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+              <div className="flex justify-between items-center p-6 border-b border-gray-800">
+                  <h1 className="font-serif text-2xl font-bold text-white">Editor<span className="text-news-gold">.</span></h1>
+                  <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={24} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto py-4">
+                  <SidebarItem id="articles" label="Editorial" icon={FileText} />
+                  <SidebarItem id="epaper" label="E-Paper" icon={Newspaper} />
+                  <SidebarItem id="classifieds" label="Classifieds" icon={List} />
+                  <SidebarItem id="ads" label="Advertising" icon={Megaphone} />
+                  <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
+                  <SidebarItem id="settings" label="System" icon={Settings} />
+              </div>
+              <div className="p-6 border-t border-gray-800">
+                  <button onClick={() => onNavigate('/')} className="flex items-center gap-3 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-widest w-full px-4 py-3 border border-gray-700 rounded transition-colors justify-center mb-2">
+                      <Globe size={16} /> View Site
+                  </button>
+                  <button onClick={() => { supabase.auth.signOut(); onNavigate('/login'); }} className="flex items-center gap-3 text-gray-400 hover:text-red-500 text-xs font-bold uppercase tracking-widest w-full px-4 py-3 border border-gray-700 rounded transition-colors justify-center">
+                      <Lock size={16} /> Logout
+                  </button>
+              </div>
+          </div>
 
-      <div className="flex-1 flex flex-col md:ml-72 h-full overflow-hidden bg-[#f8f9fa]">
-           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-30"><div className="flex items-center gap-3"><button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-md"><Menu size={24} /></button><h1 className="font-serif text-xl font-bold text-gray-900 capitalize">{activeTab}</h1></div></div>
+          {/* MAIN CONTENT */}
+          <div className="flex-1 flex flex-col md:ml-72 h-full overflow-hidden bg-[#f8f9fa]">
+              
+              {/* MOBILE HEADER */}
+              <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+                  <button onClick={() => setIsSidebarOpen(true)} className="text-gray-600"><Menu size={24}/></button>
+                  <span className="font-serif font-bold text-lg">Dashboard</span>
+                  <div className="w-8"></div>
+              </div>
 
-          <div className="p-4 md:p-8 overflow-y-auto flex-1">
-              {activeTab === 'articles' && (
-                  <div className="max-w-6xl mx-auto">
-                      <div className="flex justify-between items-center mb-6"><h1 className="font-serif text-3xl font-bold text-gray-900">Content Library</h1><button onClick={openCreateArticleModal} className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> New Article</button></div>
-                      <div className="bg-white rounded border overflow-hidden">
-                          <table className="w-full text-left">
-                              <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase"><tr><th className="px-6 py-4">Title</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
-                              <tbody className="divide-y">{articles.map(a => (<tr key={a.id} className="hover:bg-gray-50"><td className="px-6 py-4 flex items-center gap-3"><img src={a.imageUrl} className="w-10 h-10 object-cover rounded"/><span className="text-sm font-medium">{a.title}</span></td><td className="px-6 py-4 text-xs font-bold">{a.category}</td><td className="px-6 py-4 text-xs font-bold capitalize">{a.status}</td><td className="px-6 py-4 text-right"><button onClick={() => openEditArticleModal(a)} className="text-blue-600 mr-4"><PenSquare size={16}/></button><button onClick={() => { if(window.confirm('Delete article?')) onDeleteArticle(a.id) }} className="text-red-600"><Trash2 size={16}/></button></td></tr>))}</tbody>
-                          </table>
-                      </div>
-                  </div>
-              )}
-              {activeTab === 'epaper' && (
-                 <div className="max-w-screen-xl mx-auto">
-                      <div className="flex justify-between items-center mb-6"><h1 className="font-serif text-3xl font-bold text-gray-900">Chaanvika Jyothi</h1><button onClick={() => { setShowAddPageModal(true); setNewPageImage(''); }} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800"><Plus size={16} /> Upload Archive Page</button></div>
-                      
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                          <div className="lg:col-span-3 bg-white p-5 border rounded-lg h-fit max-h-[75vh] overflow-y-auto">
-                              <h3 className="font-bold text-gray-800 border-b pb-2 mb-3 uppercase tracking-widest text-[10px]">Edition Pages</h3>
-                              <div className="space-y-2">
-                                {ePaperPages.length === 0 && <p className="text-xs text-gray-400 italic">No archive pages found.</p>}
-                                {ePaperPages.map(p => (<div key={p.id} className="group relative"><button onClick={() => setActivePageId(p.id)} className={`w-full text-left p-3 rounded text-xs transition-colors ${activePageId === p.id ? 'bg-news-accent/10 text-news-accent font-bold' : 'hover:bg-gray-50'}`}>{p.date} - P.{p.pageNumber}</button><button onClick={(e) => { e.stopPropagation(); if(window.confirm('Delete page?')) onDeletePage(p.id); }} className="absolute right-2 top-3 text-gray-400 hover:text-red-600 hidden group-hover:block transition-colors"><Trash2 size={14} /></button></div>))}
-                              </div>
+              <div className="md:p-8 overflow-y-auto flex-1 p-4">
+                  {/* --- ARTICLES TAB --- */}
+                  {activeTab === 'articles' && (
+                      <div className="max-w-7xl mx-auto">
+                          <div className="flex justify-between items-center mb-6">
+                              <h2 className="text-2xl font-serif font-bold">Articles</h2>
+                              <button onClick={openNewArticle} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"><Plus size={16}/> New Article</button>
                           </div>
-                          <div className="lg:col-span-9">
-                            {activePage ? (
-                                <div className="bg-white p-5 border rounded-lg shadow-sm flex flex-col">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Archive Page View</span>
-                                            <div className="flex items-center gap-1 bg-gray-100 rounded p-1 border border-gray-200">
-                                                <button onClick={() => setEditorScale(s => Math.max(1, s - 0.5))} className="p-1 hover:bg-gray-200 rounded"><ZoomOut size={14}/></button>
-                                                <span className="text-[10px] font-mono w-10 text-center">{Math.round(editorScale * 100)}%</span>
-                                                <button onClick={() => setEditorScale(s => Math.min(4, s + 0.5))} className="p-1 hover:bg-gray-200 rounded"><ZoomIn size={14}/></button>
-                                                <div className="w-px h-3 bg-gray-300 mx-1"></div>
-                                                <button onClick={() => { setEditorScale(1); setEditorPos({x:0, y:0}); }} className="p-1 hover:bg-gray-200 rounded text-gray-500"><RotateCcw size={14}/></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div 
-                                        className={`w-full bg-gray-100 relative overflow-hidden border border-gray-200 rounded flex items-center justify-center h-[65vh] ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
-                                        onMouseDown={handleStageMouseDown} onMouseMove={handleStageMouseMove} onMouseUp={handleStageMouseUp} onMouseLeave={handleStageMouseUp}
-                                    >
-                                        <div 
-                                            style={{
-                                                transform: `translate(${editorPos.x}px, ${editorPos.y}px) scale(${editorScale})`,
-                                                transformOrigin: 'center center',
-                                                transition: isPanning ? 'none' : 'transform 0.15s cubic-bezier(0.165, 0.84, 0.44, 1)',
-                                                display: 'inline-block' 
-                                            }}
-                                            className="relative"
-                                        >
-                                            <EPaperViewer 
-                                                page={activePage} 
-                                                imageClassName="max-h-[60vh] h-auto w-auto max-w-none block" 
-                                            />
-                                        </div>
-                                    </div>
-                                    <p className="mt-3 text-[10px] text-gray-400 text-center uppercase tracking-widest italic">Click and drag to explore the archive preview.</p>
-                                </div>
-                            ) : <div className="h-96 flex flex-col items-center justify-center bg-white border rounded-lg text-gray-400 shadow-sm"><Newspaper size={48} className="mb-4 opacity-10" /><p className="font-bold uppercase tracking-widest text-xs">Select a page to preview</p></div>}
-                          </div>
-                      </div>
-                 </div>
-              )}
-              {activeTab === 'classifieds' && (
-                  <div className="max-w-6xl mx-auto">
-                      <div className="flex justify-between items-center mb-6"><h1 className="font-serif text-3xl font-bold text-gray-900">Classifieds</h1><button onClick={() => onAddClassified({ id: generateId(), title: "New Ad", category: 'General', content: "", contactInfo: "", postedAt: new Date().toISOString()})} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Add Listing</button></div>
-                      <div className="bg-white rounded border overflow-hidden">
-                          <table className="w-full text-left">
-                             <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase"><tr><th className="px-6 py-4">Title</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Contact</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
-                             <tbody className="divide-y">{classifieds.map(c => <tr key={c.id} className="hover:bg-gray-50"><td className="px-6 py-4 font-medium text-sm">{c.title}</td><td className="px-6 py-4 text-xs font-bold">{c.category}</td><td className="px-6 py-4 text-xs">{c.contactInfo}</td><td className="px-6 py-4 text-right"><button onClick={() => onDeleteClassified(c.id)} className="text-red-600 hover:bg-red-50 p-2 rounded transition-colors"><Trash2 size={16}/></button></td></tr>)}</tbody>
-                          </table>
-                      </div>
-                  </div>
-              )}
-               {activeTab === 'ads' && (
-                  <div className="max-w-6xl mx-auto">
-                      <div className="flex justify-between items-center mb-6"><h1 className="font-serif text-3xl font-bold text-gray-900">Advertising</h1><button onClick={() => onAddAdvertisement({id: generateId(), title: "Banner Ad", size: "RECTANGLE", placement: "GLOBAL", isActive: true, imageUrl: 'https://placehold.co/300x250?text=Ad+Space', linkUrl: '#'})} className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Create Banner</button></div>
-                      <div className="bg-white rounded border overflow-hidden">
-                           <table className="w-full text-left">
-                             <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase"><tr><th className="px-6 py-4">Title</th><th className="px-6 py-4">Dimensions</th><th className="px-6 py-4">Placement</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
-                             <tbody className="divide-y">{advertisements.map(ad => <tr key={ad.id} className="hover:bg-gray-50"><td className="px-6 py-4 flex items-center gap-3 font-medium text-sm"><img src={ad.imageUrl} className="w-16 h-10 object-cover bg-gray-100 rounded border border-gray-100"/>{ad.title}</td><td className="px-6 py-4 text-[10px] font-mono">{ad.size}</td><td className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest">{ad.placement}</td><td className="px-6 py-4"><span className={`px-2 py-1 rounded text-[10px] font-bold ${ad.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{ad.isActive ? 'Active' : 'Draft'}</span></td><td className="px-6 py-4 text-right"><button onClick={() => onDeleteAdvertisement(ad.id)} className="text-red-600 hover:bg-red-50 p-2 rounded transition-colors"><Trash2 size={16}/></button></td></tr>)}</tbody>
-                          </table>
-                      </div>
-                  </div>
-              )}
-               {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={articles} role={ArticleStatus.PUBLISHED as any} /></div>}
-               {activeTab === 'settings' && (
-                  <div className="max-w-4xl mx-auto space-y-12 pb-20">
-                      <div className="bg-white rounded-xl border p-8 shadow-sm">
-                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                             <div className="space-y-4">
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
-                                    <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar</label>
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
-                                            {profileAvatar ? <img src={profileAvatar} className="w-full h-full object-cover" /> : <UserIcon className="w-full h-full p-3 text-gray-300" />}
-                                        </div>
-                                        <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
-                                            {isAvatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-                                            Upload Image
-                                            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isAvatarUploading} />
-                                        </label>
-                                    </div>
-                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-xs text-gray-500 outline-none" placeholder="Or paste image URL..." />
-                                </div>
-                             </div>
-                             <div className="space-y-4">
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Change Password</label>
-                                    <div className="relative">
-                                        <Lock className="absolute left-3 top-3.5 text-gray-400" size={16} />
-                                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" placeholder="New Password" />
-                                    </div>
-                                </div>
-                                <div className="pt-6">
-                                    <button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full bg-news-black text-news-gold py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg">
-                                        {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
-                                        {isSavingSettings ? 'Saving...' : 'Update Profile'}
-                                    </button>
-                                </div>
-                             </div>
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                              <table className="w-full text-left">
+                                  <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
+                                      <tr>
+                                          <th className="px-6 py-4">Title</th>
+                                          <th className="px-6 py-4">Author</th>
+                                          <th className="px-6 py-4">Category</th>
+                                          <th className="px-6 py-4">Status</th>
+                                          <th className="px-6 py-4 text-right">Actions</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                      {articles.map(article => (
+                                          <tr key={article.id} className="hover:bg-gray-50">
+                                              <td className="px-6 py-4"><span className="font-bold text-gray-900 text-sm line-clamp-1">{article.title}</span></td>
+                                              <td className="px-6 py-4 text-sm text-gray-600">{article.author}</td>
+                                              <td className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">{article.category}</td>
+                                              <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{article.status}</span></td>
+                                              <td className="px-6 py-4 text-right flex justify-end gap-3">
+                                                  <button onClick={() => openEditArticle(article)} className="text-blue-600 hover:text-blue-800"><PenSquare size={16}/></button>
+                                                  <button onClick={() => onDeleteArticle(article.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
                           </div>
                       </div>
+                  )}
 
-                      <div className="bg-white rounded-xl border p-8 shadow-sm">
-                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Scissors className="text-news-gold" /> Clipping Watermark Tool</h2>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                              <div className="space-y-4">
-                                  <div>
-                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Watermark Text</label>
-                                      <input type="text" value={watermarkSettings.text} onChange={e => onUpdateWatermarkSettings({...watermarkSettings, text: e.target.value})} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
-                                  </div>
-                                  <div>
-                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Background Color</label>
-                                      <div className="flex gap-3 items-center">
-                                          <input type="color" value={watermarkSettings.backgroundColor} onChange={e => onUpdateWatermarkSettings({...watermarkSettings, backgroundColor: e.target.value})} className="w-12 h-12 border-0 bg-transparent cursor-pointer" />
-                                          <span className="text-xs font-mono text-gray-500">{watermarkSettings.backgroundColor}</span>
-                                      </div>
-                                  </div>
-                                  <div>
-                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Text Color</label>
-                                      <div className="flex gap-3 items-center">
-                                          <input type="color" value={watermarkSettings.textColor} onChange={e => onUpdateWatermarkSettings({...watermarkSettings, textColor: e.target.value})} className="w-12 h-12 border-0 bg-transparent cursor-pointer" />
-                                          <span className="text-xs font-mono text-gray-500">{watermarkSettings.textColor}</span>
-                                      </div>
-                                  </div>
-                                  <div>
-                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Brand Logo</label>
-                                      <div className="flex items-center gap-4">
-                                          <div className="w-12 h-12 bg-gray-100 border border-gray-200 flex items-center justify-center rounded overflow-hidden">
-                                              {watermarkSettings.logoUrl ? <img src={watermarkSettings.logoUrl} className="w-full h-full object-contain" /> : <ImageIcon size={20} className="text-gray-400" />}
+                  {/* --- EPAPER TAB --- */}
+                  {activeTab === 'epaper' && (
+                      <div className="max-w-7xl mx-auto">
+                           <div className="flex justify-between items-center mb-6">
+                              <h2 className="text-2xl font-serif font-bold">E-Paper Pages</h2>
+                              <button onClick={() => setShowAddPageModal(true)} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"><Plus size={16}/> Upload Page</button>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                              {ePaperPages.map(page => (
+                                  <div key={page.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden group shadow-sm">
+                                      <div className="aspect-[1/1.4] relative bg-gray-100">
+                                          <img src={page.imageUrl} className="w-full h-full object-cover" />
+                                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                              <button onClick={() => onDeletePage(page.id)} className="p-2 bg-red-600 text-white rounded-full"><Trash2 size={16}/></button>
                                           </div>
-                                          <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
-                                              {isLogoUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                                              Upload Logo
-                                              <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={isLogoUploading} />
+                                          <div className="absolute top-2 right-2 bg-black text-white text-xs font-bold px-2 py-1 rounded">P.{page.pageNumber}</div>
+                                      </div>
+                                      <div className="p-3 text-center border-t border-gray-100">
+                                          <p className="text-xs font-bold text-gray-600 uppercase">{page.date}</p>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
+
+                  {/* --- CLASSIFIEDS TAB --- */}
+                  {activeTab === 'classifieds' && (
+                      <div className="max-w-7xl mx-auto">
+                          <div className="flex justify-between items-center mb-6">
+                              <h2 className="text-2xl font-serif font-bold">Classifieds</h2>
+                              <button onClick={() => { setNewClassified({}); setShowClassifiedModal(true); }} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"><Plus size={16}/> New Ad</button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                              {classifieds.map(ad => (
+                                  <div key={ad.id} className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm relative group">
+                                      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button onClick={() => onDeleteClassified(ad.id)} className="text-red-500 bg-red-50 p-2 rounded-full"><Trash2 size={16}/></button>
+                                      </div>
+                                      <span className="text-[10px] font-bold uppercase text-news-accent tracking-widest bg-gray-50 px-2 py-1 rounded">{ad.category}</span>
+                                      <h3 className="font-bold text-lg mt-2">{ad.title}</h3>
+                                      <p className="text-sm text-gray-600 mt-2 line-clamp-3">{ad.content}</p>
+                                      <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between text-xs font-bold text-gray-500">
+                                          <span>{ad.contactInfo}</span>
+                                          {ad.price && <span>{ad.price}</span>}
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
+
+                  {/* --- ADS TAB --- */}
+                  {activeTab === 'ads' && (
+                      <div className="max-w-7xl mx-auto">
+                          <div className="flex justify-between items-center mb-6">
+                              <h2 className="text-2xl font-serif font-bold">Display Advertising</h2>
+                              <div className="flex gap-4 items-center">
+                                  <div className="flex items-center gap-2 text-sm font-bold mr-4">
+                                      <label className="relative inline-flex items-center cursor-pointer">
+                                          <input type="checkbox" checked={globalAdsEnabled} onChange={(e) => onToggleGlobalAds(e.target.checked)} className="sr-only peer" />
+                                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                          <span className="ml-3 text-gray-900">Global Ads</span>
+                                      </label>
+                                  </div>
+                                  <button onClick={() => { setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true }); setShowAdModal(true); }} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"><Plus size={16}/> New Banner</button>
+                              </div>
+                          </div>
+                          <div className="space-y-4">
+                              {advertisements.map(ad => (
+                                  <div key={ad.id} className="bg-white p-4 rounded-lg border border-gray-200 flex flex-col md:flex-row gap-6 items-center">
+                                      <div className="w-32 h-20 bg-gray-100 shrink-0 flex items-center justify-center overflow-hidden rounded border border-gray-300">
+                                          <img src={ad.imageUrl} className="w-full h-full object-contain" />
+                                      </div>
+                                      <div className="flex-1">
+                                          <h4 className="font-bold text-gray-900">{ad.title}</h4>
+                                          <div className="flex gap-4 text-xs text-gray-500 mt-1">
+                                              <span>Size: {ad.size}</span>
+                                              <span>Placement: {ad.placement}</span>
+                                              <a href={ad.linkUrl} target="_blank" className="text-blue-600 hover:underline truncate max-w-[200px]">{ad.linkUrl}</a>
+                                          </div>
+                                      </div>
+                                      <div className="flex items-center gap-4">
+                                          <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${ad.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{ad.isActive ? 'Active' : 'Inactive'}</span>
+                                          <button onClick={() => onDeleteAdvertisement(ad.id)} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 size={16}/></button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
+
+                  {/* --- ANALYTICS TAB --- */}
+                  {activeTab === 'analytics' && (
+                      <div className="max-w-7xl mx-auto">
+                          <AnalyticsDashboard articles={articles} role={UserRole.EDITOR} />
+                      </div>
+                  )}
+
+                  {/* --- SETTINGS TAB --- */}
+                  {activeTab === 'settings' && (
+                      <div className="max-w-4xl mx-auto space-y-10 pb-20">
+                          
+                          {/* Profile Settings */}
+                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><UserIcon size={20} className="text-news-gold"/> My Profile</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                  <div className="space-y-4">
+                                      <div>
+                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
+                                          <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-2 border rounded" />
+                                      </div>
+                                      <div>
+                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Avatar URL</label>
+                                          <div className="flex gap-2">
+                                              <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full p-2 border rounded" />
+                                              <label className="bg-gray-100 hover:bg-gray-200 border px-3 py-2 rounded cursor-pointer">
+                                                  {isAvatarUploading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
+                                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setProfileAvatar, setIsAvatarUploading)} />
+                                              </label>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">New Password</label>
+                                      <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 border rounded" placeholder="Leave empty to keep current" />
+                                  </div>
+                              </div>
+                              <div className="mt-6 flex justify-end">
+                                  <button onClick={handleSaveSettings} disabled={isSavingSettings} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
+                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Save Changes
+                                  </button>
+                              </div>
+                          </div>
+
+                          {/* Watermark Settings */}
+                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Scissors size={20} className="text-news-gold"/> Watermark & Branding</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                  <div>
+                                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Default Footer Text</label>
+                                      <input type="text" value={watermarkText} onChange={e => setWatermarkText(e.target.value)} className="w-full p-2 border rounded" />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Brand Logo URL</label>
+                                      <div className="flex gap-2">
+                                          <input type="text" value={watermarkLogo} onChange={e => setWatermarkLogo(e.target.value)} className="w-full p-2 border rounded" />
+                                          <label className="bg-gray-100 hover:bg-gray-200 border px-3 py-2 rounded cursor-pointer">
+                                              {isLogoUploading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
+                                              <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setWatermarkLogo, setIsLogoUploading)} />
                                           </label>
-                                          <button 
-                                            onClick={() => onUpdateWatermarkSettings({...watermarkSettings, showLogo: !watermarkSettings.showLogo})}
-                                            className={`text-xs font-bold px-3 py-2 rounded border ${watermarkSettings.showLogo ? 'bg-news-black text-news-gold border-news-black' : 'bg-gray-100 text-gray-500 border-gray-200'}`}
-                                          >
-                                              {watermarkSettings.showLogo ? 'ON' : 'OFF'}
-                                          </button>
                                       </div>
                                   </div>
                               </div>
-                              <div className="bg-gray-50 border rounded-xl p-6 flex flex-col justify-center items-center">
-                                  <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Preview Clipping Footer</div>
-                                  <div 
-                                      style={{ backgroundColor: watermarkSettings.backgroundColor, color: watermarkSettings.textColor }}
-                                      className="w-full p-4 rounded-lg flex justify-between items-center shadow-inner border border-black/5"
-                                  >
-                                      <div className="flex items-center gap-3">
-                                          {watermarkSettings.showLogo && watermarkSettings.logoUrl && (
-                                              <img src={watermarkSettings.logoUrl} className="h-8 w-auto object-contain mix-blend-multiply" alt="Logo" />
-                                          )}
-                                          <span className="font-serif font-bold text-sm tracking-tight">{watermarkSettings.text.toUpperCase()}</span>
-                                      </div>
-                                      <span className="text-[10px] opacity-60">Archive Edition: {format(new Date(), 'MMMM d, yyyy')}</span>
-                                  </div>
-                                  <p className="mt-4 text-[9px] text-gray-400 text-center uppercase tracking-widest leading-relaxed">This footer will be automatically attached to any article or page clipped via the e-paper workshop.</p>
+                              <div className="mt-6 flex justify-end">
+                                  <button onClick={handleSaveSettings} disabled={isSavingSettings} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
+                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Update Branding
+                                  </button>
+                              </div>
+                          </div>
+
+                          {/* Trusted Devices */}
+                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
+                              <div className="space-y-4">
+                                  {devices.length === 0 && <p className="text-gray-400 text-sm italic">No other devices registered.</p>}
+                                  {devices.map(device => {
+                                      let Icon = Monitor;
+                                      if (device.deviceType === 'mobile') Icon = Smartphone;
+                                      if (device.deviceType === 'tablet') Icon = Tablet;
+                                      
+                                      return (
+                                          <div key={device.id} className="flex flex-col md:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                              <div className="flex items-center gap-4 mb-4 md:mb-0 w-full md:w-auto">
+                                                  <div className={`p-3 rounded-full ${device.isCurrent ? 'bg-news-black text-news-gold' : 'bg-white border text-gray-500'}`}>
+                                                      <Icon size={20} />
+                                                  </div>
+                                                  <div>
+                                                      <div className="flex items-center gap-2">
+                                                          <span className="font-bold text-sm text-gray-900">{device.deviceName}</span>
+                                                          {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded">THIS DEVICE</span>}
+                                                          {device.isPrimary && <span className="bg-news-gold text-black text-[10px] font-bold px-1.5 py-0.5 rounded">PRIMARY</span>}
+                                                      </div>
+                                                      <div className="text-xs text-gray-500 mt-1 flex gap-3">
+                                                          <span>{device.location}</span>
+                                                          <span>•</span>
+                                                          <span>{device.browser}</span>
+                                                          <span>•</span>
+                                                          <span>Last Active: {device.lastActive}</span>
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                              <div className="flex items-center gap-3">
+                                                  {device.status === 'pending' && (
+                                                      <div className="flex items-center gap-2">
+                                                          <button onClick={() => onApproveDevice(device.id)} className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700">Approve</button>
+                                                          <button onClick={() => onRejectDevice(device.id)} className="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-700">Reject</button>
+                                                      </div>
+                                                  )}
+                                                  {device.status === 'approved' && !device.isCurrent && (
+                                                      <button onClick={() => onRevokeDevice(device.id)} className="text-red-500 hover:text-red-700 text-xs font-bold border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded">Revoke Access</button>
+                                                  )}
+                                                  {device.status === 'approved' && device.isCurrent && (
+                                                      <span className="text-green-600 text-xs font-bold flex items-center gap-1"><Check size={14}/> Active Session</span>
+                                                  )}
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
                               </div>
                           </div>
                       </div>
-                  </div>
-               )}
+                  )}
+              </div>
           </div>
       </div>
 
-      {/* MODALS */}
+      {/* ARTICLE MODAL */}
       {showArticleModal && (
-        <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="px-8 py-5 border-b flex justify-between items-center bg-gray-50">
-                <h3 className="font-serif text-xl font-bold text-gray-900">{modalMode === 'create' ? 'Draft New Article' : 'Revise Content'}</h3>
-                <button onClick={() => setShowArticleModal(false)} className="text-gray-400 hover:text-black transition-colors"><X size={24}/></button>
-            </div>
-            <div className="p-8 overflow-y-auto space-y-6">
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="md:col-span-2 space-y-5">
-                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-4 border border-gray-200 rounded-lg text-xl font-serif font-black focus:border-news-black outline-none transition-all" placeholder="Article Headline..."/>
-                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg text-sm italic min-h-[100px] outline-none focus:border-news-black transition-all" placeholder="Context or Summary (Lead Text)..."></textarea>
-                        <div className="grid grid-cols-2 gap-4">
-                            <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg text-sm font-bold uppercase tracking-widest outline-none focus:border-news-black" placeholder="BY AUTHOR NAME"/>
-                            <select value={modalCategory} onChange={(e) => setModalCategory(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg text-sm font-bold bg-white outline-none focus:border-news-black">
-                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
+                    <button onClick={() => setShowArticleModal(false)}><X size={20}/></button>
+                </div>
+                <div className="p-6 overflow-y-auto space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="md:col-span-2 space-y-4">
+                            <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline" />
+                            <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px]" placeholder="Summary / Sub-headline..."></textarea>
+                            <div className="grid grid-cols-2 gap-4">
+                                <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author" />
+                                <select value={modalCategory} onChange={(e) => setModalCategory(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
+                                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
                         </div>
-                    </div>
-                    <div className="md:col-span-1">
-                        <div className="border-2 border-dashed border-gray-200 p-5 rounded-xl bg-gray-50 flex flex-col justify-between h-full group hover:border-news-gold transition-colors">
-                            {modalImageUrl ? (
-                                <div className="relative aspect-video rounded-lg overflow-hidden shadow-lg">
-                                    <img src={modalImageUrl} className="w-full h-full object-cover" />
-                                    <button onClick={() => setModalImageUrl('')} type="button" className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-red-600 transition-colors z-10"><Trash2 size={16} /></button>
+                        <div className="md:col-span-1">
+                            <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-between">
+                                {modalImageUrl ? (
+                                    <div className="relative group aspect-video">
+                                        <img src={modalImageUrl} className="w-full h-full object-cover rounded shadow" />
+                                        <button onClick={() => setModalImageUrl('')} className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10">
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="py-4 text-gray-400 flex flex-col items-center justify-center h-full">
+                                        <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
+                                        <p className="text-xs font-bold uppercase">Featured Image</p>
+                                    </div>
+                                )}
+                                <div className="flex gap-2 mt-2">
+                                    <label className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors relative">
+                                        {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                        <span>Upload</span>
+                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setModalImageUrl, setIsUploading)} className="absolute inset-0 opacity-0" disabled={isUploading} />
+                                    </label>
+                                    <button onClick={() => setShowImageGallery(true)} className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2">
+                                        <Library size={14}/> Gallery
+                                    </button>
                                 </div>
-                            ) : (
-                                <div className="py-8 text-gray-300 flex flex-col items-center justify-center">
-                                    <ImageIcon size={48} className="mb-2 opacity-10" />
-                                    <p className="text-[10px] font-black uppercase tracking-widest">Article Cover Image</p>
-                                </div>
-                            )}
-                             <div className="flex gap-3 mt-4">
-                                <label className="flex-1 bg-news-black text-white text-[10px] font-black uppercase tracking-widest px-3 py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all hover:bg-gray-800">
-                                    {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                                    <span>{isUploading ? 'BUSY' : 'UPLOAD'}</span>
-                                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={isUploading} />
-                                </label>
                             </div>
                         </div>
                     </div>
+                    <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]" />
+                    <div className="flex items-center gap-4">
+                        <label className="font-bold text-sm">Status:</label>
+                        <div className="flex gap-2">
+                            {[ArticleStatus.DRAFT, ArticleStatus.PENDING, ArticleStatus.PUBLISHED].map(s => (
+                                <button key={s} onClick={() => setModalStatus(s)} className={`px-3 py-1 rounded text-xs font-bold uppercase border ${modalStatus === s ? 'bg-news-black text-white border-news-black' : 'bg-white text-gray-500 border-gray-200'}`}>{s}</button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-
-                <div className="relative border border-gray-100 rounded-xl overflow-hidden shadow-inner">
-                    <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={async (file) => {
-                        const { data } = supabase.storage.from('images').getPublicUrl(`content/${generateId()}`);
-                        return data.publicUrl;
-                    }} className="min-h-[500px]"/>
+                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                    <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>
+                    <button onClick={handleSaveArticleInternal} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">Save Article</button>
                 </div>
             </div>
-            <div className="px-8 py-5 bg-gray-50 border-t flex justify-end gap-4">
-              <button onClick={() => setShowArticleModal(false)} className="px-6 py-2 text-sm font-black uppercase tracking-widest text-gray-500 hover:text-black transition-colors">Abort</button>
-              <button onClick={handleArticleModalSubmit} disabled={isUploading} className="px-10 py-3 bg-news-black text-news-gold rounded-full text-xs font-black uppercase tracking-[0.2em] shadow-xl hover:bg-gray-800 transition-all disabled:opacity-50">Commit Article</button>
-            </div>
-          </div>
         </div>
       )}
 
+      {/* PAGE UPLOAD MODAL */}
       {showAddPageModal && (
-          <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
-                  <h3 className="font-serif text-2xl font-black mb-6 border-b border-gray-100 pb-2">New Digital Page</h3>
-                  <div className="space-y-6">
-                      <div><label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Issue Date</label><input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full border border-gray-200 p-3 rounded-lg font-mono text-sm outline-none focus:border-news-black"/></div>
-                      <div><label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Sequence Number</label><input type="number" value={newPageNumber} onChange={e => setNewPageNumber(Number(e.target.value))} className="w-full border border-gray-200 p-3 rounded-lg font-mono text-sm outline-none focus:border-news-black"/></div>
-                      <div><label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Page Scan (High-Res)</label><div className="border-2 border-dashed border-gray-200 p-10 text-center rounded-xl bg-gray-50 group hover:border-news-gold transition-colors">{isPageUploading ? <div className="flex flex-col items-center gap-3"><Loader2 className="animate-spin text-news-gold" /><span className="text-[10px] font-black uppercase tracking-widest">Transferring...</span></div> : newPageImage ? <div className="relative"><img src={newPageImage} className="max-h-48 mx-auto shadow-2xl rounded"/><button onClick={() => setNewPageImage('')} className="bg-red-600 text-white p-2 rounded-full shadow-lg absolute -top-3 -right-3"><X size={14} /></button></div> : <label className="cursor-pointer block"><ImageIcon size={32} className="mx-auto mb-2 opacity-10" /><span className="text-news-accent font-black text-[10px] uppercase tracking-widest">Select File</span><input type="file" accept="image/*" onChange={handleEPaperUpload} className="hidden"/></label>}</div></div>
+          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg w-full max-w-md p-6">
+                  <h3 className="font-bold text-lg mb-4">Upload E-Paper Page</h3>
+                  <div className="space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold uppercase mb-1">Date</label>
+                          <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full p-2 border rounded" />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold uppercase mb-1">Page Number</label>
+                          <input type="number" min="1" value={newPageNumber} onChange={e => setNewPageNumber(Number(e.target.value))} className="w-full p-2 border rounded" />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold uppercase mb-1">Page Image</label>
+                          <div className="border-2 border-dashed p-4 rounded text-center">
+                              {newPageImage ? <img src={newPageImage} className="max-h-48 mx-auto mb-2" /> : <ImageIcon className="mx-auto text-gray-300 mb-2" size={32} />}
+                              <label className="bg-black text-white px-4 py-2 rounded text-xs font-bold cursor-pointer inline-block">
+                                  {isPageUploading ? <Loader2 size={14} className="animate-spin" /> : "Choose Image"}
+                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading)} />
+                              </label>
+                          </div>
+                      </div>
                   </div>
-                  <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-100"><button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black">Dismiss</button><button onClick={handleSubmitNewPage} disabled={!newPageImage || isPageUploading} className="bg-news-black text-news-gold px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all">{isPageUploading ? 'Busy...' : 'Add to Archive'}</button></div>
+                  <div className="mt-6 flex justify-end gap-3">
+                      <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500">Cancel</button>
+                      <button onClick={handleAddPageInternal} disabled={isPageUploading} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold">Upload</button>
+                  </div>
               </div>
           </div>
       )}
-    </div>
+
+      {/* CLASSIFIED AD MODAL */}
+      {showClassifiedModal && (
+          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg w-full max-w-lg p-6">
+                  <h3 className="font-bold text-lg mb-4">Add Classified Ad</h3>
+                  <div className="space-y-4">
+                      <input type="text" placeholder="Ad Title" className="w-full p-2 border rounded" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} />
+                      <textarea placeholder="Content" className="w-full p-2 border rounded" rows={3} value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})}></textarea>
+                      <div className="grid grid-cols-2 gap-4">
+                           <input type="text" placeholder="Price (Optional)" className="w-full p-2 border rounded" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} />
+                           <input type="text" placeholder="Contact Info" className="w-full p-2 border rounded" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} />
+                      </div>
+                      <select className="w-full p-2 border rounded" value={newClassified.category || ''} onChange={e => setNewClassified({...newClassified, category: e.target.value})}>
+                          <option value="">Select Category</option>
+                          {['Jobs', 'Real Estate', 'For Sale', 'Services', 'Community'].map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                  </div>
+                  <div className="mt-6 flex justify-end gap-3">
+                      <button onClick={() => setShowClassifiedModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500">Cancel</button>
+                      <button onClick={() => { 
+                          if(newClassified.title && newClassified.content) {
+                             onAddClassified({...newClassified, id: generateId(), postedAt: new Date().toISOString()} as ClassifiedAd);
+                             setShowClassifiedModal(false);
+                          }
+                      }} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold">Post Ad</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* ADVERTISEMENT MODAL */}
+      {showAdModal && (
+          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg w-full max-w-lg p-6">
+                  <h3 className="font-bold text-lg mb-4">Add Display Ad</h3>
+                  <div className="space-y-4">
+                      <input type="text" placeholder="Internal Title (Ref)" className="w-full p-2 border rounded" value={newAd.title || ''} onChange={e => setNewAd({...newAd, title: e.target.value})} />
+                      <input type="text" placeholder="Target Link URL" className="w-full p-2 border rounded" value={newAd.linkUrl || ''} onChange={e => setNewAd({...newAd, linkUrl: e.target.value})} />
+                      <div className="grid grid-cols-2 gap-4">
+                           <select className="w-full p-2 border rounded" value={newAd.size || 'RECTANGLE'} onChange={e => setNewAd({...newAd, size: e.target.value as any})}>
+                               <option value="RECTANGLE">Rectangle (300x250)</option>
+                               <option value="LEADERBOARD">Leaderboard (728x90)</option>
+                               <option value="BILLBOARD">Billboard (970x250)</option>
+                               <option value="HALF_PAGE">Half Page (300x600)</option>
+                               <option value="MOBILE_BANNER">Mobile Banner (320x50)</option>
+                           </select>
+                           <select className="w-full p-2 border rounded" value={newAd.placement || 'GLOBAL'} onChange={e => setNewAd({...newAd, placement: e.target.value as any})}>
+                               <option value="GLOBAL">Global</option>
+                               <option value="HOME">Home Only</option>
+                               <option value="ARTICLE">Article Only</option>
+                           </select>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold uppercase mb-1">Banner Image</label>
+                          <div className="border border-gray-300 p-2 rounded flex gap-2 items-center">
+                              <input type="text" placeholder="Image URL" className="flex-1 outline-none text-sm" value={newAd.imageUrl || ''} onChange={e => setNewAd({...newAd, imageUrl: e.target.value})} />
+                              <label className="bg-gray-100 px-3 py-1 rounded cursor-pointer text-xs font-bold">
+                                  Upload
+                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, (url) => setNewAd({...newAd, imageUrl: url}), setIsUploading)} />
+                              </label>
+                          </div>
+                      </div>
+                  </div>
+                  <div className="mt-6 flex justify-end gap-3">
+                      <button onClick={() => setShowAdModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500">Cancel</button>
+                      <button onClick={() => {
+                           if(newAd.title && newAd.imageUrl) {
+                               onAddAdvertisement({...newAd, id: generateId()} as Advertisement);
+                               setShowAdModal(false);
+                           }
+                      }} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold">Save Banner</button>
+                  </div>
+              </div>
+          </div>
+      )}
     </>
   );
 };
