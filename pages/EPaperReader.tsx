@@ -213,8 +213,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     const padding = Math.max(10, clipWidth * 0.05);
     const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
     
-    // CRITICAL FIX: Use watermarkSettings prop directly to ensure global sync reflects in the clip
+    // Use watermarkSettings prop directly
     const brandLabel = (watermarkSettings.text || APP_NAME).toUpperCase();
+    const fontSizePercent = (watermarkSettings.fontSize || 30) / 100;
     
     let logoImg: HTMLImageElement | null = null;
     if (watermarkSettings.logoUrl) {
@@ -229,10 +230,10 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
     const getFittingFontSize = (text: string, initialSize: number, maxWidth: number, fontFace: string) => {
         let size = initialSize;
-        ctx.font = `${size}px ${fontFace}`;
+        ctx.font = `bold ${size}px ${fontFace}`;
         while (ctx.measureText(text).width > maxWidth && size > 8) {
             size -= 0.5;
-            ctx.font = `${size}px ${fontFace}`;
+            ctx.font = `bold ${size}px ${fontFace}`;
         }
         return size;
     };
@@ -258,7 +259,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         }
         
         const maxBrandWidth = clipWidth - currentX - padding;
-        const brandFontSize = getFittingFontSize(brandLabel, footerHeight * 0.25, maxBrandWidth, '"Merriweather", serif');
+        const initialSize = footerHeight * fontSizePercent;
+        const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Merriweather", serif');
         ctx.font = `bold ${brandFontSize}px "Merriweather", serif`;
         ctx.fillStyle = watermarkSettings.textColor;
         ctx.fillText(brandLabel, currentX, line1Y);
@@ -283,7 +285,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         }
         
         const fullDateStr = `Archive Edition: ${dateStr}`;
-        const baseFontSize = footerHeight * 0.35;
+        const baseFontSize = footerHeight * fontSizePercent;
         const totalAvailableWidth = clipWidth - currentX - (padding * 2);
         
         ctx.font = `bold ${baseFontSize}px "Merriweather", serif`;

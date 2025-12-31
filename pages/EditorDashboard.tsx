@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -96,11 +96,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [watermarkText, setWatermarkText] = useState(watermarkSettings.text);
   const [watermarkLogo, setWatermarkLogo] = useState(watermarkSettings.logoUrl);
+  const [watermarkFontSize, setWatermarkFontSize] = useState(watermarkSettings.fontSize || 30);
 
   // Sync local state when global settings change via props
   useEffect(() => {
     setWatermarkText(watermarkSettings.text);
     setWatermarkLogo(watermarkSettings.logoUrl);
+    setWatermarkFontSize(watermarkSettings.fontSize || 30);
   }, [watermarkSettings]);
 
   // -- SQL HELPERS --
@@ -217,7 +219,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           await onUpdateWatermarkSettings({
               ...watermarkSettings,
               text: watermarkText,
-              logoUrl: watermarkLogo
+              logoUrl: watermarkLogo,
+              fontSize: watermarkFontSize
           });
           alert("Branding settings updated globally (Status: PUBLISHED).");
       } catch (e: any) {
@@ -507,6 +510,21 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                           <input type="text" value={watermarkText} onChange={e => setWatermarkText(e.target.value)} className="w-full p-2 border rounded" />
                                       </div>
                                       <div>
+                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Font Size ({watermarkFontSize}%)</label>
+                                          <div className="flex items-center gap-3">
+                                              <Type size={14} className="text-gray-400" />
+                                              <input 
+                                                  type="range" 
+                                                  min="10" 
+                                                  max="80" 
+                                                  value={watermarkFontSize} 
+                                                  onChange={e => setWatermarkFontSize(Number(e.target.value))}
+                                                  className="w-full accent-news-black"
+                                              />
+                                              <span className="text-xs font-bold w-8 text-right">{watermarkFontSize}</span>
+                                          </div>
+                                      </div>
+                                      <div>
                                           <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Brand Logo URL</label>
                                           <div className="flex gap-2">
                                               <input type="text" value={watermarkLogo} onChange={e => setWatermarkLogo(e.target.value)} className="w-full p-2 border rounded" />
@@ -529,7 +547,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                   {watermarkLogo && (
                                                       <img src={watermarkLogo} className="h-6 w-auto object-contain mix-blend-multiply" />
                                                   )}
-                                                  <span className="font-serif font-bold text-[10px] tracking-tight">{watermarkText.toUpperCase()}</span>
+                                                  <span className="font-serif font-bold tracking-tight" style={{ fontSize: `${Math.max(10, watermarkFontSize * 0.4)}px` }}>{watermarkText.toUpperCase()}</span>
                                               </div>
                                               <span className="text-[8px] opacity-60">Archive Edition: {format(new Date(), 'MMM d, yyyy')}</span>
                                           </div>
