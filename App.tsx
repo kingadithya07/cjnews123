@@ -51,7 +51,8 @@ function App() {
   const fetchData = async (force: boolean = false) => {
     try {
       // 1. Fetch Global Settings FIRST and separately to ensure fresh branding
-      // Adding a timestamp filter is a trick to bypass Supabase/PostgREST caching
+      // IMPORTANT: We request this regardless of auth state. 
+      // The record MUST be 'PUBLISHED' in DB to be visible to public/incognito users.
       const { data: settingsData } = await supabase
         .from('articles')
         .select('content, published_at')
@@ -253,7 +254,8 @@ function App() {
           image_url: 'https://placehold.co/100?text=Config',
           publishedAt: new Date().toISOString(),
           published_at: new Date().toISOString(),
-          status: ArticleStatus.DRAFT,
+          // MUST BE PUBLISHED to be visible to unauthenticated (Incognito) users via RLS
+          status: ArticleStatus.PUBLISHED, 
           user_id: userId,
           summary: 'Internal system configuration'
       };

@@ -106,6 +106,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   // -- SQL HELPERS --
   const phoneFormatSQL = `-- Full SQL format for phone numbers\nSELECT\n  FORMAT(0112223333, '##-###-####') -- replace with column name\nFROM classifieds;`;
   const dateFormatSQL = `-- Standard SQL for date formatting\nSELECT \n  to_char(published_at, 'DD-Mon-YYYY') \nFROM articles;`;
+  const fixPermissionsSQL = `-- FORCE PUBLISH CONFIGURATION\n-- Run this if watermark settings are not visible in Incognito mode\nUPDATE articles \nSET status = 'PUBLISHED' \nWHERE id = '00000000-0000-0000-0000-000000000000';`;
 
   const copyToClipboard = (text: string) => {
       navigator.clipboard.writeText(text);
@@ -218,7 +219,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               text: watermarkText,
               logoUrl: watermarkLogo
           });
-          alert("Branding settings updated globally.");
+          alert("Branding settings updated globally (Status: PUBLISHED).");
       } catch (e: any) {
           alert("Error updating branding: " + e.message);
       } finally {
@@ -426,6 +427,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               <p className="text-sm text-gray-500 mb-6 font-medium">Use these SQL formatting snippets for direct database queries to ensure consistent data presentation.</p>
                               
                               <div className="space-y-6">
+                                  <div>
+                                      <div className="flex justify-between items-center mb-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Fix Permissions (Incognito/Mobile View)</label>
+                                          <button onClick={() => copyToClipboard(fixPermissionsSQL)} className="text-[9px] font-bold bg-green-100 text-green-800 px-2 py-1 rounded flex items-center gap-1 hover:bg-green-200">
+                                              <Copy size={10}/> Copy Fix SQL
+                                          </button>
+                                      </div>
+                                      <pre className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs overflow-x-auto border border-white/5">
+                                          {fixPermissionsSQL}
+                                      </pre>
+                                  </div>
+
                                   <div>
                                       <div className="flex justify-between items-center mb-2">
                                           <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Phone Formatting (Requested Pattern)</label>
