@@ -1,8 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { UserRole } from '../types';
-// Fixed missing icon imports: Briefcase and MoreHorizontal
-import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal } from 'lucide-react';
+import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
@@ -15,6 +14,8 @@ interface LayoutProps {
   onNavigate: (path: string) => void;
   userName?: string | null;
   userAvatar?: string | null;
+  onForceSync?: () => void;
+  lastSync?: Date;
 }
 
 interface WeatherState {
@@ -25,11 +26,11 @@ interface WeatherState {
   humidity?: number;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar }) => {
+const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, onForceSync, lastSync }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [time, setTime] = useState(new Date());
+  const [isSyncing, setIsSyncing] = useState(false);
   
-  // Lazy initialize state from localStorage to prevent flash of default content
   const [weatherState, setWeatherState] = useState<WeatherState>(() => {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('newsroom_weather_location') : null;
     return {
@@ -52,15 +53,21 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   }, []);
 
   useEffect(() => {
-    // Fetch fresh data for the initial location (saved or default)
     fetchWeatherData(weatherState.location);
   }, []);
+
+  const handleSync = () => {
+      if (onForceSync) {
+          setIsSyncing(true);
+          onForceSync();
+          setTimeout(() => setIsSyncing(false), 1000);
+      }
+  };
 
   const fetchWeatherData = async (query: string) => {
     setIsWeatherLoading(true);
     setWeatherError(null);
     try {
-      // 1. Geocode location name to Lat/Lng
       const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`);
       const geoData = await geoRes.json();
 
@@ -71,7 +78,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       const { latitude, longitude, name, admin1, country } = geoData.results[0];
       const fullName = `${name}${admin1 ? `, ${admin1}` : ''}, ${country}`;
 
-      // 2. Fetch Weather and AQI in parallel
       const [weatherRes, aqiRes] = await Promise.all([
         fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code`),
         fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${latitude}&longitude=${longitude}&current=us_aqi`)
@@ -84,7 +90,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       const humidity = weatherData.current.relative_humidity_2m;
       const aqiValue = Math.round(aqiData.current.us_aqi);
       
-      // Map weather code to condition string
       const code = weatherData.current.weather_code;
       let condition = 'Clear';
       if (code >= 1 && code <= 3) condition = 'Partly Cloudy';
@@ -187,9 +192,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       <div className="md:hidden flex flex-col bg-white">
           <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 bg-gray-50">
               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{format(new Date(), 'dd MMM yyyy')}</span>
-              <Link to={userName ? (dashboardLink || '/login') : '/login'} onNavigate={onNavigate} className="text-[10px] font-bold text-news-gold uppercase">
-                 {userName ? 'Account' : 'Login'}
-              </Link>
+              <div className="flex items-center gap-3">
+                  {onForceSync && (
+                      <button onClick={handleSync} className={`text-gray-400 hover:text-news-gold ${isSyncing ? 'animate-spin' : ''}`}>
+                          <RefreshCcw size={12}/>
+                      </button>
+                  )}
+                  <Link to={userName ? (dashboardLink || '/login') : '/login'} onNavigate={onNavigate} className="text-[10px] font-bold text-news-gold uppercase">
+                     {userName ? 'Account' : 'Login'}
+                  </Link>
+              </div>
           </div>
           <div className="px-5 py-6 flex justify-between items-center">
               <Link to="/" onNavigate={onNavigate}>
@@ -217,9 +229,19 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
 
       {/* DESKTOP TOP BAR */}
       <div className="hidden md:flex bg-white border-b border-gray-200 text-xs text-gray-500 py-1.5 px-4 font-sans tracking-widest uppercase justify-between items-center sticky top-0 z-50">
-         <div className="flex gap-6">
+         <div className="flex gap-6 items-center">
             <span className="font-bold text-gray-700">{format(new Date(), 'EEEE, MMMM dd, yyyy').toUpperCase()}</span>
             <span className="flex items-center gap-1"><Clock size={12} className="text-news-gold" /> {format(time, 'hh:mm:ss a')}</span>
+            {onForceSync && (
+                <button 
+                  onClick={handleSync} 
+                  title={`Last Updated: ${lastSync ? format(lastSync, 'HH:mm:ss') : 'N/A'}`}
+                  className={`flex items-center gap-1 hover:text-news-gold transition-colors ml-4 border-l border-gray-200 pl-4 ${isSyncing ? 'text-news-gold' : ''}`}
+                >
+                    <RefreshCcw size={12} className={isSyncing ? 'animate-spin' : ''} />
+                    <span>SYNC DATA</span>
+                </button>
+            )}
          </div>
          <div className="flex items-center gap-4">
              {userName ? (

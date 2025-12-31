@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ClassifiedAd } from '../types';
 import { MapPin, Phone, Tag, Clock, DollarSign, Filter, Search } from 'lucide-react';
@@ -13,6 +14,15 @@ const ClassifiedsHome: React.FC<ClassifiedsHomeProps> = ({ classifieds, adCatego
   const [searchTerm, setSearchTerm] = useState('');
 
   const categories = ['All', ...adCategories];
+
+  // Helper to format phone using the requested SQL pattern: ##-###-####
+  const formatPhone = (val: string) => {
+      const digits = val.replace(/\D/g, '');
+      if (digits.length >= 10) {
+          return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5, 9)}`;
+      }
+      return val;
+  };
 
   const filteredAds = classifieds.filter(ad => {
     const matchesCategory = activeCategory === 'All' || ad.category === activeCategory;
@@ -108,7 +118,7 @@ const ClassifiedsHome: React.FC<ClassifiedsHomeProps> = ({ classifieds, adCatego
                             <span className="text-xs font-bold text-gray-500 uppercase">Contact</span>
                             <div className="flex items-center gap-2 font-bold text-sm text-gray-800">
                                 <Phone size={14} className="text-news-gold"/>
-                                {ad.contactInfo}
+                                {formatPhone(ad.contactInfo)}
                             </div>
                         </div>
                     </div>

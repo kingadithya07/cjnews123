@@ -1,10 +1,10 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-// Added UserRole to the imports from '../types' to resolve 'Cannot find name UserRole' error on line 400.
 import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -97,13 +97,20 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [watermarkText, setWatermarkText] = useState(watermarkSettings.text);
   const [watermarkLogo, setWatermarkLogo] = useState(watermarkSettings.logoUrl);
 
-  // Sync local state when global settings change via props (e.g. from cloud)
+  // Sync local state when global settings change via props
   useEffect(() => {
     setWatermarkText(watermarkSettings.text);
     setWatermarkLogo(watermarkSettings.logoUrl);
   }, [watermarkSettings]);
 
-  // -- HANDLERS --
+  // -- SQL HELPERS --
+  const phoneFormatSQL = `-- SQL Query to format phone numbers\nSELECT \n  FORMAT(contact_info, '##-###-####') \nFROM classifieds;`;
+  const dateFormatSQL = `-- SQL Query to format edition dates\nSELECT \n  to_char(published_at, 'DD-Mon-YYYY') \nFROM articles;`;
+
+  const copyToClipboard = (text: string) => {
+      navigator.clipboard.writeText(text);
+      alert("SQL copied to clipboard!");
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void) => {
       const file = e.target.files?.[0];
@@ -413,6 +420,38 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   {activeTab === 'settings' && (
                       <div className="max-w-4xl mx-auto space-y-10 pb-20">
                           
+                          {/* Database Management / SQL Helper */}
+                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Code size={20} className="text-blue-600"/> Database Management</h3>
+                              <p className="text-sm text-gray-500 mb-6 font-medium">Use these SQL formatting snippets for direct database queries to ensure consistent data presentation across all platforms.</p>
+                              
+                              <div className="space-y-6">
+                                  <div>
+                                      <div className="flex justify-between items-center mb-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">SQL Phone Formatting (##-###-####)</label>
+                                          <button onClick={() => copyToClipboard(phoneFormatSQL)} className="text-[9px] font-bold bg-gray-100 px-2 py-1 rounded flex items-center gap-1 hover:bg-gray-200">
+                                              <Copy size={10}/> Copy SQL
+                                          </button>
+                                      </div>
+                                      <pre className="bg-gray-900 text-news-gold p-4 rounded-lg font-mono text-xs overflow-x-auto border border-white/5">
+                                          {phoneFormatSQL}
+                                      </pre>
+                                  </div>
+                                  
+                                  <div>
+                                      <div className="flex justify-between items-center mb-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">SQL Date Formatting (DD-Mon-YYYY)</label>
+                                          <button onClick={() => copyToClipboard(dateFormatSQL)} className="text-[9px] font-bold bg-gray-100 px-2 py-1 rounded flex items-center gap-1 hover:bg-gray-200">
+                                              <Copy size={10}/> Copy SQL
+                                          </button>
+                                      </div>
+                                      <pre className="bg-gray-900 text-news-gold p-4 rounded-lg font-mono text-xs overflow-x-auto border border-white/5">
+                                          {dateFormatSQL}
+                                      </pre>
+                                  </div>
+                              </div>
+                          </div>
+
                           {/* Profile Settings */}
                           <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
                               <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><UserIcon size={20} className="text-news-gold"/> My Profile</h3>
