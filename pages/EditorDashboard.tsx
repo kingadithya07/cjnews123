@@ -1,10 +1,14 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice } from '../types';
+// Fixed missing icon imports: Check and Scissors
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
-  Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library
+  Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
+  Check, Scissors
 } from 'lucide-react';
+// Fixed missing import for date-fns format
+import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -41,6 +45,7 @@ interface EditorDashboardProps {
   onDeleteAdvertisement: (id: string) => void;
   onNavigate: (path: string) => void;
   userAvatar?: string | null;
+  userName?: string | null;
   devices: TrustedDevice[];
   onApproveDevice: (id: string) => void;
   onRejectDevice: (id: string) => void;
@@ -51,7 +56,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   articles, ePaperPages, categories, classifieds, advertisements,
   onAddPage, onDeletePage, onDeleteArticle, onSaveArticle, 
   onAddClassified, onDeleteClassified, onAddAdvertisement, onDeleteAdvertisement,
-  onNavigate
+  onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'classifieds' | 'ads' | 'analytics' | 'settings'>('articles');
@@ -85,6 +90,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   
   const activePage = ePaperPages.find(p => p.id === activePageId);
 
+  // Settings State
+  const [profileName, setProfileName] = useState(userName || '');
+  const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
+  const [newPassword, setNewPassword] = useState('');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
   useEffect(() => {
       setEditorScale(1);
       setEditorPos({ x: 0, y: 0 });
@@ -114,7 +125,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     setIsPageUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      // Using a structured path for better storage management
       const fileName = `epaper/${newPageDate}/${newPageNumber}_${generateId()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
       if (uploadError) throw uploadError;
@@ -136,13 +146,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         imageUrl: newPageImage, 
         regions: [] 
       };
-      
-      // onAddPage triggers the persistence logic in App.tsx
       await onAddPage(newPage);
-      
       setShowAddPageModal(false);
       setNewPageImage('');
-      // Auto-increment for convenience
       setNewPageNumber(prev => prev + 1);
   };
 
@@ -163,6 +169,29 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       if (isPanning && panStartRef.current) { e.preventDefault(); const deltaX = e.clientX - panStartRef.current.clientX; const deltaY = e.clientY - panStartRef.current.clientY; setEditorPos({ x: panStartRef.current.originX + deltaX, y: panStartRef.current.originY + deltaY }); }
   };
   const handleStageMouseUp = () => { setIsPanning(false); panStartRef.current = null; };
+
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      const updates: any = { 
+        data: { 
+          full_name: profileName,
+          avatar_url: profileAvatar
+        } 
+      };
+      if (newPassword) {
+        updates.password = newPassword;
+      }
+      const { error } = await supabase.auth.updateUser(updates);
+      if (error) throw error;
+      alert("Settings updated successfully!");
+      setNewPassword('');
+    } catch (err: any) {
+      alert("Error updating profile: " + err.message);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
     <button onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-6 py-4 transition-colors ${activeTab === id ? 'text-white border-l-4 border-news-gold bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-4 border-transparent'}`}><Icon size={18} /><span className="text-xs font-bold uppercase tracking-widest">{label}</span></button>
@@ -195,7 +224,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               )}
               {activeTab === 'epaper' && (
                  <div className="max-w-screen-xl mx-auto">
-                      <div className="flex justify-between items-center mb-6"><h1 className="font-serif text-3xl font-bold text-gray-900">Digital Archive Management</h1><button onClick={() => { setShowAddPageModal(true); setNewPageImage(''); }} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800"><Plus size={16} /> Upload Archive Page</button></div>
+                      <div className="flex justify-between items-center mb-6"><h1 className="font-serif text-3xl font-bold text-gray-900">Chaanvika Jyothi</h1><button onClick={() => { setShowAddPageModal(true); setNewPageImage(''); }} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800"><Plus size={16} /> Upload Archive Page</button></div>
                       
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                           <div className="lg:col-span-3 bg-white p-5 border rounded-lg h-fit max-h-[75vh] overflow-y-auto">
@@ -270,7 +299,77 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   </div>
               )}
                {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={articles} role={ArticleStatus.PUBLISHED as any} /></div>}
-               {activeTab === 'settings' && <div className="max-w-6xl mx-auto bg-white p-8 rounded-lg border text-center text-gray-400 font-serif italic">Global site settings module under maintenance.</div>}
+               {activeTab === 'settings' && (
+                  <div className="max-w-4xl mx-auto space-y-12 pb-20">
+                      <div className="bg-white rounded-xl border p-8 shadow-sm">
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                             <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
+                                    <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar URL</label>
+                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                </div>
+                             </div>
+                             <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Change Password</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" placeholder="New Password" />
+                                    </div>
+                                </div>
+                                <div className="pt-6">
+                                    <button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full bg-news-black text-news-gold py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                        {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
+                                        {isSavingSettings ? 'Saving...' : 'Update Profile'}
+                                    </button>
+                                </div>
+                             </div>
+                          </div>
+                      </div>
+
+                      <div className="bg-white rounded-xl border p-8 shadow-sm">
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Scissors className="text-news-gold" /> Clipping Watermark Tool</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              <div className="space-y-4">
+                                  <div>
+                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Watermark Text</label>
+                                      <input type="text" value={watermarkSettings.text} onChange={e => onUpdateWatermarkSettings({...watermarkSettings, text: e.target.value})} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Background Color</label>
+                                      <div className="flex gap-3 items-center">
+                                          <input type="color" value={watermarkSettings.backgroundColor} onChange={e => onUpdateWatermarkSettings({...watermarkSettings, backgroundColor: e.target.value})} className="w-12 h-12 border-0 bg-transparent cursor-pointer" />
+                                          <span className="text-xs font-mono text-gray-500">{watermarkSettings.backgroundColor}</span>
+                                      </div>
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Text Color</label>
+                                      <div className="flex gap-3 items-center">
+                                          <input type="color" value={watermarkSettings.textColor} onChange={e => onUpdateWatermarkSettings({...watermarkSettings, textColor: e.target.value})} className="w-12 h-12 border-0 bg-transparent cursor-pointer" />
+                                          <span className="text-xs font-mono text-gray-500">{watermarkSettings.textColor}</span>
+                                      </div>
+                                  </div>
+                              </div>
+                              <div className="bg-gray-50 border rounded-xl p-6 flex flex-col justify-center items-center">
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Preview Clipping Footer</div>
+                                  <div 
+                                      style={{ backgroundColor: watermarkSettings.backgroundColor, color: watermarkSettings.textColor }}
+                                      className="w-full p-4 rounded-lg flex justify-between items-center shadow-inner border border-black/5"
+                                  >
+                                      <span className="font-serif font-bold text-sm tracking-tight">{watermarkSettings.text.toUpperCase()}</span>
+                                      <span className="text-[10px] opacity-60">Archive Edition: {format(new Date(), 'MMMM d, yyyy')}</span>
+                                  </div>
+                                  <p className="mt-4 text-[9px] text-gray-400 text-center uppercase tracking-widest leading-relaxed">This footer will be automatically attached to any article or page clipped via the e-paper workshop.</p>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+               )}
           </div>
       </div>
 

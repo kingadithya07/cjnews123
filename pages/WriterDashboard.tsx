@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User, BarChart3, Loader2, Lock, Library } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -14,9 +15,10 @@ interface WriterDashboardProps {
   categories: string[];
   onNavigate: (path: string) => void;
   userAvatar?: string | null;
+  userName?: string | null;
 }
 
-const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArticles, currentUserRole, categories, onNavigate, userAvatar }) => {
+const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'settings'>('articles');
   const [showEditorModal, setShowEditorModal] = useState(false);
@@ -25,12 +27,18 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   const [subline, setSubline] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState(categories[0] || 'General');
-  const [author, setAuthor] = useState('Staff Writer');
+  const [author, setAuthor] = useState(userName || 'Staff Writer');
   const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
   const [isUploading, setIsUploading] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [showImageGallery, setShowImageGallery] = useState(false);
+
+  // Settings State
+  const [profileName, setProfileName] = useState(userName || '');
+  const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
+  const [newPassword, setNewPassword] = useState('');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   useEffect(() => {
     if (content) {
@@ -62,7 +70,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       setImageUrl(data.publicUrl);
     } catch (error: any) {
       console.error('Upload Error:', error.message);
-      alert("Failed to upload image. Ensure 'images' bucket exists in Supabase.");
+      alert("Failed to upload image.");
     } finally {
       setIsUploading(false);
     }
@@ -71,16 +79,9 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   const handleContentImageUpload = async (file: File): Promise<string> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${generateId()}.${fileExt}`;
-    const filePath = `content/${fileName}`; // Use a different folder for content images
-
-    const { error: uploadError } = await supabase.storage
-      .from('images')
-      .upload(filePath, file);
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
+    const filePath = `content/${fileName}`;
+    const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+    if (uploadError) throw uploadError;
     const { data } = supabase.storage.from('images').getPublicUrl(filePath);
     return data.publicUrl;
   };
@@ -113,6 +114,29 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   const handleSelectFromGallery = (url: string) => {
     setImageUrl(url);
     setShowImageGallery(false);
+  };
+
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      const updates: any = { 
+        data: { 
+          full_name: profileName,
+          avatar_url: profileAvatar
+        } 
+      };
+      if (newPassword) {
+        updates.password = newPassword;
+      }
+      const { error } = await supabase.auth.updateUser(updates);
+      if (error) throw error;
+      alert("Settings updated successfully!");
+      setNewPassword('');
+    } catch (err: any) {
+      alert("Error updating profile: " + err.message);
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
@@ -186,6 +210,41 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                                     ))}
                                 </tbody>
                           </table>
+                      </div>
+                  </div>
+              )}
+              {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={existingArticles} role={ArticleStatus.PUBLISHED as any} /></div>}
+              {activeTab === 'settings' && (
+                  <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
+                      <div className="bg-white rounded-xl border p-8 shadow-sm">
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                             <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
+                                    <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar URL</label>
+                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                </div>
+                             </div>
+                             <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Change Password</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" placeholder="New Password" />
+                                    </div>
+                                </div>
+                                <div className="pt-6">
+                                    <button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full bg-news-black text-news-gold py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                        {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
+                                        {isSavingSettings ? 'Saving...' : 'Update Profile'}
+                                    </button>
+                                </div>
+                             </div>
+                          </div>
                       </div>
                   </div>
               )}

@@ -160,8 +160,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
       // Pan Drag Move
       if (e.touches.length === 1 && scale > 1) {
-           // Prevent native scroll to allow panning freely
-           // Note: In a real app, you might want to allow scrolling if at edge, but for full screen reader, locking is better.
            if (e.cancelable) e.preventDefault(); 
 
            const deltaX = e.touches[0].clientX - touchStartRef.current.x;
@@ -177,8 +175,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                const rect = viewerRef.current.getBoundingClientRect();
                const moveRangeX = rect.width * (scale - 1);
                if (moveRangeX > 0) {
-                   // Inverse of the Hover logic: targetX = (0.5 - pctX) * range
-                   // pctX = 0.5 - (targetX / range)
                    const pctX = 0.5 - (newX / moveRangeX);
                    setHSliderVal(Math.max(0, Math.min(1, pctX)));
                }
@@ -188,11 +184,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
   const handleTouchEnd = () => {
       touchStartRef.current = null;
-      // We don't reset isTouchInteraction immediately to prevent mouse events from firing right after
       setTimeout(() => { isTouchInteraction.current = false; }, 500);
   };
 
-  // Handle manual slider movement
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     setHSliderVal(val);
@@ -202,12 +196,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         const targetX = (0.5 - val) * moveRangeX;
         setPosition(prev => ({ ...prev, x: targetX }));
     }
-  };
-
-  // WORKSHOP TOUCH LOGIC
-  const handleWorkshopTouchMove = (e: React.TouchEvent) => {
-    // Simple pass-through or enhancement for workshop could go here
-    // CropperJS handles its own touch events usually, so we might not need this unless customizing
   };
 
   useEffect(() => {
@@ -269,7 +257,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (!cropPreview) return;
     const link = document.createElement('a');
     link.href = cropPreview;
-    link.download = `Clipping_${activePage?.date}.jpg`;
+    link.download = `ChaanvikaJyothi_${activePage?.date}.jpg`;
     link.click();
   };
 
@@ -278,7 +266,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
       try {
           const blob = await (await fetch(cropPreview)).blob();
           const file = new File([blob], `Clip_${activePage?.date}.jpg`, { type: 'image/jpeg' });
-          await navigator.share({ files: [file], title: 'Paper Clipping', text: `Extracted from ${APP_NAME}` });
+          await navigator.share({ files: [file], title: 'Paper Clipping', text: `Extracted from Chaanvika Jyothi` });
       } catch (err) { console.error('Share failed', err); }
   };
 
@@ -298,30 +286,43 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                   <button disabled={selectedDate === uniqueDates[0]} onClick={() => setSelectedDate(uniqueDates[uniqueDates.indexOf(selectedDate) - 1])} className="p-1.5 hover:bg-white rounded-full disabled:opacity-20"><ChevronRight size={16} /></button>
               </div>
            </div>
-           <div className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 hidden md:block">Issue Portal Archives</div>
+           <div className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 hidden md:block">Archive Explorer</div>
         </div>
       )}
 
-      {/* ARCHIVE GRID */}
+      {/* ARCHIVE GRID - Updated to 4-column layout for desktop */}
       {viewMode === 'grid' && (
           <div className="flex-1 overflow-y-auto p-6 md:p-12 animate-in fade-in duration-500">
               <div className="max-w-7xl mx-auto space-y-10">
                   <div className="border-b border-gray-200 pb-6">
-                      <h1 className="text-3xl md:text-5xl font-serif font-black text-gray-900 mb-2">Issue Portal</h1>
+                      <h1 className="text-3xl md:text-5xl font-serif font-black text-gray-900 mb-2">Chaanvika Jyothi</h1>
                       <p className="text-gray-500 text-[9px] font-black uppercase tracking-[0.4em] flex items-center gap-3">
                         <Calendar size={12} className="text-news-gold"/> Edition: {safeFormat(selectedDate, 'MMMM do, yyyy')}
                       </p>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 md:gap-8 pb-20">
+                  
+                  {/* Grid Layout: 1 col on mobile, 2 on tablet, 4 on desktop (lg:grid-cols-4) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 pb-20">
                       {currentEditionPages.map((page, idx) => (
-                          <div key={page.id} onClick={() => { setActivePageIndex(idx); setViewMode('reader'); }} className="group cursor-pointer space-y-3">
-                              <div className="relative aspect-[3/4] overflow-hidden rounded-lg border border-gray-200 shadow-sm transition-all duration-500 group-hover:scale-[1.03] group-hover:shadow-2xl">
-                                  <img src={page.imageUrl} className="w-full h-full object-cover transition-all duration-700" alt={`P${page.pageNumber}`} />
+                          <div key={page.id} onClick={() => { setActivePageIndex(idx); setViewMode('reader'); }} className="group cursor-pointer space-y-4">
+                              <div className="relative aspect-[1/1.4] overflow-hidden rounded-xl border border-gray-200 shadow-sm transition-all duration-500 group-hover:scale-[1.03] group-hover:shadow-2xl bg-white">
+                                  <img 
+                                    src={page.imageUrl} 
+                                    className="w-full h-full object-cover object-top transition-all duration-700" 
+                                    alt={`P${page.pageNumber}`} 
+                                  />
                                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                      <div className="bg-news-black text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0"><Maximize size={20} /></div>
+                                      <div className="bg-news-black text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 shadow-2xl">
+                                          <Maximize size={24} />
+                                      </div>
+                                  </div>
+                                  <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm border border-gray-100 text-[10px] font-black px-2 py-1 rounded shadow-sm text-gray-600">
+                                      P. {page.pageNumber}
                                   </div>
                               </div>
-                              <p className="text-[9px] font-black tracking-[0.3em] text-gray-400 group-hover:text-news-accent transition-colors text-center uppercase">Page {page.pageNumber}</p>
+                              <div className="text-center">
+                                <p className="text-[10px] font-black tracking-[0.3em] text-gray-400 group-hover:text-news-accent transition-colors uppercase">Page {page.pageNumber}</p>
+                              </div>
                           </div>
                       ))}
                   </div>
@@ -385,7 +386,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                       >
                           <EPaperViewer 
                             page={activePage} 
-                            // Optimized Constraints: 100vw/dvh ensures initial fit, object-contain preserves ratio
                             imageClassName="max-w-[98vw] max-h-[85dvh] md:max-h-[90vh] w-auto h-auto block shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-white/5 rounded-sm object-contain"
                             disableInteractivity={true}
                           />
@@ -403,7 +403,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                         className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[85vw] md:w-[480px] px-6 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full z-[60] flex items-center gap-4 shadow-2xl animate-in slide-in-from-bottom-4 safe-area-bottom"
                         onMouseEnter={() => { isOverSlider.current = true; }}
                         onMouseLeave={() => { isOverSlider.current = false; }}
-                        onTouchStart={(e) => e.stopPropagation()} // Allow slider interaction without drag interference
+                        onTouchStart={(e) => e.stopPropagation()} 
                       >
                           <div className="text-news-gold opacity-50"><MoveHorizontal size={14} /></div>
                           <input 
