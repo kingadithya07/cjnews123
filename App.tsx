@@ -46,23 +46,110 @@ function App() {
   // --- DATA SYNC FROM SUPABASE ---
   const fetchData = async () => {
     try {
-      const { data: artData } = await supabase.from('articles').select('*').order('publishedAt', { ascending: false });
-      const { data: pageData } = await supabase.from('epaper_pages').select('*, epaper_regions(*)').order('date', { ascending: false }, 'page_number', { ascending: true });
-      const { data: clsData } = await supabase.from('classifieds').select('*').order('postedAt', { ascending: false });
+      // 1. Fetch Articles with robust column fallback
+      let { data: artData, error: artError } = await supabase
+        .from('articles')
+        .select('*')
+        .order('publishedAt', { ascending: false });
+      
+      // If publishedAt fails, try snake_case published_at, then fallback to id
+      if (artError) {
+          const secondTry = await supabase
+            .from('articles')
+            .select('*')
+            .order('published_at', { ascending: false });
+          
+          if (secondTry.error) {
+             const finalTry = await supabase.from('articles').select('*').order('id', { ascending: false });
+             artData = finalTry.data;
+             artError = finalTry.error;
+          } else {
+             artData = secondTry.data;
+             artError = null;
+          }
+      }
+
+      if (artError) console.error("Error fetching articles:", artError.message);
+
+      // 2. Fetch E-Paper Pages with robust column fallback
+      let { data: pageData, error: pageError } = await supabase
+        .from('epaper_pages')
+        .select('*')
+        .order('date', { ascending: false })
+        .order('pageNumber', { ascending: true });
+      
+      if (pageError) {
+          const secondTry = await supabase
+            .from('epaper_pages')
+            .select('*')
+            .order('date', { ascending: false })
+            .order('page_number', { ascending: true });
+          
+          if (!secondTry.error) {
+             pageData = secondTry.data;
+             pageError = null;
+          }
+      }
+      
+      if (pageError) console.error("Error fetching epaper pages:", pageError.message);
+
+      // 3. Fetch Classifieds & Ads
+      const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
 
-      if (artData) setArticles(artData as Article[]);
-      if (pageData) setEPaperPages(pageData.map(p => ({
+      // --- MAPPING LAYER (Unifies DB results to Frontend Types) ---
+      if (artData) {
+        setArticles(artData.map(a => ({
+          id: a.id,
+          title: a.title,
+          subline: a.subline,
+          author: a.author,
+          content: a.content,
+          category: a.category,
+          imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
+          publishedAt: a.publishedAt || a.published_at || new Date().toISOString(),
+          status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
+          summary: a.summary,
+          isPremium: a.isPremium || a.is_premium || false
+        })) as Article[]);
+      }
+
+      if (pageData) {
+        setEPaperPages(pageData.map(p => ({
           id: p.id,
           date: p.date,
-          pageNumber: p.page_number || p.pageNumber, // Map snake_case or legacy camelCase
-          imageUrl: p.image_url || p.imageUrl,
-          regions: p.epaper_regions || []
-      })) as EPaperPage[]);
-      if (clsData) setClassifieds(clsData as ClassifiedAd[]);
-      if (adData) setAdvertisements(adData as Advertisement[]);
+          pageNumber: p.pageNumber !== undefined ? p.pageNumber : (p.page_number !== undefined ? p.page_number : 1),
+          imageUrl: p.imageUrl || p.image_url || 'https://placehold.co/600x800?text=No+Scan',
+          regions: []
+        })) as EPaperPage[]);
+      }
+
+      if (clsData) {
+        setClassifieds(clsData.map(c => ({
+          id: c.id,
+          title: c.title,
+          category: c.category,
+          content: c.content,
+          price: c.price,
+          location: c.location,
+          contactInfo: c.contactInfo || c.contact_info,
+          postedAt: c.postedAt || c.posted_at || new Date().toISOString()
+        })) as ClassifiedAd[]);
+      }
+
+      if (adData) {
+        setAdvertisements(adData.map(ad => ({
+          id: ad.id,
+          imageUrl: ad.imageUrl || ad.image_url,
+          linkUrl: ad.linkUrl || ad.link_url,
+          title: ad.title,
+          size: ad.size,
+          placement: ad.placement,
+          isActive: ad.isActive !== undefined ? ad.isActive : (ad.is_active !== undefined ? ad.is_active : true)
+        })) as Advertisement[]);
+      }
     } catch (err) {
-      console.error("Error fetching newsroom data:", err);
+      console.error("Critical error in fetchData:", err);
     }
   };
 
@@ -70,9 +157,8 @@ function App() {
   useEffect(() => {
     fetchData();
 
-    // Subscribe to changes across all critical tables
     const channel = supabase
-      .channel('newsroom_changes')
+      .channel('newsroom_global_sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData())
@@ -160,28 +246,32 @@ function App() {
   };
 
   const handleSaveArticle = async (article: Article) => {
-    // Optimistic Update
     setArticles(prev => {
         const exists = prev.find(a => a.id === article.id);
         return exists ? prev.map(a => a.id === article.id ? article : a) : [article, ...prev];
     });
 
-    // Supabase Update - using snake_case for DB columns
-    const { error } = await supabase.from('articles').upsert({
+    const payload = {
         id: article.id,
         title: article.title,
         subline: article.subline,
         author: article.author,
         content: article.content,
         category: article.category,
-        image_url: article.imageUrl,
+        imageUrl: article.imageUrl,
+        image_url: article.imageUrl, // Map to both cases for DB safety
+        publishedAt: article.publishedAt,
         published_at: article.publishedAt,
         status: article.status,
         user_id: userId
-    });
+    };
+
+    const { error } = await supabase.from('articles').upsert(payload);
+
     if (error) {
-      console.error("Supabase Article Save Error:", error);
-      alert("Failed to save article to cloud: " + error.message);
+      console.error("Supabase Article Save Error:", error.message);
+      alert("Failed to save article: " + error.message);
+      fetchData(); 
     }
   };
 
@@ -190,17 +280,10 @@ function App() {
       setArticles(prev => prev.filter(a => a.id !== id));
       
       try {
-          const { error, count } = await supabase
-            .from('articles')
-            .delete({ count: 'exact' }) 
-            .eq('id', id);
-          
+          const { error } = await supabase.from('articles').delete().eq('id', id);
           if (error) throw error;
-          if (count === 0) {
-              throw new Error("Permission Denied: You do not have permission to delete this article.");
-          }
       } catch (error: any) {
-          console.error("Delete failed:", error);
+          console.error("Delete failed:", error.message);
           alert(`Failed to delete: ${error.message}`);
           setArticles(previousArticles);
           fetchData();
@@ -208,24 +291,27 @@ function App() {
   };
 
   const handleAddPage = async (page: EPaperPage) => {
-    // Optimistic Update
     setEPaperPages(prev => [page, ...prev]);
 
-    // Using snake_case for DB columns to ensure persistence
-    const { error } = await supabase.from('epaper_pages').insert({
+    const payload = {
       id: page.id,
       date: page.date,
-      page_number: page.pageNumber,
-      image_url: page.imageUrl
-    });
+      pageNumber: page.pageNumber,
+      page_number: page.pageNumber, // Map to both cases
+      imageUrl: page.imageUrl,
+      image_url: page.imageUrl,
+      user_id: userId
+    };
+
+    const { error } = await supabase.from('epaper_pages').insert(payload);
 
     if (error) {
-      console.error("Failed to add page to backend:", error);
-      alert("Database error: Could not sync page to backend. " + error.message);
-      fetchData(); // Revert to backend state
+      console.error("Failed to add page to backend:", error.message);
+      alert("Backend Sync Error: " + error.message);
+      fetchData(); 
     } else {
-      console.log("Archive page successfully synced to database.");
-      fetchData(); // Refresh list to get consistent naming
+      console.log("EPaper page successfully persisted.");
+      fetchData(); 
     }
   };
 
@@ -235,7 +321,7 @@ function App() {
 
     const { error } = await supabase.from('epaper_pages').delete().eq('id', id);
     if (error) {
-      console.error("Failed to delete page:", error);
+      console.error("Failed to delete page:", error.message);
       alert("Failed to delete page: " + error.message);
       setEPaperPages(prevPages);
     }
@@ -244,10 +330,11 @@ function App() {
   const handleUpdatePage = async (page: EPaperPage) => {
     const { error } = await supabase.from('epaper_pages').update({
         date: page.date,
+        pageNumber: page.pageNumber,
         page_number: page.pageNumber
     }).eq('id', page.id);
 
-    if(error) console.error("Page update error", error);
+    if (error) console.error("Page update error:", error.message);
     fetchData(); 
   }
 
