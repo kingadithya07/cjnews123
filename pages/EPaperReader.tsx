@@ -50,7 +50,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     return isValid(d) ? format(d, formatStr) : 'N/A';
   };
 
-  // --- Reader View Controls ---
+  // --- Reader View Controls (Manual Pan/Zoom Logic) ---
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [hSliderVal, setHSliderVal] = useState(0.5);
@@ -59,6 +59,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   const viewerRef = useRef<HTMLDivElement>(null);
   const isOverSlider = useRef(false);
   const isTouchInteraction = useRef(false);
+  const isDragging = useRef(false);
+  const lastMousePos = useRef({ x: 0, y: 0 });
 
   const touchStartRef = useRef<{ 
     x: number; 
@@ -77,10 +79,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   const cropperImgRef = useRef<HTMLImageElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
+  // These still track current branding but UI to edit them is removed as per request
   const [customText, setCustomText] = useState(watermarkSettings.text);
   const [customLogo, setCustomLogo] = useState(watermarkSettings.logoUrl);
-  const [isCustomLogoUploading, setIsCustomLogoUploading] = useState(false);
-  const [isSavingDefault, setIsSavingDefault] = useState(false);
 
   useEffect(() => {
     if (viewMode === 'reader') {
@@ -96,6 +97,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     return () => { document.body.style.overflow = 'auto'; };
   }, [viewMode, activePageIndex]);
 
+  // Keep branding sync in sync with global settings
   useEffect(() => {
       if (isCropping) {
           setCustomText(watermarkSettings.text);
@@ -103,23 +105,44 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
       }
   }, [isCropping, watermarkSettings]);
 
-  const handleReaderMouseMove = (e: React.MouseEvent) => {
-    if (isTouchInteraction.current) return;
-    if (scale > 1 && viewerRef.current && !isCropping && !isOverSlider.current) {
-        const rect = viewerRef.current.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        const pctX = Math.max(0, Math.min(1, mouseX / rect.width));
-        const pctY = Math.max(0, Math.min(1, mouseY / rect.height));
-        const moveRangeX = rect.width * (scale - 1);
-        const moveRangeY = rect.height * (scale - 1);
-        const targetX = (0.5 - pctX) * moveRangeX;
-        const targetY = (0.5 - pctY) * moveRangeY;
-        setPosition({ x: targetX, y: targetY });
-        setHSliderVal(pctX);
+  // DESKTOP: MANUAL DRAG-TO-PAN (FREE MOVE)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale > 1 && !isCropping && !isOverSlider.current) {
+        isDragging.current = true;
+        lastMousePos.current = { x: e.clientX, y: e.clientY };
     }
   };
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || scale <= 1) return;
+    
+    const deltaX = e.clientX - lastMousePos.current.x;
+    const deltaY = e.clientY - lastMousePos.current.y;
+    
+    setPosition(prev => {
+        const newX = prev.x + deltaX;
+        const newY = prev.y + deltaY;
+        
+        if (viewerRef.current) {
+            const rect = viewerRef.current.getBoundingClientRect();
+            const moveRangeX = rect.width * (scale - 1);
+            if (moveRangeX > 0) {
+                const pctX = 0.5 - (newX / moveRangeX);
+                setHSliderVal(Math.max(0, Math.min(1, pctX)));
+            }
+        }
+        
+        return { x: newX, y: newY };
+    });
+    
+    lastMousePos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+  };
+
+  // TOUCH INTERACTION
   const handleTouchStart = (e: React.TouchEvent) => {
       isTouchInteraction.current = true;
       if (e.touches.length === 1 && scale > 1) {
@@ -193,38 +216,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     }
   };
 
-  const handleCustomLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      setIsCustomLogoUploading(true);
-      try {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `logos/temp_${generateId()}.${fileExt}`;
-          const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
-          if (uploadError) throw uploadError;
-          const { data } = supabase.storage.from('images').getPublicUrl(fileName);
-          setCustomLogo(data.publicUrl);
-      } catch (error: any) {
-          alert("Logo upload failed: " + error.message);
-      } finally {
-          setIsCustomLogoUploading(false);
-      }
-  };
-
-  const handleSaveAsDefault = async () => {
-      if (!onSaveSettings) return;
-      setIsSavingDefault(true);
-      const newSettings = {
-          ...watermarkSettings,
-          text: customText,
-          logoUrl: customLogo,
-          showLogo: !!customLogo
-      };
-      await onSaveSettings(newSettings);
-      setIsSavingDefault(false);
-      alert("Settings saved globally. Changes will reflect on all devices.");
-  };
-
   useEffect(() => {
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
@@ -262,7 +253,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     const clipHeight = croppedCanvas.height;
 
     // ADAPTIVE FOOTER LOGIC
-    // Switch to two-line layout if the clip is narrow (vertical/column slice)
     const isNarrow = clipWidth < 450;
     const baseFooterHeight = Math.max(50, Math.min(clipHeight * 0.12, 120));
     const footerHeight = isNarrow ? baseFooterHeight * 1.8 : baseFooterHeight;
@@ -270,12 +260,10 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     finalCanvas.width = clipWidth;
     finalCanvas.height = clipHeight + footerHeight;
     
-    // Draw white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
     ctx.drawImage(croppedCanvas, 0, 0);
     
-    // Draw Footer Background
     ctx.fillStyle = watermarkSettings.backgroundColor;
     ctx.fillRect(0, clipHeight, finalCanvas.width, footerHeight);
     
@@ -283,7 +271,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
     const brandLabel = (customText || APP_NAME).toUpperCase();
     
-    // Preparation for Drawing
     let logoImg: HTMLImageElement | null = null;
     if (customLogo) {
         try {
@@ -295,7 +282,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         } catch (e) { console.error("Logo load failed", e); }
     }
 
-    // Helper: Dynamic font sizing to fit width
     const getFittingFontSize = (text: string, initialSize: number, maxWidth: number, fontFace: string) => {
         let size = initialSize;
         ctx.font = `${size}px ${fontFace}`;
@@ -307,20 +293,16 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     };
 
     if (isNarrow) {
-        // TWO-LINE ADAPTIVE LAYOUT
         const line1Y = clipHeight + (footerHeight * 0.35);
         const line2Y = clipHeight + (footerHeight * 0.75);
-        
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         let currentX = padding;
         
-        // Handle Logo Size relative to available width
         let logoW = 0;
         if (logoImg) {
             const logoH = footerHeight * 0.35;
             logoW = (logoImg.width / logoImg.height) * logoH;
-            // Ensure logo doesn't take more than 30% of width
             if (logoW > clipWidth * 0.3) {
                 logoW = clipWidth * 0.3;
                 const newLogoH = (logoImg.height / logoImg.width) * logoW;
@@ -331,14 +313,12 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             currentX += logoW + (padding * 0.5);
         }
         
-        // Brand Line Fitting
         const maxBrandWidth = clipWidth - currentX - padding;
         const brandFontSize = getFittingFontSize(brandLabel, footerHeight * 0.25, maxBrandWidth, '"Merriweather", serif');
         ctx.font = `bold ${brandFontSize}px "Merriweather", serif`;
         ctx.fillStyle = watermarkSettings.textColor;
         ctx.fillText(brandLabel, currentX, line1Y);
         
-        // Date Line Fitting
         const fullDateStr = `Archive Edition: ${dateStr}`;
         const maxDateWidth = clipWidth - (padding * 2);
         const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", sans-serif');
@@ -347,7 +327,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         ctx.fillText(fullDateStr, padding, line2Y);
         
     } else {
-        // STANDARD SINGLE-LINE LAYOUT
         const textY = clipHeight + (footerHeight / 2);
         ctx.textBaseline = 'middle';
         let currentX = padding;
@@ -360,12 +339,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         }
         
         const fullDateStr = `Archive Edition: ${dateStr}`;
-        
-        // Calculate font size that allows both text and date to fit on one line
         const baseFontSize = footerHeight * 0.35;
         const totalAvailableWidth = clipWidth - currentX - (padding * 2);
         
-        // Approximate scaling
         ctx.font = `bold ${baseFontSize}px "Merriweather", serif`;
         const brandW = ctx.measureText(brandLabel).width;
         ctx.font = `500 ${baseFontSize * 0.6}px "Inter", sans-serif`;
@@ -373,18 +349,15 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         
         let fontSize = baseFontSize;
         if ((brandW + dateW + padding) > totalAvailableWidth) {
-            // Recalculate based on width constraint
             const scale = totalAvailableWidth / (brandW + dateW + padding);
             fontSize = Math.max(10, baseFontSize * scale);
         }
 
-        // Render Brand
         ctx.font = `bold ${fontSize}px "Merriweather", serif`;
         ctx.fillStyle = watermarkSettings.textColor;
         ctx.textAlign = 'left';
         ctx.fillText(brandLabel, currentX, textY);
         
-        // Render Date
         ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.textAlign = 'right';
@@ -494,7 +467,10 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
               </div>
               <div 
                   ref={viewerRef}
-                  onMouseMove={handleReaderMouseMove}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
                   onTouchStart={handleTouchStart}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
@@ -505,7 +481,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                         ref={contentRef}
                         style={{ 
                             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                            transition: isTouchInteraction.current ? 'none' : 'transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1)',
+                            transition: (isTouchInteraction.current || isDragging.current) ? 'none' : 'transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1)',
                             transformOrigin: 'center',
                             display: 'flex',
                             alignItems: 'center',
@@ -607,43 +583,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             </div>
             <div className={`flex-1 overflow-hidden relative flex flex-col ${cropPreview ? 'md:flex-row' : 'flex-col'} bg-[#0a0a0a]`}>
                 <div className={`relative flex flex-col items-center justify-center transition-all duration-700 ${cropPreview ? 'w-full md:w-1/2 border-r border-white/5 h-1/2 md:h-full p-4 grayscale brightness-50' : 'w-full h-full p-2 md:p-8'}`}>
-                    {!cropPreview && (
-                        <div className="absolute top-4 left-4 right-4 md:left-auto md:right-4 z-50 bg-black/80 backdrop-blur-md p-4 rounded-xl border border-white/10 flex flex-col gap-3 max-w-sm shadow-2xl animate-in slide-in-from-top-4">
-                            <div className="text-[10px] font-black uppercase tracking-widest text-news-gold flex justify-between items-center">
-                                <span>Footer Branding</span>
-                                {onSaveSettings && (
-                                    <button 
-                                        onClick={handleSaveAsDefault} 
-                                        disabled={isSavingDefault}
-                                        className="text-[8px] bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded transition-colors flex items-center gap-1"
-                                        title="Updates settings for all devices"
-                                    >
-                                        {isSavingDefault ? <Loader2 size={10} className="animate-spin"/> : <Save size={10} />}
-                                        Save Global
-                                    </button>
-                                )}
-                            </div>
-                            <input 
-                                type="text" 
-                                value={customText} 
-                                onChange={e => setCustomText(e.target.value)} 
-                                className="bg-white/10 border border-white/10 rounded p-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-news-gold"
-                                placeholder="Watermark Text"
-                            />
-                            <div className="flex items-center gap-3">
-                                <label className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-2 rounded cursor-pointer text-xs text-white font-bold transition-colors border border-white/10">
-                                    {isCustomLogoUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                                    Upload Logo/Image
-                                    <input type="file" accept="image/*" className="hidden" onChange={handleCustomLogoUpload} disabled={isCustomLogoUploading} />
-                                </label>
-                                {customLogo && (
-                                    <div className="w-8 h-8 bg-white rounded p-0.5 shrink-0">
-                                        <img src={customLogo} className="w-full h-full object-contain" alt="Custom Logo" />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
                     {workshopScale > 1 && !cropPreview && (
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-news-gold text-black px-5 py-1.5 rounded-full font-black uppercase text-[8px] tracking-[0.3em] shadow-2xl animate-bounce pointer-events-none">
                            <Hand size={12} /> Pan Mode Active
