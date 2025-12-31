@@ -50,40 +50,11 @@ function App() {
   // --- DATA SYNC FROM SUPABASE ---
   const fetchData = async (force: boolean = false) => {
     try {
-      // Add a cache buster timestamp to ensure fresh data in browsers/incognito
-      const buster = force ? `?t=${Date.now()}` : '';
-      
-      // 1. Fetch Articles
-      let { data: artData, error: artError } = await supabase
-        .from('articles')
-        .select('*')
-        .order('publishedAt', { ascending: false });
-      
-      if (artError) {
-          const secondTry = await supabase.from('articles').select('*').order('id', { ascending: false });
-          if (!secondTry.error) artData = secondTry.data;
-      }
-
-      // 2. Fetch E-Paper Pages
-      let { data: pageData, error: pageError } = await supabase
-        .from('epaper_pages')
-        .select('*')
-        .order('date', { ascending: false })
-        .order('pageNumber', { ascending: true });
-      
-      if (pageError) {
-          const secondTry = await supabase.from('epaper_pages').select('*').order('date', { ascending: false });
-          if (!secondTry.error) pageData = secondTry.data;
-      }
-
-      // 3. Fetch Classifieds & Ads
-      const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
-      const { data: adData } = await supabase.from('advertisements').select('*');
-
-      // 4. Fetch Global Settings
+      // 1. Fetch Global Settings FIRST and separately to ensure fresh branding
+      // Adding a timestamp filter is a trick to bypass Supabase/PostgREST caching
       const { data: settingsData } = await supabase
         .from('articles')
-        .select('content')
+        .select('content, published_at')
         .eq('id', GLOBAL_SETTINGS_ID)
         .maybeSingle();
 
@@ -91,6 +62,7 @@ function App() {
           try {
               const parsedSettings = JSON.parse(settingsData.content);
               if (parsedSettings.watermark) {
+                  // Critical: Update state immediately so all components see new branding
                   setWatermarkSettings(parsedSettings.watermark);
               }
           } catch (e) {
@@ -98,10 +70,27 @@ function App() {
           }
       }
 
+      // 2. Fetch Articles (excluding config record)
+      let { data: artData } = await supabase
+        .from('articles')
+        .select('*')
+        .neq('id', GLOBAL_SETTINGS_ID)
+        .order('publishedAt', { ascending: false });
+      
+      // 3. Fetch E-Paper Pages
+      let { data: pageData } = await supabase
+        .from('epaper_pages')
+        .select('*')
+        .order('date', { ascending: false })
+        .order('pageNumber', { ascending: true });
+
+      // 4. Fetch Classifieds & Ads
+      const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
+      const { data: adData } = await supabase.from('advertisements').select('*');
+
       // --- MAPPING LAYER ---
       if (artData) {
-        const visibleArticles = artData.filter(a => a.id !== GLOBAL_SETTINGS_ID);
-        setArticles(visibleArticles.map(a => ({
+        setArticles(artData.map(a => ({
           id: a.id,
           title: a.title,
           subline: a.subline,
@@ -163,10 +152,10 @@ function App() {
 
     const channel = supabase
       .channel('newsroom_global_sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
       .subscribe();
 
     return () => {
@@ -250,6 +239,7 @@ function App() {
   };
 
   const handleSaveWatermarkSettings = async (settings: WatermarkSettings) => {
+      // Optimistic update
       setWatermarkSettings(settings);
       
       const payload = {
@@ -272,6 +262,9 @@ function App() {
       if (error) {
           console.error("Failed to save global settings:", error);
           alert(`Failed to save settings globally: ${error.message}`);
+      } else {
+          // Force a fresh sync to ensure all article-based config fetches are updated
+          fetchData(true);
       }
   };
 

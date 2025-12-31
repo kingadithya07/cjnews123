@@ -50,7 +50,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     return isValid(d) ? format(d, formatStr) : 'N/A';
   };
 
-  // --- Reader View Controls (Manual Pan/Zoom Logic) ---
+  // --- Reader View Controls ---
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [hSliderVal, setHSliderVal] = useState(0.5);
@@ -78,10 +78,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   const cropperRef = useRef<Cropper | null>(null);
   const cropperImgRef = useRef<HTMLImageElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // These still track current branding but UI to edit them is removed as per request
-  const [customText, setCustomText] = useState(watermarkSettings.text);
-  const [customLogo, setCustomLogo] = useState(watermarkSettings.logoUrl);
 
   useEffect(() => {
     if (viewMode === 'reader') {
@@ -97,15 +93,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     return () => { document.body.style.overflow = 'auto'; };
   }, [viewMode, activePageIndex]);
 
-  // Keep branding sync in sync with global settings
-  useEffect(() => {
-      if (isCropping) {
-          setCustomText(watermarkSettings.text);
-          setCustomLogo(watermarkSettings.logoUrl);
-      }
-  }, [isCropping, watermarkSettings]);
-
-  // DESKTOP: MANUAL DRAG-TO-PAN (FREE MOVE)
+  // DESKTOP: MANUAL DRAG-TO-PAN
   const handleMouseDown = (e: React.MouseEvent) => {
     if (scale > 1 && !isCropping && !isOverSlider.current) {
         isDragging.current = true;
@@ -115,14 +103,11 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging.current || scale <= 1) return;
-    
     const deltaX = e.clientX - lastMousePos.current.x;
     const deltaY = e.clientY - lastMousePos.current.y;
-    
     setPosition(prev => {
         const newX = prev.x + deltaX;
         const newY = prev.y + deltaY;
-        
         if (viewerRef.current) {
             const rect = viewerRef.current.getBoundingClientRect();
             const moveRangeX = rect.width * (scale - 1);
@@ -131,41 +116,21 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                 setHSliderVal(Math.max(0, Math.min(1, pctX)));
             }
         }
-        
         return { x: newX, y: newY };
     });
-    
     lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
 
-  const handleMouseUp = () => {
-    isDragging.current = false;
-  };
+  const handleMouseUp = () => { isDragging.current = false; };
 
   // TOUCH INTERACTION
   const handleTouchStart = (e: React.TouchEvent) => {
       isTouchInteraction.current = true;
       if (e.touches.length === 1 && scale > 1) {
-          touchStartRef.current = {
-              x: e.touches[0].clientX,
-              y: e.touches[0].clientY,
-              originX: position.x,
-              originY: position.y,
-              dist: 0,
-              initialScale: scale
-          };
+          touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, originX: position.x, originY: position.y, dist: 0, initialScale: scale };
       } else if (e.touches.length === 2) {
-          const dist = Math.hypot(
-              e.touches[0].clientX - e.touches[1].clientX,
-              e.touches[0].clientY - e.touches[1].clientY
-          );
-          touchStartRef.current = {
-              x: 0, y: 0, 
-              originX: position.x, 
-              originY: position.y,
-              dist: dist,
-              initialScale: scale
-          };
+          const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+          touchStartRef.current = { x: 0, y: 0, originX: position.x, originY: position.y, dist: dist, initialScale: scale };
       }
   };
 
@@ -173,10 +138,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
       if (!touchStartRef.current) return;
       if (e.touches.length === 2) {
           e.preventDefault();
-          const dist = Math.hypot(
-              e.touches[0].clientX - e.touches[1].clientX,
-              e.touches[0].clientY - e.touches[1].clientY
-          );
+          const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
           const ratio = dist / touchStartRef.current.dist;
           const newScale = Math.min(4, Math.max(1, touchStartRef.current.initialScale * ratio));
           setScale(newScale);
@@ -189,14 +151,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
            const newX = touchStartRef.current.originX + deltaX;
            const newY = touchStartRef.current.originY + deltaY;
            setPosition({ x: newX, y: newY });
-           if (viewerRef.current) {
-               const rect = viewerRef.current.getBoundingClientRect();
-               const moveRangeX = rect.width * (scale - 1);
-               if (moveRangeX > 0) {
-                   const pctX = 0.5 - (newX / moveRangeX);
-                   setHSliderVal(Math.max(0, Math.min(1, pctX)));
-               }
-           }
       }
   };
 
@@ -220,17 +174,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
         const cropper = new Cropper(cropperImgRef.current, {
-            dragMode: 'move', 
-            autoCropArea: 0.8,
-            restore: false,
-            guides: true,
-            center: true,
-            highlight: false,
-            cropBoxMovable: true,
-            cropBoxResizable: true,
-            zoomable: true,
-            background: false,
-            responsive: true,
+            dragMode: 'move', autoCropArea: 0.8, restore: false, guides: true, center: true, highlight: false, cropBoxMovable: true, cropBoxResizable: true, zoomable: true, background: false, responsive: true,
             ready() { setWorkshopScale(1); },
             zoom(e) { setWorkshopScale(e.detail.ratio); }
         } as any);
@@ -252,7 +196,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     const clipWidth = croppedCanvas.width;
     const clipHeight = croppedCanvas.height;
 
-    // ADAPTIVE FOOTER LOGIC
     const isNarrow = clipWidth < 450;
     const baseFooterHeight = Math.max(50, Math.min(clipHeight * 0.12, 120));
     const footerHeight = isNarrow ? baseFooterHeight * 1.8 : baseFooterHeight;
@@ -269,14 +212,16 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     
     const padding = Math.max(10, clipWidth * 0.05);
     const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
-    const brandLabel = (customText || APP_NAME).toUpperCase();
+    
+    // CRITICAL FIX: Use watermarkSettings prop directly to ensure global sync reflects in the clip
+    const brandLabel = (watermarkSettings.text || APP_NAME).toUpperCase();
     
     let logoImg: HTMLImageElement | null = null;
-    if (customLogo) {
+    if (watermarkSettings.logoUrl) {
         try {
             const img = new Image();
             img.crossOrigin = "anonymous";
-            img.src = customLogo;
+            img.src = watermarkSettings.logoUrl;
             await new Promise((res) => { img.onload = res; img.onerror = res; });
             logoImg = img;
         } catch (e) { console.error("Logo load failed", e); }
@@ -299,10 +244,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         ctx.textBaseline = 'middle';
         let currentX = padding;
         
-        let logoW = 0;
         if (logoImg) {
             const logoH = footerHeight * 0.35;
-            logoW = (logoImg.width / logoImg.height) * logoH;
+            let logoW = (logoImg.width / logoImg.height) * logoH;
             if (logoW > clipWidth * 0.3) {
                 logoW = clipWidth * 0.3;
                 const newLogoH = (logoImg.height / logoImg.width) * logoW;
@@ -416,11 +360,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                       {currentEditionPages.map((page, idx) => (
                           <div key={page.id} onClick={() => { setActivePageIndex(idx); setViewMode('reader'); }} className="group cursor-pointer space-y-4">
                               <div className="relative aspect-[1/1.4] overflow-hidden rounded-xl border border-gray-200 shadow-sm transition-all duration-500 group-hover:scale-[1.03] group-hover:shadow-2xl bg-white">
-                                  <img 
-                                    src={page.imageUrl} 
-                                    className="w-full h-full object-cover object-top transition-all duration-700" 
-                                    alt={`P${page.pageNumber}`} 
-                                  />
+                                  <img src={page.imageUrl} className="w-full h-full object-cover object-top transition-all duration-700" alt={`P${page.pageNumber}`} />
                                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                                       <div className="bg-news-black text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 shadow-2xl">
                                           <Maximize size={24} />
@@ -467,34 +407,13 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
               </div>
               <div 
                   ref={viewerRef}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                  onTouchStart={handleTouchStart}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
+                  onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+                  onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
                   className={`flex-1 relative flex items-center justify-center overflow-hidden bg-[#050505] transition-all duration-300 min-h-0 ${scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
               >
                   {activePage ? (
-                      <div 
-                        ref={contentRef}
-                        style={{ 
-                            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                            transition: (isTouchInteraction.current || isDragging.current) ? 'none' : 'transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1)',
-                            transformOrigin: 'center',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '100%',
-                            height: '100%'
-                        }}
-                      >
-                          <EPaperViewer 
-                            page={activePage} 
-                            imageClassName="max-w-[98vw] max-h-[85dvh] md:max-h-[90vh] w-auto h-auto block shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-white/5 rounded-sm object-contain"
-                            disableInteractivity={true}
-                          />
+                      <div ref={contentRef} style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, transition: (isTouchInteraction.current || isDragging.current) ? 'none' : 'transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1)', transformOrigin: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                          <EPaperViewer page={activePage} imageClassName="max-w-[98vw] max-h-[85dvh] md:max-h-[90vh] w-auto h-auto block shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-white/5 rounded-sm object-contain" disableInteractivity={true} />
                       </div>
                   ) : (
                       <div className="flex flex-col items-center gap-4 opacity-30">
@@ -503,22 +422,10 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                       </div>
                   )}
                   {scale > 1 && (
-                      <div 
-                        className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[85vw] md:w-[480px] px-6 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full z-[60] flex items-center gap-4 shadow-2xl animate-in slide-in-from-bottom-4 safe-area-bottom"
-                        onMouseEnter={() => { isOverSlider.current = true; }}
-                        onMouseLeave={() => { isOverSlider.current = false; }}
-                        onTouchStart={(e) => e.stopPropagation()} 
-                      >
+                      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[85vw] md:w-[480px] px-6 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full z-[60] flex items-center gap-4 shadow-2xl animate-in slide-in-from-bottom-4 safe-area-bottom" onMouseEnter={() => { isOverSlider.current = true; }} onMouseLeave={() => { isOverSlider.current = false; }} onTouchStart={(e) => e.stopPropagation()} >
                           <div className="text-news-gold opacity-50"><MoveHorizontal size={14} /></div>
-                          <input 
-                              type="range" min="0" max="1" step="0.001" 
-                              value={hSliderVal} 
-                              onChange={handleSliderChange}
-                              className="flex-1 accent-news-gold h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
-                          />
-                          <div className="hidden md:flex items-center gap-2 text-[8px] font-black text-news-gold uppercase tracking-[0.2em] bg-white/5 px-2 py-1 rounded">
-                             NAVIGATOR
-                          </div>
+                          <input type="range" min="0" max="1" step="0.001" value={hSliderVal} onChange={handleSliderChange} className="flex-1 accent-news-gold h-1 bg-white/10 rounded-full appearance-none cursor-pointer" />
+                          <div className="hidden md:flex items-center gap-2 text-[8px] font-black text-news-gold uppercase tracking-[0.2em] bg-white/5 px-2 py-1 rounded">NAVIGATOR</div>
                       </div>
                   )}
                   {scale === 1 && (
@@ -531,18 +438,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                         </div>
                     </>
                   )}
-                  {scale > 1 && (
-                      <div className="absolute inset-0 border-[4px] md:border-[10px] border-news-gold/5 pointer-events-none z-10"></div>
-                  )}
-                  {scale > 1 && (
-                      <button onClick={() => { setScale(1); setPosition({x:0, y:0}); setHSliderVal(0.5); }} className="absolute bottom-6 right-6 p-3 md:p-4 bg-news-gold text-black rounded-full shadow-2xl transition-all hover:bg-white active:scale-90 z-20 safe-area-bottom" title="Reset Page View">
-                        <RotateCcw size={20} />
-                      </button>
-                  )}
-              </div>
-              <div className="md:hidden px-4 py-2 bg-black border-t border-white/5 flex justify-between items-center text-[8px] font-black uppercase tracking-[0.3em] text-gray-600 safe-area-bottom">
-                  <span>Digital Archive</span>
-                  <span className="text-news-gold">P. {activePage?.pageNumber}</span>
+                  {scale > 1 && <div className="absolute inset-0 border-[4px] md:border-[10px] border-news-gold/5 pointer-events-none z-10"></div>}
+                  {scale > 1 && <button onClick={() => { setScale(1); setPosition({x:0, y:0}); setHSliderVal(0.5); }} className="absolute bottom-6 right-6 p-3 md:p-4 bg-news-gold text-black rounded-full shadow-2xl transition-all hover:bg-white active:scale-90 z-20 safe-area-bottom"><RotateCcw size={20} /></button>}
               </div>
           </div>
       )}
@@ -551,9 +448,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         <div className="fixed inset-0 z-[110] bg-[#050505] flex flex-col animate-in fade-in zoom-in-95 duration-400">
             <div className="px-4 md:px-6 py-2 md:py-3 bg-black/95 border-b border-white/5 flex items-center justify-between shrink-0 shadow-2xl safe-area-top">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="p-1.5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all">
-                        <X size={24} />
-                    </button>
+                    <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="p-1.5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all"><X size={24} /></button>
                     <div>
                         <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-news-gold leading-none">Workshop</h2>
                         <p className="text-[7px] text-gray-600 uppercase tracking-widest font-bold hidden md:block mt-1">Refining Extraction</p>
@@ -583,13 +478,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             </div>
             <div className={`flex-1 overflow-hidden relative flex flex-col ${cropPreview ? 'md:flex-row' : 'flex-col'} bg-[#0a0a0a]`}>
                 <div className={`relative flex flex-col items-center justify-center transition-all duration-700 ${cropPreview ? 'w-full md:w-1/2 border-r border-white/5 h-1/2 md:h-full p-4 grayscale brightness-50' : 'w-full h-full p-2 md:p-8'}`}>
-                    {workshopScale > 1 && !cropPreview && (
-                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-news-gold text-black px-5 py-1.5 rounded-full font-black uppercase text-[8px] tracking-[0.3em] shadow-2xl animate-bounce pointer-events-none">
-                           <Hand size={12} /> Pan Mode Active
-                        </div>
-                    )}
+                    {workshopScale > 1 && !cropPreview && <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-news-gold text-black px-5 py-1.5 rounded-full font-black uppercase text-[8px] tracking-[0.3em] shadow-2xl animate-bounce pointer-events-none"><Hand size={12} /> Pan Mode Active</div>}
                     <div className={`w-full h-full flex items-center justify-center ${cropPreview ? 'opacity-30 pointer-events-none scale-[0.85]' : ''} transition-all duration-700`}>
-                        <img ref={cropperImgRef} src={activePage?.imageUrl} className={`max-w-full max-h-full block ${cropPreview ? '' : 'invisible'}`} crossOrigin="anonymous" alt="Archive scan workspace" />
+                        <img ref={cropperImgRef} src={activePage?.imageUrl} className={`max-w-full max-h-full block ${cropPreview ? '' : 'invisible'}`} crossOrigin="anonymous" alt="Archive workspace" />
                     </div>
                 </div>
                 {cropPreview && (
@@ -597,9 +488,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                         <div className="absolute top-4 right-6 text-[8px] font-black uppercase tracking-[0.4em] text-news-gold">Digital Output</div>
                         <div className="max-w-full md:max-w-4xl shadow-[0_0_80px_rgba(191,161,123,0.15)] border border-white/5 rounded-sm overflow-hidden bg-white animate-in zoom-in-95 duration-700 mb-6">
                              <img src={cropPreview} className="max-h-[50vh] md:max-h-[65vh] w-auto block" alt="Branded Archival Result" />
-                        </div>
-                        <div className="text-center opacity-40">
-                            <p className="text-[8px] font-bold text-gray-500 uppercase tracking-[0.4em]">Archival metadata auto-embedded</p>
                         </div>
                     </div>
                 )}

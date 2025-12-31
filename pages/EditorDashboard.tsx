@@ -104,12 +104,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   }, [watermarkSettings]);
 
   // -- SQL HELPERS --
-  const phoneFormatSQL = `-- SQL Query to format phone numbers\nSELECT \n  FORMAT(contact_info, '##-###-####') \nFROM classifieds;`;
-  const dateFormatSQL = `-- SQL Query to format edition dates\nSELECT \n  to_char(published_at, 'DD-Mon-YYYY') \nFROM articles;`;
+  const phoneFormatSQL = `-- Full SQL format for phone numbers\nSELECT\n  FORMAT(0112223333, '##-###-####') -- replace with column name\nFROM classifieds;`;
+  const dateFormatSQL = `-- Standard SQL for date formatting\nSELECT \n  to_char(published_at, 'DD-Mon-YYYY') \nFROM articles;`;
 
   const copyToClipboard = (text: string) => {
       navigator.clipboard.writeText(text);
-      alert("SQL copied to clipboard!");
+      alert("SQL code copied!");
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void) => {
@@ -218,7 +218,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               text: watermarkText,
               logoUrl: watermarkLogo
           });
-          alert("Branding settings updated and synced globally.");
+          alert("Branding settings updated globally.");
       } catch (e: any) {
           alert("Error updating branding: " + e.message);
       } finally {
@@ -423,12 +423,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           {/* Database Management / SQL Helper */}
                           <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
                               <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Code size={20} className="text-blue-600"/> Database Management</h3>
-                              <p className="text-sm text-gray-500 mb-6 font-medium">Use these SQL formatting snippets for direct database queries to ensure consistent data presentation across all platforms.</p>
+                              <p className="text-sm text-gray-500 mb-6 font-medium">Use these SQL formatting snippets for direct database queries to ensure consistent data presentation.</p>
                               
                               <div className="space-y-6">
                                   <div>
                                       <div className="flex justify-between items-center mb-2">
-                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">SQL Phone Formatting (##-###-####)</label>
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Phone Formatting (Requested Pattern)</label>
                                           <button onClick={() => copyToClipboard(phoneFormatSQL)} className="text-[9px] font-bold bg-gray-100 px-2 py-1 rounded flex items-center gap-1 hover:bg-gray-200">
                                               <Copy size={10}/> Copy SQL
                                           </button>
@@ -440,7 +440,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   
                                   <div>
                                       <div className="flex justify-between items-center mb-2">
-                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">SQL Date Formatting (DD-Mon-YYYY)</label>
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Standard Date Formatting</label>
                                           <button onClick={() => copyToClipboard(dateFormatSQL)} className="text-[9px] font-bold bg-gray-100 px-2 py-1 rounded flex items-center gap-1 hover:bg-gray-200">
                                               <Copy size={10}/> Copy SQL
                                           </button>
