@@ -1,6 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice } from '../types';
+// Added UserRole to the imports from '../types' to resolve 'Cannot find name UserRole' error on line 400.
+import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
@@ -96,6 +96,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [watermarkText, setWatermarkText] = useState(watermarkSettings.text);
   const [watermarkLogo, setWatermarkLogo] = useState(watermarkSettings.logoUrl);
 
+  // Sync local state when global settings change via props (e.g. from cloud)
+  useEffect(() => {
+    setWatermarkText(watermarkSettings.text);
+    setWatermarkLogo(watermarkSettings.logoUrl);
+  }, [watermarkSettings]);
+
   // -- HANDLERS --
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void) => {
@@ -189,17 +195,17 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           const { error } = await supabase.auth.updateUser(updates);
           if (error) throw error;
           
-          // 2. Update Watermark
-          onUpdateWatermarkSettings({
+          // 2. Update Watermark - Proper Await
+          await onUpdateWatermarkSettings({
               ...watermarkSettings,
               text: watermarkText,
               logoUrl: watermarkLogo
           });
           
-          alert("Settings updated successfully");
+          alert("Settings updated successfully and synced globally.");
           setNewPassword('');
       } catch (e: any) {
-          alert("Error: " + e.message);
+          alert("Error updating settings: " + e.message);
       } finally {
           setIsSavingSettings(false);
       }
@@ -426,7 +432,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               </div>
                               <div className="mt-6 flex justify-end">
                                   <button onClick={handleSaveSettings} disabled={isSavingSettings} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
-                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Save Changes
+                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Save Profile Changes
                                   </button>
                               </div>
                           </div>
@@ -435,24 +441,45 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
                               <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Scissors size={20} className="text-news-gold"/> Watermark & Branding</h3>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                  <div>
-                                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Default Footer Text</label>
-                                      <input type="text" value={watermarkText} onChange={e => setWatermarkText(e.target.value)} className="w-full p-2 border rounded" />
+                                  <div className="space-y-4">
+                                      <div>
+                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Default Footer Text</label>
+                                          <input type="text" value={watermarkText} onChange={e => setWatermarkText(e.target.value)} className="w-full p-2 border rounded" />
+                                      </div>
+                                      <div>
+                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Brand Logo URL</label>
+                                          <div className="flex gap-2">
+                                              <input type="text" value={watermarkLogo} onChange={e => setWatermarkLogo(e.target.value)} className="w-full p-2 border rounded" />
+                                              <label className="bg-gray-100 hover:bg-gray-200 border px-3 py-2 rounded cursor-pointer">
+                                                  {isLogoUploading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
+                                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setWatermarkLogo, setIsLogoUploading)} />
+                                              </label>
+                                          </div>
+                                      </div>
                                   </div>
-                                  <div>
-                                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Brand Logo URL</label>
-                                      <div className="flex gap-2">
-                                          <input type="text" value={watermarkLogo} onChange={e => setWatermarkLogo(e.target.value)} className="w-full p-2 border rounded" />
-                                          <label className="bg-gray-100 hover:bg-gray-200 border px-3 py-2 rounded cursor-pointer">
-                                              {isLogoUploading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
-                                              <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setWatermarkLogo, setIsLogoUploading)} />
-                                          </label>
+                                  
+                                  <div className="flex flex-col">
+                                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 text-center">Live Preview</label>
+                                      <div className="bg-gray-100 rounded-lg p-4 flex flex-col items-center justify-center flex-1 border border-gray-200">
+                                          <div 
+                                              style={{ backgroundColor: watermarkSettings.backgroundColor, color: watermarkSettings.textColor }}
+                                              className="w-full p-3 rounded flex justify-between items-center shadow-sm border border-black/5"
+                                          >
+                                              <div className="flex items-center gap-2">
+                                                  {watermarkLogo && (
+                                                      <img src={watermarkLogo} className="h-6 w-auto object-contain mix-blend-multiply" />
+                                                  )}
+                                                  <span className="font-serif font-bold text-[10px] tracking-tight">{watermarkText.toUpperCase()}</span>
+                                              </div>
+                                              <span className="text-[8px] opacity-60">Archive Edition: {format(new Date(), 'MMM d, yyyy')}</span>
+                                          </div>
+                                          <p className="mt-2 text-[8px] text-gray-400 uppercase tracking-widest">This branding appears on paper clips.</p>
                                       </div>
                                   </div>
                               </div>
                               <div className="mt-6 flex justify-end">
                                   <button onClick={handleSaveSettings} disabled={isSavingSettings} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
-                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Update Branding
+                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Update Global Branding
                                   </button>
                               </div>
                           </div>

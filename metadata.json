@@ -1,5 +1,7 @@
 {
   "name": "Copy of Digital Newsroom",
   "description": "A modern publishing platform bridging traditional e-papers with digital articles. Readers can explore interactive newspaper pages or read standard web articles. Includes tools for journalists to draft articles and editors to map physical pages to digital content.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }

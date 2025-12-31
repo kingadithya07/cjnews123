@@ -79,7 +79,7 @@ function App() {
         .from('articles')
         .select('content')
         .eq('id', 'global_settings')
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid errors if not found
 
       if (settingsData && settingsData.content) {
           try {
@@ -254,13 +254,14 @@ function App() {
           author: 'SYSTEM',
           category: 'Config',
           publishedAt: new Date().toISOString(),
-          status: ArticleStatus.DRAFT
+          status: ArticleStatus.DRAFT,
+          user_id: userId // CRITICAL: Include user_id to satisfy RLS policies
       };
 
       const { error } = await supabase.from('articles').upsert(payload);
       if (error) {
-          console.error("Failed to save global settings:", error.message);
-          alert("Failed to save settings globally.");
+          console.error("Failed to save global settings:", error.message, error.details);
+          alert(`Failed to save settings globally: ${error.message}`);
       }
   };
 
