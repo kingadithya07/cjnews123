@@ -203,14 +203,62 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       </div>
 
       <div className="flex-1 flex flex-col md:ml-72 h-full overflow-hidden bg-[#f8f9fa]">
+           {/* Mobile Header */}
+           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40">
+                <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
+                <h1 className="font-serif text-lg font-bold text-gray-900">Writer Dashboard</h1>
+                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
+                     {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover"/> : <UserIcon className="p-1.5 text-gray-400 w-full h-full"/>}
+                </div>
+           </div>
+
            <div className="md:p-8 overflow-y-auto flex-1 p-4">
               {activeTab === 'articles' && (
                   <div className="max-w-6xl mx-auto">
                       <div className="flex justify-between items-center mb-6">
-                           <h1 className="font-serif text-3xl font-bold text-gray-900">My Articles</h1>
-                           <button onClick={openNewArticle} className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2"><Plus size={16} /> Add New</button>
+                           <h1 className="font-serif text-2xl md:text-3xl font-bold text-gray-900 hidden md:block">My Articles</h1>
+                           <h1 className="font-serif text-xl font-bold text-gray-900 md:hidden">Articles</h1>
+                           <button onClick={openNewArticle} className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2">
+                                <Plus size={16} /> <span className="hidden md:inline">Add New</span><span className="md:hidden">New</span>
+                           </button>
                       </div>
-                      <div className="bg-white rounded border overflow-hidden">
+
+                      {/* Mobile Card View */}
+                      <div className="grid grid-cols-1 gap-4 md:hidden">
+                           {existingArticles.map(article => (
+                               <div key={article.id} className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-3">
+                                   <div className="flex justify-between items-start">
+                                       <div className="flex-1 mr-2">
+                                           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1 block">{article.category}</span>
+                                           <h3 className="font-bold text-gray-900 text-base leading-tight line-clamp-2">{article.title}</h3>
+                                       </div>
+                                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase shrink-0 ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                           {article.status}
+                                       </span>
+                                   </div>
+                                   
+                                   {article.isFeatured && (
+                                       <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-news-accent">
+                                           <Star size={12} fill="currentColor"/> Featured Article
+                                       </div>
+                                   )}
+
+                                   <div className="pt-3 border-t border-gray-100 mt-1 flex justify-end">
+                                       <button onClick={() => openEditArticle(article)} className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase px-3 py-1.5 rounded hover:bg-blue-50 transition-colors">
+                                           <PenSquare size={14}/> Edit Article
+                                       </button>
+                                   </div>
+                               </div>
+                           ))}
+                           {existingArticles.length === 0 && (
+                               <div className="text-center py-10 text-gray-400 bg-white rounded border border-dashed">
+                                   <p className="text-sm">No articles found.</p>
+                               </div>
+                           )}
+                      </div>
+
+                      {/* Desktop Table View */}
+                      <div className="hidden md:block bg-white rounded border overflow-hidden">
                           <table className="w-full text-left">
                                 <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
                                     <tr>
@@ -238,6 +286,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                                             </td>
                                         </tr>
                                     ))}
+                                    {existingArticles.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-10 text-center text-gray-400">No articles yet. Click "Add New" to start writing.</td>
+                                        </tr>
+                                    )}
                                 </tbody>
                           </table>
                       </div>
@@ -246,7 +299,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
               {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={existingArticles} role={ArticleStatus.PUBLISHED as any} /></div>}
               {activeTab === 'settings' && (
                   <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
-                      <div className="bg-white rounded-xl border p-8 shadow-sm">
+                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                              <div className="space-y-4">
@@ -262,7 +315,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                                         </div>
                                         <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
                                             {isAvatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-                                            Upload Image
+                                            <span className="hidden sm:inline">Upload Image</span>
+                                            <span className="sm:hidden">Upload</span>
                                             <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isAvatarUploading} />
                                         </label>
                                     </div>
@@ -293,17 +347,17 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
 
       {showEditorModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                <h3 className="font-bold">{activeArticleId ? 'Edit Draft' : 'New Article Draft'}</h3>
-                <button onClick={() => setShowEditorModal(false)}><X size={20}/></button>
+          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                <h3 className="font-bold text-gray-900">{activeArticleId ? 'Edit Draft' : 'New Article Draft'}</h3>
+                <button onClick={() => setShowEditorModal(false)} className="p-2 -mr-2 text-gray-500 hover:text-black"><X size={20}/></button>
             </div>
-            <div className="p-6 overflow-y-auto space-y-4">
+            <div className="p-4 md:p-6 overflow-y-auto space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">
-                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline"/>
-                        <textarea value={subline} onChange={(e) => setSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px]" placeholder="Summary / Sub-headline..."></textarea>
-                        <div className="grid grid-cols-2 gap-4">
+                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Article Headline"/>
+                        <textarea value={subline} onChange={(e) => setSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
                             <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
                                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -311,7 +365,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                         </div>
                     </div>
                     <div className="md:col-span-1">
-                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-between">
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-between min-h-[200px]">
                             {imageUrl ? (
                                 <div className="relative group aspect-video">
                                     <img src={imageUrl} className="w-full h-full object-cover rounded shadow" />
@@ -341,8 +395,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                 </div>
 
                 <div className="relative">
-                  <RichTextEditor content={content} onChange={setContent} className="min-h-[400px]" onImageUpload={handleContentImageUpload} />
-                  <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded">
+                  <RichTextEditor content={content} onChange={setContent} className="min-h-[300px] md:min-h-[400px]" onImageUpload={handleContentImageUpload} />
+                  <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded pointer-events-none">
                       {wordCount} Words
                   </div>
                 </div>
@@ -359,8 +413,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                 </div>
 
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
-              <button onClick={() => setShowEditorModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>
+            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
+              <button onClick={() => setShowEditorModal(false)} className="px-5 py-2 text-sm font-bold text-gray-600">Cancel</button>
               <button onClick={handleSave} disabled={isUploading} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800 disabled:opacity-50">
                   {isUploading ? 'Uploading...' : 'Save Draft'}
               </button>

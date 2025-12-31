@@ -30,9 +30,6 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
   // 3. Main Feed (Below)
   const mainFeedArticles = articles.filter(a => !sliderIds.has(a.id)).slice(6, 14);
-  
-  // 4. Side List (Bottom Right)
-  const bottomSideArticles = articles.slice(14, 19);
 
   const latestPaper = ePaperPages[0];
 
@@ -378,31 +375,6 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
         {/* Sidebar (Right 4 Cols - Desktop Only) */}
         <div className="lg:col-span-4 space-y-10">
             
-            {/* Editor's Picks / More News - Side by Side on Desktop */}
-            <div className="hidden md:block">
-                 <h3 className="font-sans font-bold text-sm uppercase tracking-widest border-b border-black pb-2 mb-6 flex justify-between items-center">
-                    <span>Editor's Picks</span>
-                    <Star className="w-4 h-4 text-news-accent"/>
-                 </h3>
-                 <div className="space-y-6">
-                     {bottomSideArticles.length > 0 ? bottomSideArticles.map((article) => (
-                         <div key={article.id} className="group flex gap-4 items-start">
-                             <div className="w-20 h-20 bg-gray-100 shrink-0 overflow-hidden rounded-md border border-gray-200">
-                                <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                             </div>
-                             <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="flex-1">
-                                <span className="text-[9px] font-bold text-news-gold uppercase tracking-wider mb-1 block">{article.category}</span>
-                                <h4 className="text-sm font-serif font-bold text-gray-900 mb-2 leading-snug group-hover:text-news-accent transition-colors line-clamp-2">
-                                    {article.title}
-                                </h4>
-                             </Link>
-                         </div>
-                     )) : (
-                         <div className="text-sm text-gray-400 italic">No articles yet.</div>
-                     )}
-                 </div>
-            </div>
-
             {/* Sidebar Advertisement */}
              <AdvertisementBanner 
                 ads={advertisements} 
