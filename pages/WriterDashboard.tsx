@@ -60,7 +60,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${generateId()}.${fileExt}`;
-      const filePath = `articles/${fileName}`;
+      // Upload to 'gallery' folder so it appears in the media library
+      const filePath = `gallery/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('images')
@@ -72,7 +73,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       setImageUrl(data.publicUrl);
     } catch (error: any) {
       console.error('Upload Error:', error.message);
-      alert("Failed to upload image.");
+      alert("Failed to upload image. " + error.message);
     } finally {
       setIsUploading(false);
     }
@@ -99,7 +100,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   const handleContentImageUpload = async (file: File): Promise<string> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${generateId()}.${fileExt}`;
-    const filePath = `content/${fileName}`;
+    // Store content images in gallery too so they are reusable
+    const filePath = `gallery/${fileName}`;
     const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
     if (uploadError) throw uploadError;
     const { data } = supabase.storage.from('images').getPublicUrl(filePath);
@@ -118,7 +120,9 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       imageUrl: imageUrl || 'https://picsum.photos/800/400',
       publishedAt: new Date().toISOString(),
       status: status,
-      isFeatured: isFeatured
+      isFeatured: isFeatured,
+      // Save current user's avatar with the article
+      authorAvatar: profileAvatar || undefined 
     };
     onSave(newArticle);
     setShowEditorModal(false);

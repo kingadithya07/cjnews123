@@ -96,6 +96,7 @@ function App() {
           title: a.title,
           subline: a.subline,
           author: a.author,
+          authorAvatar: a.authorAvatar || a.author_avatar, // Map backend snake_case to frontend camelCase
           content: a.content,
           category: a.category,
           imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
@@ -282,6 +283,7 @@ function App() {
         title: article.title,
         subline: article.subline,
         author: article.author,
+        author_avatar: article.authorAvatar, // Map back to snake_case for DB
         content: article.content,
         category: article.category,
         imageUrl: article.imageUrl,

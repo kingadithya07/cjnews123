@@ -93,44 +93,38 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
             {/* Header Section */}
             <header className="mb-8">
-                <span className="inline-block bg-news-secondary text-white text-xs font-bold px-3 py-1 uppercase tracking-widest rounded-sm mb-4">
+                <span className="inline-block bg-news-secondary text-white text-xs font-bold px-3 py-1 uppercase tracking-widest rounded-sm mb-6">
                     {article.category}
                 </span>
                 
-                <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-gray-900 mb-4 leading-tight">
+                <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-gray-900 mb-6 leading-tight">
                     {article.title}
                 </h1>
 
                 {article.subline && (
-                    <h2 className="text-xl md:text-2xl font-serif text-gray-700 leading-snug mb-6 border-l-4 border-news-gold pl-4 italic">
+                    <h2 className="text-xl md:text-2xl font-serif text-gray-700 leading-snug mb-8 border-l-4 border-news-gold pl-4 italic">
                         {article.subline}
                     </h2>
                 )}
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between border-y border-gray-200 py-6">
-                    <div className="flex items-center space-x-4 mb-4 md:mb-0">
-                        <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-400">
-                            {/* Fixed: Removed non-existent md:size prop from User icon */}
-                            <User size={20} />
-                        </div>
-                        <div>
-                            <p className="font-bold text-gray-900 text-sm uppercase tracking-wide">By {authorName}</p>
-                            {authorRole && <p className="text-xs text-gray-500 italic -mt-0.5">{authorRole}</p>}
-                            <div className="flex items-center text-gray-500 text-xs md:text-sm space-x-3 mt-1">
-                                <span className="flex items-center"><Calendar size={12} className="mr-1"/> {safeFormat(article.publishedAt, 'MMM d, yyyy')}</span>
-                                <span className="flex items-center"><Clock size={12} className="mr-1"/> {readTime} min read</span>
-                                <span className="flex items-center"><AlignLeft size={12} className="mr-1"/> {wordCount} words</span>
-                            </div>
-                        </div>
+                {/* Profile Name, Date, Duration in Straight Line */}
+                <div className="flex items-center border-y border-gray-200 py-4 gap-4 flex-wrap">
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-400 shrink-0 overflow-hidden">
+                        {article.authorAvatar ? (
+                            <img src={article.authorAvatar} alt={authorName} className="w-full h-full object-cover" />
+                        ) : (
+                            <User size={18} />
+                        )}
                     </div>
-
-                    {/* Social Share */}
-                    <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold text-gray-500 uppercase mr-2 hidden md:inline">Share</span>
-                        <button className="p-2 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition-colors"><Twitter size={18} /></button>
-                        <button className="p-2 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-800 transition-colors"><Facebook size={18} /></button>
-                        <button className="p-2 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-700 transition-colors"><Linkedin size={18} /></button>
-                        <button className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 transition-colors"><LinkIcon size={18} /></button>
+                    
+                    <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-600 font-medium">
+                        <span className="font-bold text-gray-900 uppercase tracking-wide">{authorName}</span>
+                        <span className="text-gray-300">|</span>
+                        <span className="flex items-center whitespace-nowrap"><Calendar size={14} className="mr-1.5 text-news-gold"/> {safeFormat(article.publishedAt, 'MMM d, yyyy')}</span>
+                        <span className="text-gray-300">|</span>
+                        <span className="flex items-center whitespace-nowrap"><Clock size={14} className="mr-1.5 text-news-gold"/> {readTime} min read</span>
+                        <span className="text-gray-300">|</span>
+                        <span className="flex items-center whitespace-nowrap"><AlignLeft size={14} className="mr-1.5 text-news-gold"/> {wordCount} words</span>
                     </div>
                 </div>
             </header>
@@ -181,18 +175,21 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     globalAdsEnabled={globalAdsEnabled}
                 />
                 
-                {/* Skyscraper Ad */}
-                 {/* Corrected typo: changed 'SKYSCPER' to 'SKYSCRAPER' */}
-                 <AdvertisementBanner 
-                    ads={advertisements} 
-                    size="SKYSCRAPER" 
-                    placement="ARTICLE"
-                    globalAdsEnabled={globalAdsEnabled}
-                    className="hidden lg:flex"
-                />
-                
-                {/* Mini Related List */}
+                {/* In This Section Box */}
                 <div className="bg-gray-50 border border-gray-200 p-6 mt-8">
+                    {/* Share moved here, Word Count moved back to header */}
+                    <div className="mb-6 pb-6 border-b border-gray-200 space-y-4">
+                        <div>
+                             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Share Article</span>
+                             <div className="flex gap-2">
+                                <button className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors flex justify-center"><Twitter size={16} /></button>
+                                <button className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-800 transition-colors flex justify-center"><Facebook size={16} /></button>
+                                <button className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-700 transition-colors flex justify-center"><Linkedin size={16} /></button>
+                                <button className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors flex justify-center"><LinkIcon size={16} /></button>
+                             </div>
+                        </div>
+                    </div>
+
                     <h4 className="font-bold text-sm uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">In This Section</h4>
                     <div className="space-y-4">
                         {relatedArticles.map(rel => (
@@ -205,6 +202,15 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                         ))}
                     </div>
                 </div>
+
+                {/* Skyscraper Ad */}
+                 <AdvertisementBanner 
+                    ads={advertisements} 
+                    size="SKYSCRAPER" 
+                    placement="ARTICLE"
+                    globalAdsEnabled={globalAdsEnabled}
+                    className="hidden lg:flex"
+                />
              </div>
         </div>
 

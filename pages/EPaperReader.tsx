@@ -260,15 +260,15 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         
         const maxBrandWidth = clipWidth - currentX - padding;
         const initialSize = footerHeight * fontSizePercent;
-        const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Merriweather", serif');
-        ctx.font = `bold ${brandFontSize}px "Merriweather", serif`;
+        const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Merriweather", "Noto Sans Telugu", serif');
+        ctx.font = `bold ${brandFontSize}px "Merriweather", "Noto Sans Telugu", serif`;
         ctx.fillStyle = watermarkSettings.textColor;
         ctx.fillText(brandLabel, currentX, line1Y);
         
         const fullDateStr = `Archive Edition: ${dateStr}`;
         const maxDateWidth = clipWidth - (padding * 2);
-        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", sans-serif');
-        ctx.font = `500 ${dateFontSize}px "Inter", sans-serif`;
+        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", "Noto Sans Telugu", sans-serif');
+        ctx.font = `500 ${dateFontSize}px "Inter", "Noto Sans Telugu", sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.fillText(fullDateStr, padding, line2Y);
         
@@ -288,9 +288,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         const baseFontSize = footerHeight * fontSizePercent;
         const totalAvailableWidth = clipWidth - currentX - (padding * 2);
         
-        ctx.font = `bold ${baseFontSize}px "Merriweather", serif`;
+        ctx.font = `bold ${baseFontSize}px "Merriweather", "Noto Sans Telugu", serif`;
         const brandW = ctx.measureText(brandLabel).width;
-        ctx.font = `500 ${baseFontSize * 0.6}px "Inter", sans-serif`;
+        ctx.font = `500 ${baseFontSize * 0.6}px "Inter", "Noto Sans Telugu", sans-serif`;
         const dateW = ctx.measureText(fullDateStr).width;
         
         let fontSize = baseFontSize;
@@ -299,12 +299,12 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             fontSize = Math.max(10, baseFontSize * scale);
         }
 
-        ctx.font = `bold ${fontSize}px "Merriweather", serif`;
+        ctx.font = `bold ${fontSize}px "Merriweather", "Noto Sans Telugu", serif`;
         ctx.fillStyle = watermarkSettings.textColor;
         ctx.textAlign = 'left';
         ctx.fillText(brandLabel, currentX, textY);
         
-        ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
+        ctx.font = `500 ${fontSize * 0.6}px "Inter", "Noto Sans Telugu", sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.textAlign = 'right';
         ctx.fillText(fullDateStr, clipWidth - padding, textY);

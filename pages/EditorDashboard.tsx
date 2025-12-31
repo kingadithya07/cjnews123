@@ -123,9 +123,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       try {
           const fileExt = file.name.split('.').pop();
           const fileName = `${generateId()}.${fileExt}`;
-          const { error: uploadError } = await supabase.storage.from('images').upload(`uploads/${fileName}`, file);
+          // Fixed path to 'gallery' to ensure it shows in media library
+          const filePath = `gallery/${fileName}`;
+          const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
           if (uploadError) throw uploadError;
-          const { data } = supabase.storage.from('images').getPublicUrl(`uploads/${fileName}`);
+          const { data } = supabase.storage.from('images').getPublicUrl(filePath);
           setter(data.publicUrl);
       } catch (error: any) {
           alert("Upload failed: " + error.message);

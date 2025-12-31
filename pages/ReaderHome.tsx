@@ -100,8 +100,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                   >
                       {sliderArticles.map((article) => {
                           const [authorName] = article.author.split(',');
-                          // Generate avatar based on name
-                          const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=bfa17b&color=1a1a1a&bold=true`;
+                          // Use stored avatar or generate one based on name
+                          const avatarUrl = article.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=bfa17b&color=1a1a1a&bold=true`;
                           
                           // Get plain text for summary
                           const plainText = article.subline || article.content.replace(/<[^>]*>/g, '').substring(0, 150) + '...';
@@ -133,7 +133,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                   </div>
 
                                   {/* Metadata with Profile Pic */}
-                                  <div className="flex items-center gap-3 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-100">
+                                  <div className="flex items-center gap-3 mb-6 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-100">
                                       {/* Profile Pic */}
                                       <div className="w-10 h-10 rounded-full border-2 border-[#bfa17b] overflow-hidden bg-gray-800 shrink-0 shadow-md">
                                           <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
@@ -143,22 +143,23 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                           <span className="text-white text-xs font-bold uppercase tracking-widest leading-none mb-1">
                                               {authorName}
                                           </span>
-                                          <div className="flex items-center gap-2 text-[#bfa17b] text-[10px] font-bold tracking-[0.1em] uppercase leading-none">
+                                          {/* Changed date text color to white as requested */}
+                                          <div className="flex items-center gap-2 text-white text-[10px] font-bold tracking-[0.1em] uppercase leading-none">
                                               <Clock size={10} />
                                               <span>{safeFormat(article.publishedAt, 'MMM dd, yyyy')}</span>
                                           </div>
                                       </div>
                                   </div>
 
-                                  {/* Headline */}
+                                  {/* Headline - Increased margins for better spacing */}
                                   <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="block group/title max-w-4xl">
-                                      <h2 className="text-2xl md:text-4xl lg:text-5xl font-display font-bold text-white leading-[1.1] mb-5 group-hover/title:text-[#bfa17b] transition-colors animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+                                      <h2 className="text-2xl md:text-4xl lg:text-5xl font-display font-bold text-white leading-[1.1] mb-8 group-hover/title:text-[#bfa17b] transition-colors animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
                                           {article.title}
                                       </h2>
                                   </Link>
 
                                   {/* Subline */}
-                                  <p className="text-gray-300 font-serif text-lg md:text-xl italic mb-8 line-clamp-2 max-w-2xl border-l-2 border-[#bfa17b] pl-5 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300 leading-relaxed">
+                                  <p className="text-gray-300 font-serif text-lg md:text-xl italic mb-10 line-clamp-2 max-w-2xl border-l-2 border-[#bfa17b] pl-5 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300 leading-relaxed">
                                       {plainText}
                                   </p>
 
@@ -171,18 +172,18 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                       )})}
                   </div>
 
-                  {/* Slider Controls */}
+                  {/* Slider Controls - Transparent Buttons */}
                   <button 
                       onClick={prevSlide}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/10 z-20 group/nav shadow-lg"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-transparent hover:bg-black/30 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-20 group/nav"
                   >
-                      <ChevronLeft size={24} className="group-hover/nav:-translate-x-0.5 transition-transform" />
+                      <ChevronLeft size={32} className="group-hover/nav:-translate-x-0.5 transition-transform" />
                   </button>
                   <button 
                       onClick={nextSlide}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/10 z-20 group/nav shadow-lg"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-transparent hover:bg-black/30 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-20 group/nav"
                   >
-                      <ChevronRight size={24} className="group-hover/nav:translate-x-0.5 transition-transform" />
+                      <ChevronRight size={32} className="group-hover/nav:translate-x-0.5 transition-transform" />
                   </button>
 
                   {/* Pagination Dots */}
@@ -225,7 +226,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                         <h4 className="font-serif font-bold text-base text-gray-900 leading-snug group-hover:text-news-accent line-clamp-2 transition-colors">
                                             {article.title}
                                         </h4>
-                                        <div className="flex items-center gap-2 mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                        <div className="flex items-center gap-2 mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                             <Clock size={10} /> {safeFormat(article.publishedAt, 'MMM d')}
                                         </div>
                                     </div>
@@ -259,6 +260,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
         <div className="lg:col-span-8 space-y-8">
             
             {/* --- MOBILE: TABS FOR LATEST / TRENDING --- */}
+            {/* Optimized to show stacked cards instead of small list items for better mobile view */}
             <div className="md:hidden">
                <div className="flex border-b border-gray-200 mb-6 sticky top-[60px] bg-[#f9f9f7] z-20 pt-2">
                    <button 
@@ -277,18 +279,27 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 min-h-[300px]">
                    {mobileTab === 'latest' && (
-                       <div className="space-y-6">
+                       <div className="space-y-8">
                            {mainFeedArticles.length > 0 ? mainFeedArticles.map(article => (
-                               <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="flex gap-4 items-start group bg-white p-3 rounded-lg shadow-sm border border-gray-100">
-                                   <div className="w-24 h-20 shrink-0 bg-gray-100 rounded overflow-hidden">
+                               <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="block group bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                   {/* Stacked Layout for Mobile Optimization */}
+                                   <div className="w-full aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4 relative">
                                        <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
+                                       <span className="absolute top-2 left-2 bg-white/90 backdrop-blur text-black text-[9px] font-black px-2 py-1 uppercase tracking-wider rounded-sm">
+                                            {article.category}
+                                       </span>
                                    </div>
                                    <div>
-                                       <span className="text-[10px] text-news-accent font-bold uppercase tracking-wider mb-1 block">{article.category}</span>
-                                       <h4 className="font-serif font-bold text-sm leading-snug text-gray-900 group-hover:text-news-accent transition-colors">
+                                       <h4 className="font-serif font-bold text-xl leading-tight text-gray-900 group-hover:text-news-accent transition-colors mb-2">
                                            {article.title}
                                        </h4>
-                                       <span className="text-[10px] text-gray-400 mt-1 block">{safeFormat(article.publishedAt, 'MMM d')}</span>
+                                       <p className="text-sm text-gray-500 line-clamp-2 mb-3 leading-relaxed">
+                                           {article.subline || article.content.replace(/<[^>]*>/g, '').substring(0, 100) + '...'}
+                                       </p>
+                                       <div className="flex items-center justify-between text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                                            <span>{safeFormat(article.publishedAt, 'MMM d, yyyy')}</span>
+                                            <span className="flex items-center gap-1 group-hover:text-news-black transition-colors">Read <ArrowRight size={10}/></span>
+                                       </div>
                                    </div>
                                </Link>
                            )) : (
@@ -298,13 +309,16 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                    )}
 
                    {mobileTab === 'trending' && (
-                       <div className="space-y-2">
+                       <div className="space-y-4">
                            {trendingArticles.length > 0 ? trendingArticles.map((article, idx) => (
-                               <div key={article.id} className="flex gap-4 items-center group bg-white p-3 rounded-lg border border-gray-100">
-                                   <span className="text-2xl font-serif font-bold text-gray-200 group-hover:text-news-gold transition-colors w-8 text-center">{idx+1}</span>
+                               <div key={article.id} className="flex gap-4 items-start group bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
+                                   <span className="text-3xl font-serif font-bold text-gray-200 group-hover:text-news-gold transition-colors w-8 text-center shrink-0 leading-none mt-1">0{idx+1}</span>
                                    <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="flex-1">
-                                       <h4 className="font-bold text-sm text-gray-900 group-hover:text-news-accent transition-colors leading-snug">{article.title}</h4>
-                                       <span className="text-[10px] text-gray-400 uppercase">{article.category}</span>
+                                       <span className="text-[9px] text-news-accent font-bold uppercase tracking-wider mb-1 block">{article.category}</span>
+                                       <h4 className="font-bold text-base text-gray-900 group-hover:text-news-accent transition-colors leading-snug mb-2">{article.title}</h4>
+                                       <div className="text-[10px] text-gray-400 flex items-center gap-1">
+                                            <Clock size={10}/> {safeFormat(article.publishedAt, 'MMM d')}
+                                       </div>
                                    </Link>
                                </div>
                            )) : (
@@ -343,7 +357,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                     {article.category}
                                 </span>
                            </div>
-                           <h3 className="text-xl font-serif font-bold text-gray-900 mb-2 leading-tight group-hover:text-news-accent transition-colors">
+                           <h3 className="text-xl font-serif font-bold text-gray-900 mb-4 leading-tight group-hover:text-news-accent transition-colors">
                                {article.title}
                            </h3>
                            <p className="text-sm text-gray-500 line-clamp-3 mb-4 flex-grow font-sans leading-relaxed" dangerouslySetInnerHTML={{ __html: article.content.substring(0, 150) + '...' }}/>
@@ -378,7 +392,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                              </div>
                              <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="flex-1">
                                 <span className="text-[9px] font-bold text-news-gold uppercase tracking-wider mb-1 block">{article.category}</span>
-                                <h4 className="text-sm font-serif font-bold text-gray-900 mb-1 leading-snug group-hover:text-news-accent transition-colors line-clamp-2">
+                                <h4 className="text-sm font-serif font-bold text-gray-900 mb-2 leading-snug group-hover:text-news-accent transition-colors line-clamp-2">
                                     {article.title}
                                 </h4>
                              </Link>

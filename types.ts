@@ -30,6 +30,7 @@ export interface Article {
   title: string;
   subline?: string;
   author: string;
+  authorAvatar?: string; // New field for author profile picture
   content: string; // Markdown or plain text
   category: string;
   imageUrl: string;
