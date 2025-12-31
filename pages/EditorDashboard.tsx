@@ -91,6 +91,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [newPassword, setNewPassword] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [watermarkText, setWatermarkText] = useState(watermarkSettings.text);
@@ -186,28 +187,35 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setNewPageImage('');
   };
 
-  const handleSaveSettings = async () => {
+  const handleSaveProfile = async () => {
       setIsSavingSettings(true);
       try {
-          // 1. Update Profile
           const updates: any = { data: { full_name: profileName, avatar_url: profileAvatar } };
           if (newPassword) updates.password = newPassword;
           const { error } = await supabase.auth.updateUser(updates);
           if (error) throw error;
-          
-          // 2. Update Watermark - Proper Await
+          alert("Profile updated successfully.");
+          setNewPassword('');
+      } catch (e: any) {
+          alert("Error updating profile: " + e.message);
+      } finally {
+          setIsSavingSettings(false);
+      }
+  };
+
+  const handleUpdateBranding = async () => {
+      setIsSavingBranding(true);
+      try {
           await onUpdateWatermarkSettings({
               ...watermarkSettings,
               text: watermarkText,
               logoUrl: watermarkLogo
           });
-          
-          alert("Settings updated successfully and synced globally.");
-          setNewPassword('');
+          alert("Branding settings updated and synced globally.");
       } catch (e: any) {
-          alert("Error updating settings: " + e.message);
+          alert("Error updating branding: " + e.message);
       } finally {
-          setIsSavingSettings(false);
+          setIsSavingBranding(false);
       }
   };
 
@@ -431,7 +439,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   </div>
                               </div>
                               <div className="mt-6 flex justify-end">
-                                  <button onClick={handleSaveSettings} disabled={isSavingSettings} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
+                                  <button onClick={handleSaveProfile} disabled={isSavingSettings} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
                                       {isSavingSettings ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Save Profile Changes
                                   </button>
                               </div>
@@ -478,8 +486,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   </div>
                               </div>
                               <div className="mt-6 flex justify-end">
-                                  <button onClick={handleSaveSettings} disabled={isSavingSettings} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
-                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Update Global Branding
+                                  <button onClick={handleUpdateBranding} disabled={isSavingBranding} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
+                                      {isSavingBranding ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Update Global Branding
                                   </button>
                               </div>
                           </div>

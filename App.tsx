@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -14,6 +13,9 @@ import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertiseme
 import { MOCK_ARTICLES, MOCK_EPAPER, APP_NAME } from './constants';
 import { generateId, getDeviceId } from './utils';
 import { supabase } from './supabaseClient';
+
+// Use a fixed UUID for global settings to ensure compatibility with UUID columns in Supabase
+const GLOBAL_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
 
 function App() {
   const [userRole, setUserRole] = useState<UserRole>(UserRole.READER);
@@ -53,7 +55,6 @@ function App() {
         .order('publishedAt', { ascending: false });
       
       if (artError) {
-          // Fallback logic for column names
           const secondTry = await supabase.from('articles').select('*').order('id', { ascending: false });
           if (!secondTry.error) artData = secondTry.data;
       }
@@ -74,12 +75,12 @@ function App() {
       const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
 
-      // 4. Fetch Global Settings (Stored as a special article)
+      // 4. Fetch Global Settings (Stored as a special article with a fixed ID)
       const { data: settingsData } = await supabase
         .from('articles')
         .select('content')
-        .eq('id', 'global_settings')
-        .maybeSingle(); // Use maybeSingle to avoid errors if not found
+        .eq('id', GLOBAL_SETTINGS_ID)
+        .maybeSingle();
 
       if (settingsData && settingsData.content) {
           try {
@@ -95,7 +96,7 @@ function App() {
       // --- MAPPING LAYER ---
       if (artData) {
         // Filter out the config article
-        const visibleArticles = artData.filter(a => a.id !== 'global_settings');
+        const visibleArticles = artData.filter(a => a.id !== GLOBAL_SETTINGS_ID);
         
         setArticles(visibleArticles.map(a => ({
           id: a.id,
@@ -246,22 +247,27 @@ function App() {
   const handleSaveWatermarkSettings = async (settings: WatermarkSettings) => {
       setWatermarkSettings(settings);
       
-      // Save to 'global_settings' article as a JSON store
+      // Save to fixed UUID 'GLOBAL_SETTINGS_ID' article as a JSON store
       const payload = {
-          id: 'global_settings',
+          id: GLOBAL_SETTINGS_ID,
           title: 'SYSTEM_CONFIG',
+          subline: 'Global Watermark and Branding Configuration',
           content: JSON.stringify({ watermark: settings }),
           author: 'SYSTEM',
           category: 'Config',
+          imageUrl: 'https://placehold.co/100?text=Config',
+          image_url: 'https://placehold.co/100?text=Config',
           publishedAt: new Date().toISOString(),
+          published_at: new Date().toISOString(),
           status: ArticleStatus.DRAFT,
-          user_id: userId // CRITICAL: Include user_id to satisfy RLS policies
+          user_id: userId,
+          summary: 'Internal system configuration'
       };
 
       const { error } = await supabase.from('articles').upsert(payload);
       if (error) {
-          console.error("Failed to save global settings:", error.message, error.details);
-          alert(`Failed to save settings globally: ${error.message}`);
+          console.error("Failed to save global settings:", error);
+          alert(`Failed to save settings globally: ${error.message}${error.details ? ` (${error.details})` : ''}`);
       }
   };
 
