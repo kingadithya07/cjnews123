@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { EPaperPage, EPaperRegion, Article, WatermarkSettings } from '../types';
 import EPaperViewer from '../components/EPaperViewer';
@@ -106,9 +107,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
         
-        // Fixed: Cast options to any to bypass strict property checking for dragMode which might be missing from CropperOptions type
+        // Use type cast as any to handle potential missing types from esm.sh version
         const cropper = new Cropper(cropperImgRef.current, {
-            dragMode: 'move', // Allows zooming/panning the image inside the crop container
+            dragMode: 'move', 
             autoCropArea: 0.5,
             restore: false,
             guides: true,
@@ -134,8 +135,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (!cropperRef.current) return;
     setIsProcessing(true);
     
-    // Fixed: Changed 'getCroppedCanvas' to 'getCropperCanvas' as per CropperJS v2 API to resolve TS error on line 138
-    const croppedCanvas = (cropperRef.current as any).getCropperCanvas();
+    // Correct method for CropperJS v1.x is getCroppedCanvas()
+    const croppedCanvas = (cropperRef.current as any).getCroppedCanvas();
     
     if (!croppedCanvas) {
       setIsProcessing(false);
@@ -180,7 +181,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   const handleDownload = () => {
     if (!cropPreview) return;
     const link = document.createElement('a');
-    link.href = link.href = cropPreview;
+    link.href = cropPreview;
     link.download = `Newsroom_Clipping_${activePage?.date}.jpg`;
     link.click();
   };
