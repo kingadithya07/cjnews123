@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -39,6 +39,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [newPassword, setNewPassword] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
 
   useEffect(() => {
     if (content) {
@@ -73,6 +74,24 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       alert("Failed to upload image.");
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsAvatarUploading(true);
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `avatars/${generateId()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+        setProfileAvatar(data.publicUrl);
+    } catch (error: any) {
+        alert("Avatar Upload Failed: " + error.message);
+    } finally {
+        setIsAvatarUploading(false);
     }
   };
 
@@ -225,8 +244,18 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                                     <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar URL</label>
-                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
+                                            {profileAvatar ? <img src={profileAvatar} className="w-full h-full object-cover" /> : <UserIcon className="w-full h-full p-3 text-gray-300" />}
+                                        </div>
+                                        <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+                                            {isAvatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                                            Upload Image
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isAvatarUploading} />
+                                        </label>
+                                    </div>
+                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-xs text-gray-500 outline-none" placeholder="Or paste image URL..." />
                                 </div>
                              </div>
                              <div className="space-y-4">

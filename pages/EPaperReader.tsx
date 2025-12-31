@@ -5,10 +5,12 @@ import EPaperViewer from '../components/EPaperViewer';
 import Cropper from 'cropperjs';
 import { 
   ChevronLeft, ChevronRight, Calendar, ZoomIn, ZoomOut, 
-  X, Grid, ArrowLeft, Loader2, Scissors, Download, Check, LayoutGrid, Eye, Search, Share2, RotateCcw, RefreshCcw, Maximize, MousePointer2, MoveHorizontal, Hand
+  X, Grid, ArrowLeft, Loader2, Scissors, Download, Check, LayoutGrid, Eye, Search, Share2, RotateCcw, RefreshCcw, Maximize, MousePointer2, MoveHorizontal, Hand, Image as ImageIcon, Upload
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { APP_NAME } from '../constants';
+import { generateId } from '../utils';
+import { supabase } from '../supabaseClient';
 
 interface EPaperReaderProps {
   pages: EPaperPage[];
@@ -75,6 +77,11 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   const cropperRef = useRef<Cropper | null>(null);
   const cropperImgRef = useRef<HTMLImageElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Customization State for Workshop
+  const [customText, setCustomText] = useState(watermarkSettings.text);
+  const [customLogo, setCustomLogo] = useState(watermarkSettings.logoUrl);
+  const [isCustomLogoUploading, setIsCustomLogoUploading] = useState(false);
 
   useEffect(() => {
     if (viewMode === 'reader') {
@@ -89,6 +96,14 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     }
     return () => { document.body.style.overflow = 'auto'; };
   }, [viewMode, activePageIndex]);
+
+  // Sync default text/logo when opening workshop
+  useEffect(() => {
+      if (isCropping) {
+          setCustomText(watermarkSettings.text);
+          setCustomLogo(watermarkSettings.logoUrl);
+      }
+  }, [isCropping, watermarkSettings]);
 
   // HOVER PANNING LOGIC (MOUSE ONLY)
   const handleReaderMouseMove = (e: React.MouseEvent) => {
@@ -198,6 +213,24 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     }
   };
 
+  const handleCustomLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setIsCustomLogoUploading(true);
+      try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `logos/temp_${generateId()}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
+          if (uploadError) throw uploadError;
+          const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+          setCustomLogo(data.publicUrl);
+      } catch (error: any) {
+          alert("Logo upload failed: " + error.message);
+      } finally {
+          setIsCustomLogoUploading(false);
+      }
+  };
+
   useEffect(() => {
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
@@ -227,28 +260,71 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     setIsProcessing(true);
     const croppedCanvas = (cropperRef.current as any).getCroppedCanvas();
     if (!croppedCanvas) { setIsProcessing(false); return; }
+    
     const finalCanvas = document.createElement('canvas');
     const ctx = finalCanvas.getContext('2d');
     if (!ctx) return;
+    
     const footerHeight = Math.max(70, croppedCanvas.height * 0.1);
     finalCanvas.width = croppedCanvas.width;
     finalCanvas.height = croppedCanvas.height + footerHeight;
+    
+    // Draw white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+    
+    // Draw cropped image
     ctx.drawImage(croppedCanvas, 0, 0);
+    
+    // Draw Footer Background
     ctx.fillStyle = watermarkSettings.backgroundColor;
     ctx.fillRect(0, croppedCanvas.height, finalCanvas.width, footerHeight);
+    
+    // Prepare Text Rendering
     const fontSize = Math.floor(footerHeight * 0.4);
     ctx.font = `bold ${fontSize}px "Merriweather", serif`;
     ctx.fillStyle = watermarkSettings.textColor;
     ctx.textBaseline = 'middle';
+    
+    let textX = footerHeight * 0.5; // Start padding
+    
+    // Draw Logo if available
+    if (watermarkSettings.showLogo && customLogo) {
+        try {
+            const logoImg = new Image();
+            logoImg.crossOrigin = "anonymous";
+            logoImg.src = customLogo;
+            await new Promise((resolve, reject) => {
+                logoImg.onload = resolve;
+                logoImg.onerror = resolve; // Continue even if logo fails
+            });
+            
+            // Calculate logo aspect ratio to fit within footer height (with padding)
+            const logoPadding = footerHeight * 0.15;
+            const maxLogoHeight = footerHeight - (logoPadding * 2);
+            const scaleFactor = maxLogoHeight / logoImg.height;
+            const logoWidth = logoImg.width * scaleFactor;
+            
+            ctx.drawImage(logoImg, textX, croppedCanvas.height + logoPadding, logoWidth, maxLogoHeight);
+            
+            // Shift text to the right of logo
+            textX += logoWidth + (footerHeight * 0.3);
+        } catch (e) {
+            console.error("Failed to load logo for canvas", e);
+        }
+    }
+    
+    // Draw Brand Text
     ctx.textAlign = 'left';
-    ctx.fillText(watermarkSettings.text.toUpperCase(), footerHeight * 0.5, croppedCanvas.height + (footerHeight / 2));
+    ctx.fillText(customText.toUpperCase(), textX, croppedCanvas.height + (footerHeight / 2));
+    
+    // Draw Date (Right aligned)
     ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.textAlign = 'right';
     const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
     ctx.fillText(`Archive Edition: ${dateStr}`, finalCanvas.width - (footerHeight * 0.5), croppedCanvas.height + (footerHeight / 2));
+    
     setCropPreview(finalCanvas.toDataURL('image/jpeg', 0.95));
     setIsProcessing(false);
   };
@@ -489,8 +565,34 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
             <div className={`flex-1 overflow-hidden relative flex flex-col ${cropPreview ? 'md:flex-row' : 'flex-col'} bg-[#0a0a0a]`}>
                 <div className={`relative flex flex-col items-center justify-center transition-all duration-700 ${cropPreview ? 'w-full md:w-1/2 border-r border-white/5 h-1/2 md:h-full p-4 grayscale brightness-50' : 'w-full h-full p-2 md:p-8'}`}>
+                    {/* CUSTOMIZATION OVERLAY IN WORKSHOP */}
+                    {!cropPreview && (
+                        <div className="absolute top-4 left-4 right-4 md:left-auto md:right-4 z-20 bg-black/80 backdrop-blur-md p-4 rounded-xl border border-white/10 flex flex-col gap-3 max-w-sm">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-news-gold">Customize Footer</div>
+                            <input 
+                                type="text" 
+                                value={customText} 
+                                onChange={e => setCustomText(e.target.value)} 
+                                className="bg-white/10 border border-white/10 rounded p-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-news-gold"
+                                placeholder="Watermark Text"
+                            />
+                            <div className="flex items-center gap-3">
+                                <label className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-2 rounded cursor-pointer text-xs text-white font-bold transition-colors border border-white/10">
+                                    {isCustomLogoUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                                    Upload Logo
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleCustomLogoUpload} disabled={isCustomLogoUploading} />
+                                </label>
+                                {customLogo && (
+                                    <div className="w-8 h-8 bg-white rounded p-0.5">
+                                        <img src={customLogo} className="w-full h-full object-contain" alt="Custom Logo" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {workshopScale > 1 && !cropPreview && (
-                        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-news-gold text-black px-5 py-1.5 rounded-full font-black uppercase text-[8px] tracking-[0.3em] shadow-2xl animate-bounce pointer-events-none">
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-news-gold text-black px-5 py-1.5 rounded-full font-black uppercase text-[8px] tracking-[0.3em] shadow-2xl animate-bounce pointer-events-none">
                            <Hand size={12} /> Pan Mode Active
                         </div>
                     )}

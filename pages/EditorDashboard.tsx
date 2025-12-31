@@ -5,7 +5,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors
+  Check, Scissors, Camera
 } from 'lucide-react';
 // Fixed missing import for date-fns format
 import { format } from 'date-fns';
@@ -95,6 +95,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [newPassword, setNewPassword] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
 
   useEffect(() => {
       setEditorScale(1);
@@ -116,6 +118,42 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       alert("Upload Failed: " + error.message);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsAvatarUploading(true);
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `avatars/${generateId()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+        setProfileAvatar(data.publicUrl);
+    } catch (error: any) {
+        alert("Avatar Upload Failed: " + error.message);
+    } finally {
+        setIsAvatarUploading(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsLogoUploading(true);
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `logos/${generateId()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+        onUpdateWatermarkSettings({ ...watermarkSettings, logoUrl: data.publicUrl });
+    } catch (error: any) {
+        alert("Logo Upload Failed: " + error.message);
+    } finally {
+        setIsLogoUploading(false);
     }
   };
 
@@ -310,8 +348,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar URL</label>
-                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
+                                            {profileAvatar ? <img src={profileAvatar} className="w-full h-full object-cover" /> : <UserIcon className="w-full h-full p-3 text-gray-300" />}
+                                        </div>
+                                        <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+                                            {isAvatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                                            Upload Image
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isAvatarUploading} />
+                                        </label>
+                                    </div>
+                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-xs text-gray-500 outline-none" placeholder="Or paste image URL..." />
                                 </div>
                              </div>
                              <div className="space-y-4">
@@ -354,6 +402,25 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                           <span className="text-xs font-mono text-gray-500">{watermarkSettings.textColor}</span>
                                       </div>
                                   </div>
+                                  <div>
+                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Brand Logo</label>
+                                      <div className="flex items-center gap-4">
+                                          <div className="w-12 h-12 bg-gray-100 border border-gray-200 flex items-center justify-center rounded overflow-hidden">
+                                              {watermarkSettings.logoUrl ? <img src={watermarkSettings.logoUrl} className="w-full h-full object-contain" /> : <ImageIcon size={20} className="text-gray-400" />}
+                                          </div>
+                                          <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+                                              {isLogoUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                              Upload Logo
+                                              <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={isLogoUploading} />
+                                          </label>
+                                          <button 
+                                            onClick={() => onUpdateWatermarkSettings({...watermarkSettings, showLogo: !watermarkSettings.showLogo})}
+                                            className={`text-xs font-bold px-3 py-2 rounded border ${watermarkSettings.showLogo ? 'bg-news-black text-news-gold border-news-black' : 'bg-gray-100 text-gray-500 border-gray-200'}`}
+                                          >
+                                              {watermarkSettings.showLogo ? 'ON' : 'OFF'}
+                                          </button>
+                                      </div>
+                                  </div>
                               </div>
                               <div className="bg-gray-50 border rounded-xl p-6 flex flex-col justify-center items-center">
                                   <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Preview Clipping Footer</div>
@@ -361,7 +428,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       style={{ backgroundColor: watermarkSettings.backgroundColor, color: watermarkSettings.textColor }}
                                       className="w-full p-4 rounded-lg flex justify-between items-center shadow-inner border border-black/5"
                                   >
-                                      <span className="font-serif font-bold text-sm tracking-tight">{watermarkSettings.text.toUpperCase()}</span>
+                                      <div className="flex items-center gap-3">
+                                          {watermarkSettings.showLogo && watermarkSettings.logoUrl && (
+                                              <img src={watermarkSettings.logoUrl} className="h-8 w-auto object-contain mix-blend-multiply" alt="Logo" />
+                                          )}
+                                          <span className="font-serif font-bold text-sm tracking-tight">{watermarkSettings.text.toUpperCase()}</span>
+                                      </div>
                                       <span className="text-[10px] opacity-60">Archive Edition: {format(new Date(), 'MMMM d, yyyy')}</span>
                                   </div>
                                   <p className="mt-4 text-[9px] text-gray-400 text-center uppercase tracking-widest leading-relaxed">This footer will be automatically attached to any article or page clipped via the e-paper workshop.</p>
