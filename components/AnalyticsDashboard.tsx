@@ -18,10 +18,12 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role 
     const drafts = articles.filter(a => a.status === ArticleStatus.DRAFT).length;
     const pending = articles.filter(a => a.status === ArticleStatus.PENDING).length;
     
-    // Category Distribution
+    // Category Distribution - now counts every category instance
     const catMap: Record<string, number> = {};
     articles.forEach(a => {
-      catMap[a.category] = (catMap[a.category] || 0) + 1;
+      a.categories.forEach(cat => {
+        catMap[cat] = (catMap[cat] || 0) + 1;
+      });
     });
     
     const categories = Object.entries(catMap)
@@ -79,19 +81,19 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role 
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total</span>
-             <span className="text-xl font-black text-news-black">{total}</span>
+             <span className="text-xl font-black text-news-black">{stats.total}</span>
           </div>
         </div>
 
         {/* Legend */}
         <div className="grid grid-cols-2 md:grid-cols-1 gap-x-4 gap-y-2 w-full max-w-xs">
-            {data.map((entry, index) => (
+            {data.slice(0, 10).map((entry, index) => (
                 <div key={entry.name} className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
                         <span className="font-bold text-gray-700">{entry.name}</span>
                     </div>
-                    <span className="font-mono text-gray-500">{Math.round((entry.value / total) * 100)}%</span>
+                    <span className="font-mono text-gray-500">{entry.value}</span>
                 </div>
             ))}
         </div>

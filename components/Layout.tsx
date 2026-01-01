@@ -141,14 +141,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          <div className="flex items-center gap-6">
              {userName ? (
                  <div className="flex items-center gap-4">
-                    {/* Dashboard Link Moved Here */}
+                    {/* Dashboard Link Moved Here - Visible on Mobile */}
                     {currentRole !== UserRole.READER && (
                         <Link 
                             to={currentRole === UserRole.WRITER ? '/writer' : '/editor'} 
                             onNavigate={onNavigate}
-                            className="hidden md:flex items-center gap-1.5 text-news-black hover:text-news-accent transition-colors mr-2 border-r border-gray-200 pr-4"
+                            className="flex items-center gap-1.5 text-news-black hover:text-news-accent transition-colors mr-2 border-r border-gray-200 pr-4"
                         >
-                            <LayoutDashboard size={14} /> DASHBOARD
+                            <LayoutDashboard size={14} /> <span>DASHBOARD</span>
                         </Link>
                     )}
                     <span className="text-news-blue font-extrabold hidden sm:inline">{userName.toUpperCase()}</span>
@@ -275,17 +275,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white border-b border-gray-200 p-6 animate-in slide-in-from-top-2 shadow-lg">
              <div className="flex flex-col gap-6">
-                 {currentRole !== UserRole.READER && (
-                    <button 
-                        onClick={() => {
-                            onNavigate(currentRole === UserRole.WRITER ? '/writer' : '/editor');
-                            setIsMobileMenuOpen(false);
-                        }}
-                        className="flex items-center gap-2 bg-news-black text-white p-3 rounded text-xs font-black uppercase tracking-widest justify-center"
-                    >
-                        <LayoutDashboard size={14} /> Access Dashboard
-                    </button>
-                 )}
+                 {/* Dashboard Access removed from here as it is now in top bar */}
                  <NavItem to="/" label="HOME" onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/')} onNavigate={onNavigate} />
                  <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/epaper')} onNavigate={onNavigate} />
                  <NavItem to="/editorial" label="EDITORIAL" icon={PenTool} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/editorial')} onNavigate={onNavigate} />
@@ -312,7 +302,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                   {articles.length > 0 ? articles.map((a, i) => (
                       <React.Fragment key={a.id}>
                           <span className={`mx-2 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${i % 3 === 0 ? 'bg-[#0b1f36] text-gray-300' : i % 3 === 1 ? 'bg-[#12314f] text-gray-300' : 'bg-[#0f2b46] text-gray-400'}`}>
-                              {a.category}
+                              {a.categories[0]}
                           </span>
                           <span className="text-[11px] font-bold text-gray-200 mr-8 uppercase">{a.title} <span className="text-gray-500 ml-2">+++</span></span>
                       </React.Fragment>

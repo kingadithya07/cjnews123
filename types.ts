@@ -32,7 +32,7 @@ export interface Article {
   author: string;
   authorAvatar?: string; // New field for author profile picture
   content: string; // Markdown or plain text
-  category: string;
+  categories: string[]; // Changed from single category to array
   imageUrl: string;
   publishedAt: string;
   status: ArticleStatus;

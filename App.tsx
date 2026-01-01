@@ -107,7 +107,8 @@ function App() {
           author: a.author,
           authorAvatar: a.authorAvatar || a.author_avatar, // Map backend snake_case to frontend camelCase
           content: a.content,
-          category: a.category,
+          // DB category is a string "A, B, C", Frontend uses ["A", "B", "C"]
+          categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
           imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
           publishedAt: a.publishedAt || a.published_at || new Date().toISOString(),
           status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
@@ -329,7 +330,8 @@ function App() {
         author: article.author,
         author_avatar: article.authorAvatar, // Map back to snake_case for DB
         content: article.content,
-        category: article.category,
+        // Convert Array to comma-separated string for DB storage
+        category: article.categories.join(', '), 
         imageUrl: article.imageUrl,
         image_url: article.imageUrl,
         publishedAt: article.publishedAt,

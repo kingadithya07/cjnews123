@@ -28,7 +28,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
   const displayArticles = selectedCategory 
     ? (selectedCategory === 'Editorial' 
         ? articles.filter(a => a.isEditorsChoice)
-        : articles.filter(a => a.category === selectedCategory))
+        : articles.filter(a => a.categories.includes(selectedCategory)))
     : articles;
 
   // --- LOGIC FOR HOME VIEW ---
@@ -118,7 +118,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                 <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={article.title} />
                                 <div className="absolute top-2 left-2 flex flex-col gap-1">
                                     <span className="bg-white/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 uppercase tracking-widest rounded-sm w-fit shadow-sm flex items-center gap-1">
-                                        <Star size={8} fill="currentColor" /> {article.category}
+                                        <Star size={8} fill="currentColor" /> {article.categories[0]}
                                     </span>
                                     {article.isEditorsChoice && <span className="bg-news-gold text-black text-[8px] font-black px-2 py-1 uppercase rounded-sm flex items-center gap-1"><Award size={8} fill="currentColor"/> Editorial</span>}
                                 </div>
@@ -181,7 +181,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                               
                               <div className="absolute top-5 left-5 md:top-8 md:left-8 z-20 pointer-events-none flex flex-col gap-2">
                                   <span className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-[7px] md:text-[8px] font-black px-2 py-1 md:px-3 md:py-1 uppercase tracking-[0.2em] shadow-lg inline-flex items-center gap-2 rounded-sm w-fit">
-                                      <Star size={8} fill="currentColor" /> {article.category}
+                                      <Star size={8} fill="currentColor" /> {article.categories[0]}
                                   </span>
                               </div>
 
@@ -251,7 +251,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <span className="text-[9px] font-bold text-news-accent uppercase tracking-wide mb-1 truncate flex items-center gap-1">
-                                            <Star size={8} fill="currentColor" /> {article.category}
+                                            <Star size={8} fill="currentColor" /> {article.categories[0]}
                                         </span>
                                         <h4 className="font-serif font-bold text-xs text-gray-900 leading-snug group-hover:text-news-accent line-clamp-2 transition-colors">
                                             {article.title}
@@ -300,7 +300,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                        <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
                                        <div className="absolute top-2 left-2 flex flex-col gap-1">
                                             <span className="bg-white/90 backdrop-blur text-black text-[9px] font-black px-2 py-1 uppercase tracking-wider rounded-sm w-fit shadow-sm flex items-center gap-1">
-                                                <Star size={8} fill="currentColor" /> {article.category}
+                                                <Star size={8} fill="currentColor" /> {article.categories[0]}
                                             </span>
                                             {article.isEditorsChoice && <span className="bg-news-gold text-black text-[9px] font-black px-2 py-1 uppercase tracking-wider rounded-sm w-fit flex items-center gap-1 shadow-sm"><Award size={10} fill="currentColor"/> Editorial</span>}
                                        </div>
@@ -321,7 +321,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                    <span className="text-xl font-serif font-bold text-gray-200 group-hover:text-news-gold transition-colors w-8 text-center shrink-0 leading-none mt-1">0{idx+1}</span>
                                    <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="flex-1">
                                        <span className="text-[9px] text-news-accent font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                                           <Star size={8} fill="currentColor" /> {article.category}
+                                           <Star size={8} fill="currentColor" /> {article.categories[0]}
                                        </span>
                                        <h4 className="font-bold text-xs text-gray-900 group-hover:text-news-accent transition-colors leading-snug mb-1">{article.title}</h4>
                                    </Link>
@@ -341,7 +341,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                 <img src={article.imageUrl} alt={article.title} className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700 aspect-video object-cover"/>
                                 <div className="absolute top-2 left-2 flex flex-col gap-1">
                                     <span className="bg-white/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 uppercase tracking-widest rounded-sm w-fit shadow-sm flex items-center gap-1">
-                                        <Star size={8} fill="currentColor" /> {article.category}
+                                        <Star size={8} fill="currentColor" /> {article.categories[0]}
                                     </span>
                                     {article.isEditorsChoice && <span className="bg-news-gold text-black text-[8px] font-black px-2 py-1 uppercase rounded-sm flex items-center gap-1 shadow-sm"><Award size={8} fill="currentColor"/> Editorial</span>}
                                 </div>
@@ -371,7 +371,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                      <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                                  </div>
                                  <div className="flex-1">
-                                     <span className="text-[8px] font-bold text-news-gold uppercase tracking-wider block mb-1">{article.category}</span>
+                                     <span className="text-[8px] font-bold text-news-gold uppercase tracking-wider block mb-1">{article.categories[0]}</span>
                                      <h4 className="font-serif font-bold text-sm text-gray-200 leading-tight group-hover:text-white group-hover:underline decoration-news-gold decoration-2 underline-offset-2 transition-all">{article.title}</h4>
                                  </div>
                              </Link>
@@ -387,7 +387,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
       {/* --- CATEGORY SECTIONS (Below Main Fold) --- */}
       {homeCategorySections.map(category => {
-          const categoryArticles = articles.filter(a => a.category === category).slice(0, 4);
+          const categoryArticles = articles.filter(a => a.categories.includes(category)).slice(0, 4);
           if (categoryArticles.length === 0) return null;
 
           return (
@@ -404,7 +404,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                               <div className="aspect-[3/2] overflow-hidden rounded-lg mb-3 relative bg-gray-100">
                                   <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                   <span className="absolute bottom-2 left-2 bg-black/60 backdrop-blur text-white text-[8px] font-bold px-2 py-1 rounded-sm uppercase tracking-widest flex items-center gap-1">
-                                      <Star size={8} fill="currentColor"/> {article.category}
+                                      <Star size={8} fill="currentColor"/> {article.categories[0]}
                                   </span>
                               </div>
                               <h4 className="font-serif font-bold text-sm text-gray-900 leading-snug group-hover:text-news-accent transition-colors line-clamp-2">

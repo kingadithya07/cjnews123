@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
+import CategorySelector from '../components/CategorySelector';
 
 interface WriterDashboardProps {
   onSave: (article: Article) => void;
@@ -31,7 +32,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [title, setTitle] = useState('');
   const [subline, setSubline] = useState('');
   const [content, setContent] = useState('');
-  const [category, setCategory] = useState(categories[0] || 'General');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [author, setAuthor] = useState(userName || 'Staff Writer');
   const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
@@ -45,6 +47,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [isSavingDevices, setIsSavingDevices] = useState(false);
 
   useEffect(() => {
     if (content) {
@@ -93,7 +96,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
       subline,
       author, 
       content, 
-      category,
+      categories: selectedCategories.length > 0 ? selectedCategories : ['General'],
       imageUrl: imageUrl || 'https://picsum.photos/800/400',
       publishedAt: new Date().toISOString(),
       status: status,
@@ -106,11 +109,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setShowEditorModal(true);
+      setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setShowEditorModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setCategory(article.category); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setShowEditorModal(true);
+      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setShowEditorModal(true);
   };
 
   const handleSelectFromGallery = (url: string) => {
@@ -141,6 +144,19 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
     }
   };
 
+  const handleForceSaveDevices = async () => {
+      setIsSavingDevices(true);
+      try {
+          const { error } = await supabase.auth.updateUser({ data: { trusted_devices: devices } });
+          if (error) throw error;
+          alert("Device list synced globally.");
+      } catch (e: any) {
+          alert("Error syncing: " + e.message);
+      } finally {
+          setIsSavingDevices(false);
+      }
+  };
+
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
     <button 
         onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
@@ -157,6 +173,13 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
         isOpen={showImageGallery}
         onClose={() => setShowImageGallery(false)}
         onSelectImage={handleSelectFromGallery}
+    />
+    <CategorySelector 
+        isOpen={showCategorySelector}
+        onClose={() => setShowCategorySelector(false)}
+        options={categories}
+        selected={selectedCategories}
+        onChange={setSelectedCategories}
     />
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
@@ -206,7 +229,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                <div key={article.id} className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-3">
                                    <div className="flex justify-between items-start">
                                        <div className="flex-1 mr-2">
-                                           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1 block">{article.category}</span>
+                                           <div className="flex flex-wrap gap-1 mb-1">
+                                             {article.categories.map(cat => (
+                                                <span key={cat} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-50 px-1.5 rounded">{cat}</span>
+                                             ))}
+                                           </div>
                                            <h3 className="font-bold text-gray-900 text-base leading-tight line-clamp-2">{article.title}</h3>
                                        </div>
                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase shrink-0 ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
@@ -240,7 +267,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                 <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
                                     <tr>
                                         <th className="px-6 py-4">Title</th>
-                                        <th className="px-6 py-4">Category</th>
+                                        <th className="px-6 py-4">Categories</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
@@ -254,7 +281,14 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                                     {article.isFeatured && <span className="text-[10px] text-news-accent font-bold uppercase flex items-center gap-1 mt-1"><Star size={10} fill="currentColor"/> Featured</span>}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-xs font-bold">{article.category}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {article.categories.slice(0, 3).map(cat => (
+                                                        <span key={cat} className="text-[10px] font-bold bg-gray-100 px-2 py-1 rounded-full text-gray-600 uppercase">{cat}</span>
+                                                    ))}
+                                                    {article.categories.length > 3 && <span className="text-[10px] text-gray-400 font-bold px-1">+{article.categories.length - 3}</span>}
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4 text-xs font-bold">
                                                 <span className={`px-2 py-1 rounded ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{article.status}</span>
                                             </td>
@@ -323,9 +357,14 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                       <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
                           <div className="flex justify-between items-center mb-6">
                               <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
-                              <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
-                                  {devices.filter(d => d.status === 'approved').length} Active
-                              </span>
+                              <div className="flex items-center gap-2">
+                                  <button onClick={handleForceSaveDevices} disabled={isSavingDevices} className="bg-news-black text-white p-2 rounded hover:bg-gray-800 transition-colors" title="Force Save Globally">
+                                      {isSavingDevices ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
+                                  </button>
+                                  <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
+                                      {devices.filter(d => d.status === 'approved').length} Active
+                                  </span>
+                              </div>
                           </div>
                           
                           <div className="space-y-4">
@@ -358,14 +397,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                           <div className="w-full md:w-auto flex justify-end">
                                               {device.status === 'approved' && onRevokeDevice && (
                                                   <button 
-                                                    onClick={() => {
-                                                      if(window.confirm('Remove this device? You will need to log in again on that device.')) {
-                                                        onRevokeDevice(device.id);
-                                                      }
-                                                    }} 
-                                                    className="w-full md:w-auto text-red-500 hover:text-white hover:bg-red-500 transition-colors text-xs font-bold border border-red-200 bg-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+                                                    onClick={() => onRevokeDevice(device.id)} 
+                                                    className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                                                    title="Delete Device"
                                                   >
-                                                      <Trash2 size={14}/> Remove Device
+                                                      <Trash2 size={18}/>
                                                   </button>
                                               )}
                                           </div>
@@ -393,9 +429,12 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                         <textarea value={subline} onChange={(e) => setSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
-                            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
-                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
+                            <button onClick={() => setShowCategorySelector(true)} className="w-full p-2 border rounded text-sm bg-white text-left flex justify-between items-center">
+                                <span className={selectedCategories.length === 0 ? 'text-gray-400' : ''}>
+                                    {selectedCategories.length === 0 ? 'Select Categories' : `${selectedCategories.length} Selected`}
+                                </span>
+                                <ChevronDown size={14} />
+                            </button>
                         </div>
                     </div>
                     <div className="md:col-span-1">

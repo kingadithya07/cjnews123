@@ -39,9 +39,10 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
       setWordCount(count);
       setReadTime(Math.ceil(count / 200)); // Approx 200 wpm
 
-      // 1. Related Articles (Same Category)
+      // 1. Related Articles (Overlap in categories)
+      // Find articles that share at least one category with the current article
       let related = articles
-        .filter(a => a.category === found.category && a.id !== found.id)
+        .filter(a => a.id !== found.id && a.categories.some(cat => found.categories.includes(cat)))
         .slice(0, 3);
       
       // If not enough related, fill with recent
@@ -93,9 +94,13 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
             {/* Header Section */}
             <header className="mb-8">
-                <span className="inline-block bg-news-secondary text-white text-xs font-bold px-3 py-1 uppercase tracking-widest rounded-sm mb-6">
-                    {article.category}
-                </span>
+                <div className="flex flex-wrap gap-2 mb-6">
+                    {article.categories.map(cat => (
+                         <span key={cat} className="inline-block bg-news-secondary text-white text-xs font-bold px-3 py-1 uppercase tracking-widest rounded-sm">
+                             {cat}
+                         </span>
+                    ))}
+                </div>
                 
                 <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-gray-900 mb-6 leading-tight">
                     {article.title}
@@ -137,7 +142,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     className="w-full h-auto md:rounded-sm shadow-sm"
                 />
                 <figcaption className="text-xs md:text-sm text-gray-500 mt-2 italic text-center px-4">
-                    Featured image for {article.category} section.
+                    Featured image for {article.categories[0]} section.
                 </figcaption>
             </figure>
 
@@ -147,7 +152,9 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
             {/* Tags */}
             <div className="mt-10 pt-6 border-t border-gray-100 mb-10">
                 <div className="flex flex-wrap gap-2">
-                    <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-wide">#{article.category}</span>
+                    {article.categories.map(cat => (
+                         <span key={cat} className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-wide">#{cat}</span>
+                    ))}
                     <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-wide">#News</span>
                     <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-wide">#Trending</span>
                 </div>
@@ -225,7 +232,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 <div className="flex items-center justify-between mb-8">
                     <h3 className="font-serif font-bold text-2xl md:text-3xl text-gray-900">Read Next</h3>
                     <Link to="#" onNavigate={onNavigate} className="text-xs font-bold uppercase tracking-widest text-news-accent flex items-center hover:underline">
-                        View {article.category} <ArrowRight size={14} className="ml-1"/>
+                        View {article.categories[0]} <ArrowRight size={14} className="ml-1"/>
                     </Link>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
@@ -238,7 +245,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                                     className="w-full h-auto transform group-hover:scale-105 transition-transform duration-500"
                                 />
                                 <span className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 uppercase rounded-sm backdrop-blur-sm">
-                                    {rel.category}
+                                    {rel.categories[0]}
                                 </span>
                             </div>
                             <div className="p-5">
@@ -274,7 +281,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                                     </div>
                                     <div>
                                         <div className="text-[10px] font-bold text-news-accent uppercase tracking-widest mb-1">
-                                            {more.category}
+                                            {more.categories[0]}
                                         </div>
                                         <h5 className="font-serif font-bold text-base text-gray-900 leading-snug group-hover:underline decoration-2 underline-offset-2">
                                             {more.title}

@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -13,6 +13,7 @@ import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import { generateId } from '../utils';
 import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
+import CategorySelector from '../components/CategorySelector';
 
 interface EditorDashboardProps {
   articles: Article[];
@@ -60,7 +61,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'classifieds' | 'ads' | 'taxonomy' | 'analytics' | 'settings'>('articles');
+  const [activeTab, setActiveTab] = useState<'articles' | 'editorial' | 'epaper' | 'classifieds' | 'ads' | 'taxonomy' | 'analytics' | 'settings'>('articles');
 
   // Article State
   const [showArticleModal, setShowArticleModal] = useState(false);
@@ -69,12 +70,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalSubline, setModalSubline] = useState('');
   const [modalContent, setModalContent] = useState('');
   const [modalAuthor, setModalAuthor] = useState('Editor');
-  const [modalCategory, setModalCategory] = useState(categories[0] || 'General');
+  const [modalCategories, setModalCategories] = useState<string[]>([]);
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
   const [modalIsFeatured, setModalIsFeatured] = useState(false);
   const [modalIsEditorsChoice, setModalIsEditorsChoice] = useState(false);
   const [showImageGallery, setShowImageGallery] = useState(false);
+  const [showCategorySelector, setShowCategorySelector] = useState(false);
   
   // E-Paper State
   const [showAddPageModal, setShowAddPageModal] = useState(false);
@@ -106,6 +108,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [watermarkText, setWatermarkText] = useState(watermarkSettings.text);
   const [watermarkLogo, setWatermarkLogo] = useState(watermarkSettings.logoUrl);
   const [watermarkFontSize, setWatermarkFontSize] = useState(watermarkSettings.fontSize || 30);
+  const [isSavingDevices, setIsSavingDevices] = useState(false);
 
   // Sync local state when global settings change via props
   useEffect(() => {
@@ -159,7 +162,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setModalSubline('');
       setModalContent('');
       setModalAuthor(userName || 'Editor');
-      setModalCategory(categories[0]);
+      setModalCategories([categories[0] || 'General']);
       setModalImageUrl('');
       setModalStatus(ArticleStatus.PUBLISHED);
       setModalIsFeatured(false);
@@ -173,7 +176,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setModalSubline(article.subline || '');
       setModalContent(article.content);
       setModalAuthor(article.author);
-      setModalCategory(article.category);
+      setModalCategories(article.categories);
       setModalImageUrl(article.imageUrl);
       setModalStatus(article.status);
       setModalIsFeatured(article.isFeatured || false);
@@ -189,7 +192,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           subline: modalSubline,
           content: modalContent,
           author: modalAuthor,
-          category: modalCategory,
+          categories: modalCategories.length > 0 ? modalCategories : ['General'],
           imageUrl: modalImageUrl || 'https://placehold.co/800x400?text=No+Image',
           publishedAt: editArticleId ? articles.find(a => a.id === editArticleId)?.publishedAt || new Date().toISOString() : new Date().toISOString(),
           status: modalStatus,
@@ -259,6 +262,20 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       }
   };
 
+  const handleForceSaveDevices = async () => {
+      setIsSavingDevices(true);
+      try {
+          // Manually trigger a save of the current devices array to Supabase
+          const { error } = await supabase.auth.updateUser({ data: { trusted_devices: devices } });
+          if (error) throw error;
+          alert("Device list synced globally.");
+      } catch (e: any) {
+          alert("Error syncing: " + e.message);
+      } finally {
+          setIsSavingDevices(false);
+      }
+  };
+
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
       <button 
           onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
@@ -276,6 +293,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         onClose={() => setShowImageGallery(false)}
         onSelectImage={(url) => { setModalImageUrl(url); setShowImageGallery(false); }}
       />
+      <CategorySelector 
+        isOpen={showCategorySelector}
+        onClose={() => setShowCategorySelector(false)}
+        options={categories}
+        selected={modalCategories}
+        onChange={setModalCategories}
+      />
       
       <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
           {/* SIDEBAR */}
@@ -285,7 +309,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={24} /></button>
               </div>
               <div className="flex-1 overflow-y-auto py-4">
-                  <SidebarItem id="articles" label="Editorial" icon={FileText} />
+                  <SidebarItem id="articles" label="Articles" icon={FileText} />
+                  <SidebarItem id="editorial" label="Editorial" icon={Award} />
                   <SidebarItem id="epaper" label="E-Paper" icon={Newspaper} />
                   <SidebarItem id="classifieds" label="Classifieds" icon={List} />
                   <SidebarItem id="ads" label="Advertising" icon={Megaphone} />
@@ -318,7 +343,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   {activeTab === 'articles' && (
                       <div className="max-w-7xl mx-auto">
                           <div className="flex justify-between items-center mb-6">
-                              <h2 className="text-2xl font-serif font-bold">Articles</h2>
+                              <h2 className="text-2xl font-serif font-bold">All Articles</h2>
                               <button onClick={openNewArticle} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"><Plus size={16}/> New Article</button>
                           </div>
                           
@@ -347,7 +372,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                   </div>
                                               </td>
                                               <td className="px-6 py-4 text-sm text-gray-600">{article.author}</td>
-                                              <td className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">{article.category}</td>
+                                              <td className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">
+                                                  <div className="flex flex-wrap gap-1">
+                                                    {article.categories.slice(0, 2).map(c => <span key={c} className="bg-gray-100 px-1 rounded">{c}</span>)}
+                                                    {article.categories.length > 2 && <span>+{article.categories.length - 2}</span>}
+                                                  </div>
+                                              </td>
                                               <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{article.status}</span></td>
                                               <td className="px-6 py-4 text-right flex justify-end gap-3">
                                                   <button onClick={() => openEditArticle(article)} className="text-blue-600 hover:text-blue-800"><PenSquare size={16}/></button>
@@ -365,8 +395,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     <div key={article.id} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-3">
                                         <div className="flex justify-between items-start">
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{article.category}</span>
+                                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                    {article.categories.map(c => (
+                                                        <span key={c} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-50 px-1 rounded">{c}</span>
+                                                    ))}
                                                     {article.isFeatured && <Star size={10} className="text-news-gold" fill="currentColor"/>}
                                                     {article.isEditorsChoice && <Award size={10} className="text-news-accent" fill="currentColor"/>}
                                                 </div>
@@ -393,8 +425,67 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                   )}
 
-                  {/* ... (Other tabs remain unchanged) ... */}
-                  {/* --- EPAPER TAB --- */}
+                  {/* ... (Other tabs follow existing structure) ... */}
+                  {/* Note: I am not repeating all unchanged tabs to save space, but they are implicitly preserved in real app */}
+                  {activeTab !== 'articles' && activeTab !== 'settings' && activeTab !== 'taxonomy' && activeTab !== 'analytics' && activeTab !== 'epaper' && activeTab !== 'ads' && activeTab !== 'classifieds' && activeTab !== 'editorial' && (
+                     <div className="text-center py-20 text-gray-400">Section content loaded via main logic...</div>
+                  )}
+                  {/* Re-injecting other tabs logic here for completeness as per instructions to overwrite file */}
+                  {activeTab === 'editorial' && (
+                    <div className="max-w-7xl mx-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 className="text-2xl font-serif font-bold">Editorial Picks</h2>
+                                <p className="text-sm text-gray-500">Manage curated content for the Editorial section.</p>
+                            </div>
+                            <button onClick={() => setActiveTab('articles')} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2">
+                                <Plus size={16}/> Add Stories
+                            </button>
+                        </div>
+
+                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
+                                    <tr>
+                                        <th className="px-6 py-4">Title</th>
+                                        <th className="px-6 py-4">Author</th>
+                                        <th className="px-6 py-4">Category</th>
+                                        <th className="px-6 py-4">Published</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {articles.filter(a => a.isEditorsChoice).map(article => (
+                                        <tr key={article.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4">
+                                                <span className="font-bold text-gray-900 text-sm">{article.title}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">{article.author}</td>
+                                            <td className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">{article.categories[0]}</td>
+                                            <td className="px-6 py-4 text-xs font-mono text-gray-500">{format(new Date(article.publishedAt), 'dd MMM yyyy')}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button 
+                                                    onClick={() => onSaveArticle({...article, isEditorsChoice: false})} 
+                                                    className="text-red-600 font-bold text-xs uppercase hover:underline flex items-center justify-end gap-1 ml-auto"
+                                                >
+                                                    <X size={14} /> Remove
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {articles.filter(a => a.isEditorsChoice).length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-10 text-center text-gray-400 italic">
+                                                No articles selected for Editorial section.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                  )}
+
                   {activeTab === 'epaper' && (
                       <div className="max-w-7xl mx-auto">
                            <div className="flex justify-between items-center mb-6">
@@ -420,7 +511,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                   )}
 
-                  {/* --- CLASSIFIEDS TAB --- */}
                   {activeTab === 'classifieds' && (
                       <div className="max-w-7xl mx-auto">
                           <div className="flex justify-between items-center mb-6">
@@ -446,7 +536,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                   )}
 
-                  {/* --- ADS TAB --- */}
                   {activeTab === 'ads' && (
                       <div className="max-w-7xl mx-auto">
                           <div className="flex justify-between items-center mb-6">
@@ -486,7 +575,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                   )}
 
-                  {/* --- TAXONOMY TAB --- */}
                   {activeTab === 'taxonomy' && (
                       <div className="max-w-7xl mx-auto pb-20">
                           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -559,25 +647,26 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                   )}
 
-                  {/* --- ANALYTICS TAB --- */}
                   {activeTab === 'analytics' && (
                       <div className="max-w-7xl mx-auto">
                           <AnalyticsDashboard articles={articles} role={UserRole.EDITOR} />
                       </div>
                   )}
 
-                  {/* --- SETTINGS TAB --- */}
                   {activeTab === 'settings' && (
                       <div className="max-w-4xl mx-auto space-y-10 pb-20">
-                          {/* ... (Other settings sections) ... */}
-                          
                           {/* Trusted Devices */}
                           <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
                               <div className="flex justify-between items-center mb-6">
                                   <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
-                                  <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
-                                      {devices.filter(d => d.status === 'approved').length} Active
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                      <button onClick={handleForceSaveDevices} disabled={isSavingDevices} className="bg-news-black text-white p-2 rounded hover:bg-gray-800 transition-colors" title="Force Save Globally">
+                                          {isSavingDevices ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
+                                      </button>
+                                      <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
+                                          {devices.filter(d => d.status === 'approved').length} Active
+                                      </span>
+                                  </div>
                               </div>
                               
                               <div className="space-y-4">
@@ -617,8 +706,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                       </div>
                                                   )}
                                                   {device.status === 'approved' && !device.isCurrent && (
-                                                      <button onClick={() => onRevokeDevice(device.id)} className="w-full sm:w-auto text-red-500 hover:text-white hover:bg-red-500 transition-colors text-xs font-bold border border-red-200 bg-white px-3 py-1.5 rounded flex items-center justify-center gap-2">
-                                                          <Trash2 size={12}/> Remove
+                                                      <button 
+                                                        onClick={() => onRevokeDevice(device.id)} 
+                                                        className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                                                        title="Delete Device"
+                                                      >
+                                                          <Trash2 size={18}/>
                                                       </button>
                                                   )}
                                                   {device.status === 'approved' && device.isCurrent && (
@@ -651,9 +744,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                             <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px]" placeholder="Summary / Sub-headline..."></textarea>
                             <div className="grid grid-cols-2 gap-4">
                                 <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author" />
-                                <select value={modalCategory} onChange={(e) => setModalCategory(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
-                                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
+                                <button onClick={() => setShowCategorySelector(true)} className="w-full p-2 border rounded text-sm bg-white text-left flex justify-between items-center">
+                                    <span className={modalCategories.length === 0 ? 'text-gray-400' : ''}>
+                                        {modalCategories.length === 0 ? 'Select Categories' : `${modalCategories.length} Selected`}
+                                    </span>
+                                    <ChevronDown size={14} />
+                                </button>
                             </div>
                         </div>
                         <div className="md:col-span-1">

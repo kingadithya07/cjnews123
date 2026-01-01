@@ -240,8 +240,20 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           contentEditable
           onInput={handleInput}
           onClick={handleEditorClick}
+          suppressContentEditableWarning
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="off"
           className="flex-1 p-4 outline-none prose prose-lg max-w-none min-h-[300px] font-serif text-gray-800"
-          style={{ whiteSpace: 'pre-wrap' }}
+          style={{ 
+              whiteSpace: 'pre-wrap',
+              // Mobile UX: Setting touch-callout to none prevents the immediate native magnifying glass/menu 
+              // on tap-hold, allowing users to select text naturally for styling without visual obstruction.
+              // The native Copy/Paste menu will typically still appear on drag-release or specific long-press interaction depending on OS.
+              WebkitTouchCallout: 'none',
+              WebkitUserSelect: 'text',
+              userSelect: 'text'
+          }}
         />
         
         {content === '' && !editorRef.current?.innerHTML && (
