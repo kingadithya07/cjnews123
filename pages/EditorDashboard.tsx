@@ -423,8 +423,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                 {isSavingTaxonomy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes
                             </button>
                           </div>
-                          {/* Taxonomy Categories - Simplified */}
+                          
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                              {/* 1. Categories Column */}
                               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                                   <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><FileText size={18}/> Categories</h3>
                                   <div className="flex gap-2 mb-4">
@@ -435,6 +436,38 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       {categories.map(cat => (
                                           <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
                                               {cat} <button onClick={() => onDeleteCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                          </span>
+                                      ))}
+                                  </div>
+                              </div>
+
+                              {/* 2. Tags Column */}
+                              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Tag size={18}/> Tags</h3>
+                                  <div className="flex gap-2 mb-4">
+                                      <input type="text" placeholder="New Tag" value={newTag} onChange={e => setNewTag(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                      <button onClick={() => { if(newTag && onAddTag) { onAddTag(newTag); setNewTag(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                      {tags.map(tag => (
+                                          <span key={tag} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                              #{tag} <button onClick={() => onDeleteTag && onDeleteTag(tag)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                          </span>
+                                      ))}
+                                  </div>
+                              </div>
+
+                              {/* 3. Classified Sections Column */}
+                              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Classified Sections</h3>
+                                  <div className="flex gap-2 mb-4">
+                                      <input type="text" placeholder="New Section" value={newAdCategory} onChange={e => setNewAdCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                      <button onClick={() => { if(newAdCategory) { onAddAdCategory(newAdCategory); setNewAdCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                      {adCategories.map(cat => (
+                                          <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                              {cat} <button onClick={() => onDeleteAdCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
                                           </span>
                                       ))}
                                   </div>
