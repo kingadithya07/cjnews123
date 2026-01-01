@@ -47,12 +47,79 @@ function App() {
     textColor: '#bfa17b'
   });
 
+  // --- DEVICE MANAGEMENT (DB TABLE) ---
+  const fetchDevices = async () => {
+      if (!userId) return;
+      // Fetch from 'trusted_devices' table instead of metadata
+      const { data, error } = await supabase.from('trusted_devices').select('*');
+      if (data) {
+          const currentId = getDeviceId();
+          const mappedDevices: TrustedDevice[] = data.map((d: any) => ({
+              id: d.id,
+              userId: d.user_id,
+              deviceName: d.device_name,
+              deviceType: d.device_type,
+              location: d.location,
+              lastActive: d.last_active,
+              status: d.status,
+              browser: d.browser,
+              isPrimary: d.is_primary,
+              // CALCULATE isCurrent dynamically. Do NOT rely on DB value.
+              // This ensures 'Delete' button shows for remote devices.
+              isCurrent: d.id === currentId 
+          }));
+          setDevices(mappedDevices);
+      }
+  };
+
+  const handleAddDevice = async (device: TrustedDevice) => {
+      // Optimistic Update
+      setDevices(prev => [...prev, { ...device, isCurrent: true }]); // Local is always current initially
+
+      const dbDevice = {
+          id: device.id,
+          user_id: device.userId,
+          device_name: device.deviceName,
+          device_type: device.deviceType,
+          location: device.location,
+          last_active: device.lastActive,
+          status: device.status,
+          browser: device.browser,
+          is_primary: device.isPrimary
+          // Removed isCurrent from DB payload to avoid stale state
+      };
+
+      const { error } = await supabase.from('trusted_devices').upsert(dbDevice);
+      if (error) {
+          console.error("Device add failed", error);
+          fetchDevices(); // Revert on error
+      }
+  };
+
+  const handleRevokeDevice = async (deviceId: string) => {
+      // Optimistic
+      setDevices(prev => prev.filter(d => d.id !== deviceId));
+      
+      const { error } = await supabase.from('trusted_devices').delete().eq('id', deviceId);
+      if (error) {
+          alert("Failed to delete device: " + error.message);
+          fetchDevices();
+      }
+  };
+
+  const handleUpdateDeviceStatus = async (deviceId: string, status: 'approved' | 'pending') => {
+      setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, status } : d));
+      const { error } = await supabase.from('trusted_devices').update({ status }).eq('id', deviceId);
+      if (error) {
+          console.error("Status update failed", error);
+          fetchDevices();
+      }
+  };
+
   // --- DATA SYNC FROM SUPABASE ---
   const fetchData = async (force: boolean = false) => {
     try {
-      // 1. Fetch Global Settings FIRST and separately to ensure fresh branding
-      // IMPORTANT: We request this regardless of auth state. 
-      // The record MUST be 'PUBLISHED' in DB to be visible to public/incognito users.
+      // 1. Global Settings
       const { data: settingsData } = await supabase
         .from('articles')
         .select('content, published_at')
@@ -62,41 +129,27 @@ function App() {
       if (settingsData && settingsData.content) {
           try {
               const parsedSettings = JSON.parse(settingsData.content);
-              if (parsedSettings.watermark) {
-                  // Critical: Update state immediately so all components see new branding
-                  setWatermarkSettings(parsedSettings.watermark);
-              }
-              if (parsedSettings.categories && Array.isArray(parsedSettings.categories)) {
-                  setCategories(parsedSettings.categories);
-              }
-              if (parsedSettings.tags && Array.isArray(parsedSettings.tags)) {
-                  setTags(parsedSettings.tags);
-              }
-              if (parsedSettings.adCategories && Array.isArray(parsedSettings.adCategories)) {
-                  setAdCategories(parsedSettings.adCategories);
-              }
-          } catch (e) {
-              console.error("Failed to parse global settings", e);
-          }
+              if (parsedSettings.watermark) setWatermarkSettings(parsedSettings.watermark);
+              if (parsedSettings.categories && Array.isArray(parsedSettings.categories)) setCategories(parsedSettings.categories);
+              if (parsedSettings.tags && Array.isArray(parsedSettings.tags)) setTags(parsedSettings.tags);
+              if (parsedSettings.adCategories && Array.isArray(parsedSettings.adCategories)) setAdCategories(parsedSettings.adCategories);
+          } catch (e) { console.error("Failed to parse global settings", e); }
       }
 
-      // 2. Fetch Articles (excluding config record)
-      let { data: artData } = await supabase
-        .from('articles')
-        .select('*')
-        .neq('id', GLOBAL_SETTINGS_ID)
-        .order('publishedAt', { ascending: false });
+      // 2. Articles
+      let { data: artData } = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).order('publishedAt', { ascending: false });
       
-      // 3. Fetch E-Paper Pages
-      let { data: pageData } = await supabase
-        .from('epaper_pages')
-        .select('*')
-        .order('date', { ascending: false })
-        .order('pageNumber', { ascending: true });
+      // 3. E-Paper
+      let { data: pageData } = await supabase.from('epaper_pages').select('*').order('date', { ascending: false }).order('pageNumber', { ascending: true });
 
-      // 4. Fetch Classifieds & Ads
+      // 4. Classifieds & Ads
       const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
+
+      // 5. Trusted Devices (Only if logged in)
+      if (userId) {
+          await fetchDevices();
+      }
 
       // --- MAPPING LAYER ---
       if (artData) {
@@ -105,9 +158,8 @@ function App() {
           title: a.title,
           subline: a.subline,
           author: a.author,
-          authorAvatar: a.authorAvatar || a.author_avatar, // Map backend snake_case to frontend camelCase
+          authorAvatar: a.authorAvatar || a.author_avatar,
           content: a.content,
-          // DB category is a string "A, B, C", Frontend uses ["A", "B", "C"]
           categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
           imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
           publishedAt: a.publishedAt || a.published_at || new Date().toISOString(),
@@ -170,12 +222,15 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, () => {
+          if (userId) fetchDevices(); // Refresh devices on change
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [userId]);
 
   // --- ROUTING LOGIC ---
   const getPathFromHash = () => {
@@ -202,27 +257,6 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const persistDevicesToCloud = async (newDevices: TrustedDevice[]) => {
-      setDevices(newDevices);
-      await supabase.auth.updateUser({ data: { trusted_devices: newDevices } });
-      
-      // --- LOGOUT LOGIC IF CURRENT DEVICE REVOKED ---
-      const currentId = getDeviceId();
-      // Check if current device is still in the 'approved' list
-      const isCurrentDeviceActive = newDevices.some(d => d.id === currentId && d.status === 'approved');
-      
-      // If user is logged in (userId exists) AND current device is no longer approved
-      if (userId && !isCurrentDeviceActive) {
-          // Force logout immediately
-          await supabase.auth.signOut();
-          setUserId(null);
-          setUserName(null);
-          setUserRole(UserRole.READER);
-          navigate('/login');
-          alert("This device has been removed from trusted devices. Please log in again.");
-      }
-  };
-
   useEffect(() => {
     const checkInitialSession = async () => {
       try {
@@ -233,19 +267,9 @@ function App() {
           setUserName(profile.full_name || 'Staff');
           setUserRole(profile.role || UserRole.READER);
           setUserAvatar(profile.avatar_url || null);
-          if (profile.trusted_devices) {
-              setDevices(profile.trusted_devices);
-              
-              // Verify current device immediately on load
-              const currentId = getDeviceId();
-              const isApproved = profile.trusted_devices.some((d: TrustedDevice) => d.id === currentId && d.status === 'approved');
-              if (!isApproved) {
-                  // Silent logout if session exists but device is revoked (e.g. from another tab/device)
-                  await supabase.auth.signOut();
-                  setUserId(null);
-                  navigate('/login');
-              }
-          }
+          
+          // Trigger device fetch after login
+          await fetchDevices();
         }
       } catch (err) {
         console.warn("Auth check failed:", err);
@@ -262,7 +286,7 @@ function App() {
         setUserName(profile.full_name || 'Staff');
         setUserRole(profile.role || UserRole.READER);
         setUserAvatar(profile.avatar_url || null);
-        if (profile.trusted_devices) setDevices(profile.trusted_devices);
+        fetchDevices(); // Fetch when session becomes active
       } else {
         setUserId(null);
         setUserName(null);
@@ -274,6 +298,20 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Check device approval AFTER fetching devices
+  useEffect(() => {
+      if (userId && devices.length > 0) {
+          const currentId = getDeviceId();
+          const currentDeviceEntry = devices.find(d => d.id === currentId);
+          if (currentDeviceEntry && currentDeviceEntry.status !== 'approved' && currentDeviceEntry.status !== 'pending') {
+               supabase.auth.signOut().then(() => {
+                   navigate('/login');
+                   alert("Device access revoked.");
+               });
+          }
+      }
+  }, [devices, userId]);
+
   const handleLogin = (role: UserRole, name: string, avatar?: string) => {
       setUserRole(role);
       setUserName(name);
@@ -281,7 +319,6 @@ function App() {
   };
 
   const handleSaveGlobalConfig = async (newWatermark?: WatermarkSettings) => {
-      // If new watermark provided, update state optimistically
       const watermarkToSave = newWatermark || watermarkSettings;
       if (newWatermark) setWatermarkSettings(newWatermark);
 
@@ -301,7 +338,6 @@ function App() {
           image_url: 'https://placehold.co/100?text=Config',
           publishedAt: new Date().toISOString(),
           published_at: new Date().toISOString(),
-          // MUST BE PUBLISHED to be visible to unauthenticated (Incognito) users via RLS
           status: ArticleStatus.PUBLISHED, 
           user_id: userId,
           summary: 'Internal system configuration'
@@ -309,10 +345,8 @@ function App() {
 
       const { error } = await supabase.from('articles').upsert(payload);
       if (error) {
-          console.error("Failed to save global settings:", error);
           alert(`Failed to save settings globally: ${error.message}`);
       } else {
-          // Force a fresh sync to ensure all article-based config fetches are updated
           fetchData(true);
       }
   };
@@ -328,9 +362,8 @@ function App() {
         title: article.title,
         subline: article.subline,
         author: article.author,
-        author_avatar: article.authorAvatar, // Map back to snake_case for DB
+        author_avatar: article.authorAvatar,
         content: article.content,
-        // Convert Array to comma-separated string for DB storage
         category: article.categories.join(', '), 
         imageUrl: article.imageUrl,
         image_url: article.imageUrl,
@@ -343,7 +376,6 @@ function App() {
     };
 
     const { error } = await supabase.from('articles').upsert(payload);
-
     if (error) {
       alert("Failed to save article: " + error.message);
       fetchData(true); 
@@ -366,7 +398,6 @@ function App() {
 
   const handleAddPage = async (page: EPaperPage) => {
     setEPaperPages(prev => [page, ...prev]);
-
     const payload = {
       id: page.id,
       date: page.date,
@@ -376,9 +407,7 @@ function App() {
       image_url: page.imageUrl,
       user_id: userId
     };
-
     const { error } = await supabase.from('epaper_pages').insert(payload);
-
     if (error) {
       alert("Backend Sync Error: " + error.message);
       fetchData(true); 
@@ -388,7 +417,6 @@ function App() {
   const handleDeletePage = async (id: string) => {
     const prevPages = [...ePaperPages];
     setEPaperPages(prev => prev.filter(p => p.id !== id));
-
     const { error } = await supabase.from('epaper_pages').delete().eq('id', id);
     if (error) {
       alert("Failed to delete page: " + error.message);
@@ -402,7 +430,6 @@ function App() {
         pageNumber: page.pageNumber,
         page_number: page.pageNumber
     }).eq('id', page.id);
-
     if (error) console.error("Page update error:", error.message);
     fetchData(true); 
   }
@@ -411,7 +438,7 @@ function App() {
     if (!userId) return false;
     const currentDeviceId = getDeviceId();
     const myDevices = devices.filter(d => d.userId === userId);
-    if (myDevices.length === 0) return true; 
+    if (myDevices.length === 0) return true; // First time login scenario handled in Login
     const currentEntry = myDevices.find(d => d.id === currentDeviceId);
     return currentEntry?.status === 'approved';
   };
@@ -433,9 +460,9 @@ function App() {
   if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
-    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={(d) => persistDevicesToCloud([...devices, d])} onEmergencyReset={() => {}} />;
+    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => {}} />;
   } else if (path === '/staff/login') {
-    content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={(d) => persistDevicesToCloud([...devices, d])} onEmergencyReset={() => {}} />;
+    content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => {}} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
     content = <EditorDashboard 
         articles={articles} 
@@ -460,11 +487,10 @@ function App() {
         onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} 
         onAddAdCategory={c => setAdCategories(prev => [...prev, c])} 
         onDeleteAdCategory={c => setAdCategories(prev => prev.filter(old => old !== c))}
-        onSaveTaxonomy={() => handleSaveGlobalConfig()} // Save all current taxonomy state
+        onSaveTaxonomy={() => handleSaveGlobalConfig()} 
         onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} 
         onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
         onAddAdvertisement={async (ad) => { 
-            // Map to DB columns (snake_case)
             const dbAd = {
                 id: ad.id,
                 title: ad.title,
@@ -475,19 +501,16 @@ function App() {
                 is_active: ad.isActive
             };
             const { error } = await supabase.from('advertisements').insert(dbAd); 
-            if (error) {
-                alert("Error saving banner: " + error.message);
-            } else {
-                fetchData(true); 
-            }
+            if (error) alert("Error saving banner: " + error.message);
+            else fetchData(true); 
         }} 
         onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
         onNavigate={navigate} 
         userAvatar={userAvatar} 
         devices={devices.filter(d => d.userId === userId)} 
-        onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} 
-        onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} 
-        onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} 
+        onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} 
+        onRejectDevice={(id) => handleRevokeDevice(id)} 
+        onRevokeDevice={handleRevokeDevice} 
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard 
@@ -498,7 +521,7 @@ function App() {
         onNavigate={navigate} 
         userAvatar={userAvatar} 
         devices={devices.filter(d => d.userId === userId)}
-        onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))}
+        onRevokeDevice={handleRevokeDevice}
     />;
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;

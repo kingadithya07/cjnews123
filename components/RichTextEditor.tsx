@@ -76,8 +76,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     }
 
     if (isFormatPainting && copiedStyle) {
-        // Simple heuristic for format painting: apply basic styles
-        // This is a limited implementation as full CSS copying is complex with execCommand
+        // Simple heuristic for format painting
         const selection = window.getSelection();
         if (selection && !selection.isCollapsed) {
              if (copiedStyle.bold) exec('bold');
@@ -92,7 +91,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
 
   const handleFormatPainterClick = () => {
       if (!isFormatPainting) {
-          // Copy style from current selection
           const color = document.queryCommandValue('foreColor');
           const bold = document.queryCommandState('bold');
           const italic = document.queryCommandState('italic');
@@ -136,7 +134,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     <button
       type="button"
       onMouseDown={(e) => {
-        e.preventDefault();
+        e.preventDefault(); // Prevent focus loss from editor
         if (command === 'createLink') {
             const url = prompt('Enter link URL:');
             if (url) exec(command, url);
@@ -160,76 +158,50 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
       />
       <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg bg-white ${className}`}>
         
-        {/* Toolbar - Scrollable on mobile */}
-        <div className="sticky top-0 z-10 flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50 overflow-x-auto no-scrollbar touch-pan-x">
+        {/* Toolbar - Sticky & Z-Index adjusted */}
+        <div className="sticky top-0 z-[20] flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50 overflow-x-auto no-scrollbar touch-pan-x shadow-sm">
           
-          {/* History */}
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
               <ToolbarButton icon={Undo} command="undo" title="Undo" />
               <ToolbarButton icon={Redo} command="redo" title="Redo" />
           </div>
 
-          {/* Text Style */}
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
               <ToolbarButton icon={Bold} command="bold" title="Bold" />
               <ToolbarButton icon={Italic} command="italic" title="Italic" />
               <ToolbarButton icon={Underline} command="underline" title="Underline" />
-              
-              {/* Text Color Picker */}
               <div className="relative flex items-center justify-center w-7 h-7 overflow-hidden rounded hover:bg-gray-200 transition-colors shrink-0">
                   <Palette size={16} className="text-gray-500 pointer-events-none absolute" />
-                  <input 
-                      type="color" 
-                      onChange={(e) => exec('foreColor', e.target.value)}
-                      className="opacity-0 w-full h-full cursor-pointer z-10"
-                      title="Text Color"
-                  />
+                  <input type="color" onChange={(e) => exec('foreColor', e.target.value)} className="opacity-0 w-full h-full cursor-pointer z-10" title="Text Color" />
               </div>
-
-              {/* Format Painter */}
-              <button
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); handleFormatPainterClick(); }}
-                  className={`p-1.5 rounded transition-colors shrink-0 ${isFormatPainting ? 'bg-news-accent text-white animate-pulse' : 'text-gray-500 hover:text-black hover:bg-gray-200'}`}
-                  title="Format Painter (Copy Style -> Select Text)"
-              >
+              <button type="button" onMouseDown={(e) => { e.preventDefault(); handleFormatPainterClick(); }} className={`p-1.5 rounded transition-colors shrink-0 ${isFormatPainting ? 'bg-news-accent text-white animate-pulse' : 'text-gray-500 hover:text-black hover:bg-gray-200'}`} title="Format Painter">
                   <Paintbrush size={16} />
               </button>
-
               <ToolbarButton icon={Eraser} command="removeFormat" title="Clear Formatting" />
           </div>
 
-          {/* Headings & Quote */}
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
               <ToolbarButton icon={Heading1} command="formatBlock" value="H2" title="Headline 1" />
               <ToolbarButton icon={Heading2} command="formatBlock" value="H3" title="Headline 2" />
               <ToolbarButton icon={Quote} command="formatBlock" value="blockquote" title="Quote" />
           </div>
 
-          {/* Lists & Indentation */}
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
               <ToolbarButton icon={List} command="insertUnorderedList" title="Bullet List" />
               <ToolbarButton icon={ListOrdered} command="insertOrderedList" title="Numbered List" />
-              <ToolbarButton icon={Indent} command="indent" title="Indent (Outline)" />
-              <ToolbarButton icon={Outdent} command="outdent" title="Outdent (Outline)" />
+              <ToolbarButton icon={Indent} command="indent" title="Indent" />
+              <ToolbarButton icon={Outdent} command="outdent" title="Outdent" />
           </div>
 
-          {/* Alignment */}
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
               <ToolbarButton icon={AlignLeft} command="justifyLeft" title="Align Left" />
               <ToolbarButton icon={AlignCenter} command="justifyCenter" title="Align Center" />
               <ToolbarButton icon={AlignRight} command="justifyRight" title="Align Right" />
           </div>
 
-          {/* Insert */}
           <div className="flex gap-0.5 shrink-0">
                <ToolbarButton icon={LinkIcon} command="createLink" title="Insert Link" />
-              <button
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); setShowGallery(true); }}
-                  className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors shrink-0"
-                  title="Choose from Gallery"
-              >
+              <button type="button" onMouseDown={(e) => { e.preventDefault(); setShowGallery(true); }} className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors shrink-0" title="Gallery">
                   <Library size={16} />
               </button>
           </div>
@@ -244,15 +216,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           spellCheck={false}
           autoCorrect="off"
           autoCapitalize="off"
-          className="flex-1 p-4 outline-none prose prose-lg max-w-none min-h-[300px] font-serif text-gray-800"
+          className="flex-1 p-4 outline-none prose prose-lg max-w-none min-h-[300px] font-serif text-gray-800 selection:bg-news-gold/30 selection:text-black"
           style={{ 
               whiteSpace: 'pre-wrap',
-              // Mobile UX: Setting touch-callout to none prevents the immediate native magnifying glass/menu 
-              // on tap-hold, allowing users to select text naturally for styling without visual obstruction.
-              // The native Copy/Paste menu will typically still appear on drag-release or specific long-press interaction depending on OS.
-              WebkitTouchCallout: 'none',
+              userSelect: 'text',
               WebkitUserSelect: 'text',
-              userSelect: 'text'
+              // Allow standard touch interactions (pan/zoom) but restrict callout via standard logic if browser supports it
+              touchAction: 'manipulation' 
           }}
         />
         
@@ -268,7 +238,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
             data-image-delete-button
             onClick={handleDeleteImage}
             style={getButtonPosition()}
-            className="z-20 p-1.5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-transform hover:scale-110"
+            className="z-20 p-1.5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 focus:outline-none transition-transform hover:scale-110"
             title="Delete Image"
           >
             <Trash2 size={14} />
