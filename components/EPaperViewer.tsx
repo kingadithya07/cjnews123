@@ -40,7 +40,7 @@ const EPaperViewer: React.FC<EPaperViewerProps> = ({ page, onRegionClick, onNavi
         <img 
           src={page.imageUrl} 
           alt={`Page ${page.pageNumber}`} 
-          className={`block max-w-none select-none transition-all duration-300 ${imageClassName || ''} ${hoveredRegion ? 'brightness-90' : ''}`}
+          className={`block max-w-full h-auto select-none transition-all duration-300 ${imageClassName || ''} ${hoveredRegion ? 'brightness-90' : ''}`}
           draggable={false}
         />
         

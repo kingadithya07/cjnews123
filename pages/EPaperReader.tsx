@@ -425,7 +425,11 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
               >
                   {activePage ? (
                       <div ref={contentRef} style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, transition: (isTouchInteraction.current || isDragging.current) ? 'none' : 'transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1)', transformOrigin: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-                          <EPaperViewer page={activePage} imageClassName="max-w-[98vw] max-h-[85dvh] md:max-h-[90vh] w-auto h-auto block shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-white/5 rounded-sm object-contain" disableInteractivity={true} />
+                          <EPaperViewer 
+                            page={activePage} 
+                            imageClassName="max-w-[100vw] max-h-[calc(100dvh-80px)] w-auto h-auto block shadow-[0_0_50px_rgba(0,0,0,0.5)] object-contain" 
+                            disableInteractivity={true} 
+                          />
                       </div>
                   ) : (
                       <div className="flex flex-col items-center gap-4 opacity-30">

@@ -19,9 +19,12 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
   const availableAds = ads.filter(ad => {
     // Basic checks
     if (!ad.isActive) return false;
-    if (ad.size !== size) return false;
+    
+    // Size match: Strict match OR Custom size (allows custom ads to run in any slot)
+    const matchesSize = ad.size === size || ad.size === 'CUSTOM';
+    if (!matchesSize) return false;
 
-    // Global ads run everywhere except if a specific slot overrides (not implemented here, global runs alongside)
+    // Global ads run everywhere
     if (ad.placement === 'GLOBAL') return true;
 
     // Specific placement match
@@ -65,8 +68,10 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
   };
 
   const styles = getSizeStyles(ad.size, ad.customWidth, ad.customHeight);
-  // Add mobile-only visibility class for MOBILE_BANNER if strictly required, otherwise rely on responsive container
-  const extraClasses = ad.size === 'MOBILE_BANNER' ? 'block sm:hidden' : '';
+  
+  // Use the requested slot 'size' to determine visibility, not the ad content size.
+  // This ensures a Custom ad in a Mobile slot is still hidden on desktop.
+  const extraClasses = size === 'MOBILE_BANNER' ? 'block sm:hidden' : '';
 
   return (
     <div className={`w-full flex justify-center items-center my-6 ${className} ${extraClasses}`}>

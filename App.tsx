@@ -133,6 +133,7 @@ function App() {
               if (parsedSettings.categories && Array.isArray(parsedSettings.categories)) setCategories(parsedSettings.categories);
               if (parsedSettings.tags && Array.isArray(parsedSettings.tags)) setTags(parsedSettings.tags);
               if (parsedSettings.adCategories && Array.isArray(parsedSettings.adCategories)) setAdCategories(parsedSettings.adCategories);
+              if (parsedSettings.adsEnabled !== undefined) setGlobalAdsEnabled(parsedSettings.adsEnabled);
           } catch (e) { console.error("Failed to parse global settings", e); }
       }
 
@@ -333,7 +334,8 @@ function App() {
               watermark: watermarkToSave,
               categories: categories,
               tags: tags,
-              adCategories: adCategories
+              adCategories: adCategories,
+              adsEnabled: globalAdsEnabled
           }),
           author: 'SYSTEM',
           category: 'Config',
@@ -349,6 +351,39 @@ function App() {
       const { error } = await supabase.from('articles').upsert(payload);
       if (error) {
           alert(`Failed to save settings globally: ${error.message}`);
+      } else {
+          fetchData(true);
+      }
+  };
+
+  const handleToggleGlobalAds = async (enabled: boolean) => {
+      setGlobalAdsEnabled(enabled);
+      
+      const payload = {
+          id: GLOBAL_SETTINGS_ID,
+          title: 'SYSTEM_CONFIG',
+          subline: 'Global System Configuration',
+          content: JSON.stringify({ 
+              watermark: watermarkSettings,
+              categories: categories,
+              tags: tags,
+              adCategories: adCategories,
+              adsEnabled: enabled
+          }),
+          author: 'SYSTEM',
+          category: 'Config',
+          imageUrl: 'https://placehold.co/100?text=Config',
+          image_url: 'https://placehold.co/100?text=Config',
+          publishedAt: new Date().toISOString(),
+          published_at: new Date().toISOString(),
+          status: ArticleStatus.PUBLISHED, 
+          user_id: userId,
+          summary: 'Internal system configuration'
+      };
+
+      const { error } = await supabase.from('articles').upsert(payload);
+      if (error) {
+          console.error("Failed to sync global ad switch", error);
       } else {
           fetchData(true);
       }
@@ -477,7 +512,7 @@ function App() {
         advertisements={advertisements} 
         globalAdsEnabled={globalAdsEnabled} 
         watermarkSettings={watermarkSettings} 
-        onToggleGlobalAds={setGlobalAdsEnabled} 
+        onToggleGlobalAds={handleToggleGlobalAds} 
         onUpdateWatermarkSettings={(w) => handleSaveGlobalConfig(w)} 
         onUpdatePage={handleUpdatePage} 
         onAddPage={handleAddPage} 
