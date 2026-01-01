@@ -447,8 +447,83 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   )}
 
                   {activeTab === 'settings' && (
-                      <div className="max-w-4xl mx-auto space-y-10 pb-20">
-                          {/* Trusted Devices */}
+                      <div className="max-w-4xl mx-auto space-y-8 pb-20">
+                          
+                          {/* Profile Settings */}
+                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><UserIcon size={20} className="text-news-gold"/> My Profile</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                 <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
+                                        <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar</label>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
+                                                {profileAvatar ? <img src={profileAvatar} className="w-full h-full object-cover" /> : <UserIcon className="w-full h-full p-3 text-gray-300" />}
+                                            </div>
+                                            <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+                                                {isAvatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                                <span>Upload</span>
+                                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setProfileAvatar, setIsAvatarUploading)} disabled={isAvatarUploading} />
+                                            </label>
+                                        </div>
+                                    </div>
+                                 </div>
+                                 <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">New Password</label>
+                                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" placeholder="•••••••" />
+                                    </div>
+                                    <div className="pt-2">
+                                        <button onClick={handleSaveProfile} disabled={isSavingSettings} className="w-full bg-news-black text-white py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                            {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Update Profile
+                                        </button>
+                                    </div>
+                                 </div>
+                              </div>
+                          </div>
+
+                          {/* Branding Settings */}
+                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Camera size={20} className="text-blue-600"/> Watermark & Branding Tool</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                  <div className="space-y-4">
+                                      <div>
+                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Watermark Text</label>
+                                          <input type="text" value={watermarkText} onChange={e => setWatermarkText(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                      </div>
+                                      <div>
+                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Font Size (px)</label>
+                                          <input type="number" value={watermarkFontSize} onChange={e => setWatermarkFontSize(Number(e.target.value))} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                      </div>
+                                  </div>
+                                  <div className="space-y-4">
+                                      <div>
+                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Brand Logo</label>
+                                          <div className="flex items-center gap-4">
+                                              <div className="w-16 h-16 rounded bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center overflow-hidden">
+                                                  {watermarkLogo ? <img src={watermarkLogo} className="w-full h-full object-contain" /> : <ImageIcon className="text-gray-300" />}
+                                              </div>
+                                              <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+                                                  {isLogoUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                                  <span>Upload Logo</span>
+                                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setWatermarkLogo, setIsLogoUploading)} disabled={isLogoUploading} />
+                                              </label>
+                                          </div>
+                                      </div>
+                                      <div className="pt-2">
+                                          <button onClick={handleUpdateBranding} disabled={isSavingBranding} className="w-full bg-news-gold text-black py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-yellow-500 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                              {isSavingBranding ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save System Config
+                                          </button>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+
+                          {/* Trusted Devices (Existing) */}
                           <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
                               <div className="flex justify-between items-center mb-6">
                                   <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>

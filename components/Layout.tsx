@@ -140,19 +140,24 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          </div>
          <div className="flex items-center gap-6">
              {userName ? (
-                 <div className="flex items-center gap-4">
+                 <div className="flex items-center gap-3">
                     {/* Dashboard Link Moved Here - Visible on Mobile */}
                     {currentRole !== UserRole.READER && (
                         <Link 
                             to={currentRole === UserRole.WRITER ? '/writer' : '/editor'} 
                             onNavigate={onNavigate}
-                            className="flex items-center gap-1.5 text-news-black hover:text-news-accent transition-colors mr-2 border-r border-gray-200 pr-4"
+                            className="flex items-center gap-1.5 text-news-black hover:text-news-accent transition-colors mr-3 border-r border-gray-200 pr-3"
                         >
-                            <LayoutDashboard size={14} /> <span>DASHBOARD</span>
+                            <LayoutDashboard size={14} /> <span className="hidden sm:inline">DASHBOARD</span>
                         </Link>
                     )}
-                    <span className="text-news-blue font-extrabold hidden sm:inline">{userName.toUpperCase()}</span>
-                    <button onClick={() => supabase.auth.signOut()} className="text-gray-400 hover:text-news-accent">LOGOUT</button>
+                    <div className="flex items-center gap-2">
+                         <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 border border-gray-300">
+                             {userAvatar ? <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" /> : <User size={16} className="m-1 text-gray-400"/>}
+                         </div>
+                         <span className="text-news-blue font-extrabold hidden sm:inline">{userName.toUpperCase()}</span>
+                    </div>
+                    <button onClick={() => supabase.auth.signOut()} className="text-gray-400 hover:text-news-accent ml-2">LOGOUT</button>
                  </div>
              ) : (
                  <Link to="/login" onNavigate={onNavigate} className="flex items-center gap-1.5 hover:text-news-blue">
