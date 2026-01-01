@@ -13,7 +13,7 @@ import ResetPassword from './pages/ResetPassword';
 import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice } from './types';
 import { MOCK_ARTICLES, MOCK_EPAPER, APP_NAME } from './constants';
 import { generateId, getDeviceId } from './utils';
-import { supabase } from '../supabaseClient';
+import { supabase } from './supabaseClient';
 
 // Use a fixed UUID for global settings to ensure compatibility with UUID columns in Supabase
 const GLOBAL_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
