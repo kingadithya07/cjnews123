@@ -4,7 +4,7 @@ import {
   Bold, Italic, Underline, Heading1, Heading2, Quote, 
   List, ListOrdered, Link as LinkIcon, Image as ImageIcon,
   AlignLeft, AlignCenter, AlignRight, Undo, Redo, Loader2,
-  Trash2, Library
+  Trash2, Library, Palette, Indent, Outdent, Eraser, Paintbrush
 } from 'lucide-react';
 import ImageGalleryModal from './ImageGalleryModal';
 
@@ -21,6 +21,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
   const [showGallery, setShowGallery] = useState(false);
+  const [isFormatPainting, setIsFormatPainting] = useState(false);
+  const [copiedStyle, setCopiedStyle] = useState<any>(null);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== content) {
@@ -72,6 +74,36 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     } else if (selectedImg) {
         setSelectedImg(null);
     }
+
+    if (isFormatPainting && copiedStyle) {
+        // Simple heuristic for format painting: apply basic styles
+        // This is a limited implementation as full CSS copying is complex with execCommand
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed) {
+             if (copiedStyle.bold) exec('bold');
+             if (copiedStyle.italic) exec('italic');
+             if (copiedStyle.underline) exec('underline');
+             if (copiedStyle.color) exec('foreColor', copiedStyle.color);
+             setIsFormatPainting(false);
+             setCopiedStyle(null);
+        }
+    }
+  };
+
+  const handleFormatPainterClick = () => {
+      if (!isFormatPainting) {
+          // Copy style from current selection
+          const color = document.queryCommandValue('foreColor');
+          const bold = document.queryCommandState('bold');
+          const italic = document.queryCommandState('italic');
+          const underline = document.queryCommandState('underline');
+          
+          setCopiedStyle({ color, bold, italic, underline });
+          setIsFormatPainting(true);
+      } else {
+          setIsFormatPainting(false);
+          setCopiedStyle(null);
+      }
   };
 
   const handleDeleteImage = () => {
@@ -100,7 +132,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     };
   };
 
-  const ToolbarButton = ({ icon: Icon, command, value, title }: any) => (
+  const ToolbarButton = ({ icon: Icon, command, value, title, active }: any) => (
     <button
       type="button"
       onMouseDown={(e) => {
@@ -112,7 +144,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
             exec(command, value);
         }
       }}
-      className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors"
+      className={`p-1.5 rounded transition-colors shrink-0 ${active ? 'bg-news-black text-white' : 'text-gray-500 hover:text-black hover:bg-gray-200'}`}
       title={title}
     >
       <Icon size={16} />
@@ -127,32 +159,75 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           onSelectImage={handleGallerySelect}
       />
       <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg bg-white ${className}`}>
-        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
-          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
+        
+        {/* Toolbar - Scrollable on mobile */}
+        <div className="sticky top-0 z-10 flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50 overflow-x-auto no-scrollbar touch-pan-x">
+          
+          {/* History */}
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
+              <ToolbarButton icon={Undo} command="undo" title="Undo" />
+              <ToolbarButton icon={Redo} command="redo" title="Redo" />
+          </div>
+
+          {/* Text Style */}
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
               <ToolbarButton icon={Bold} command="bold" title="Bold" />
               <ToolbarButton icon={Italic} command="italic" title="Italic" />
               <ToolbarButton icon={Underline} command="underline" title="Underline" />
+              
+              {/* Text Color Picker */}
+              <div className="relative flex items-center justify-center w-7 h-7 overflow-hidden rounded hover:bg-gray-200 transition-colors shrink-0">
+                  <Palette size={16} className="text-gray-500 pointer-events-none absolute" />
+                  <input 
+                      type="color" 
+                      onChange={(e) => exec('foreColor', e.target.value)}
+                      className="opacity-0 w-full h-full cursor-pointer z-10"
+                      title="Text Color"
+                  />
+              </div>
+
+              {/* Format Painter */}
+              <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); handleFormatPainterClick(); }}
+                  className={`p-1.5 rounded transition-colors shrink-0 ${isFormatPainting ? 'bg-news-accent text-white animate-pulse' : 'text-gray-500 hover:text-black hover:bg-gray-200'}`}
+                  title="Format Painter (Copy Style -> Select Text)"
+              >
+                  <Paintbrush size={16} />
+              </button>
+
+              <ToolbarButton icon={Eraser} command="removeFormat" title="Clear Formatting" />
           </div>
-          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
-              <ToolbarButton icon={Heading1} command="formatBlock" value="H2" title="Heading 1" />
-              <ToolbarButton icon={Heading2} command="formatBlock" value="H3" title="Heading 2" />
+
+          {/* Headings & Quote */}
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
+              <ToolbarButton icon={Heading1} command="formatBlock" value="H2" title="Headline 1" />
+              <ToolbarButton icon={Heading2} command="formatBlock" value="H3" title="Headline 2" />
               <ToolbarButton icon={Quote} command="formatBlock" value="blockquote" title="Quote" />
           </div>
-          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
+
+          {/* Lists & Indentation */}
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
               <ToolbarButton icon={List} command="insertUnorderedList" title="Bullet List" />
               <ToolbarButton icon={ListOrdered} command="insertOrderedList" title="Numbered List" />
+              <ToolbarButton icon={Indent} command="indent" title="Indent (Outline)" />
+              <ToolbarButton icon={Outdent} command="outdent" title="Outdent (Outline)" />
           </div>
-          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1">
+
+          {/* Alignment */}
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
               <ToolbarButton icon={AlignLeft} command="justifyLeft" title="Align Left" />
               <ToolbarButton icon={AlignCenter} command="justifyCenter" title="Align Center" />
               <ToolbarButton icon={AlignRight} command="justifyRight" title="Align Right" />
           </div>
-          <div className="flex gap-0.5">
+
+          {/* Insert */}
+          <div className="flex gap-0.5 shrink-0">
                <ToolbarButton icon={LinkIcon} command="createLink" title="Insert Link" />
               <button
                   type="button"
                   onMouseDown={(e) => { e.preventDefault(); setShowGallery(true); }}
-                  className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors"
+                  className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors shrink-0"
                   title="Choose from Gallery"
               >
                   <Library size={16} />

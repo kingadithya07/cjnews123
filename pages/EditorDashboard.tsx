@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -73,6 +73,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
   const [modalIsFeatured, setModalIsFeatured] = useState(false);
+  const [modalIsEditorsChoice, setModalIsEditorsChoice] = useState(false);
   const [showImageGallery, setShowImageGallery] = useState(false);
   
   // E-Paper State
@@ -162,6 +163,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setModalImageUrl('');
       setModalStatus(ArticleStatus.PUBLISHED);
       setModalIsFeatured(false);
+      setModalIsEditorsChoice(false);
       setShowArticleModal(true);
   };
 
@@ -175,6 +177,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setModalImageUrl(article.imageUrl);
       setModalStatus(article.status);
       setModalIsFeatured(article.isFeatured || false);
+      setModalIsEditorsChoice(article.isEditorsChoice || false);
       setShowArticleModal(true);
   };
 
@@ -190,7 +193,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           imageUrl: modalImageUrl || 'https://placehold.co/800x400?text=No+Image',
           publishedAt: editArticleId ? articles.find(a => a.id === editArticleId)?.publishedAt || new Date().toISOString() : new Date().toISOString(),
           status: modalStatus,
-          isFeatured: modalIsFeatured
+          isFeatured: modalIsFeatured,
+          isEditorsChoice: modalIsEditorsChoice
       };
       onSaveArticle(article);
       setShowArticleModal(false);
@@ -336,7 +340,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                               <td className="px-6 py-4">
                                                   <div className="flex flex-col">
                                                       <span className="font-bold text-gray-900 text-sm line-clamp-1">{article.title}</span>
-                                                      {article.isFeatured && <span className="text-[10px] text-news-accent font-bold uppercase flex items-center gap-1 mt-1"><Star size={10} fill="currentColor"/> Featured</span>}
+                                                      <div className="flex gap-2 mt-1">
+                                                          {article.isFeatured && <span className="text-[10px] text-news-accent font-bold uppercase flex items-center gap-1"><Star size={10} fill="currentColor"/> Featured</span>}
+                                                          {article.isEditorsChoice && <span className="text-[10px] text-news-gold font-bold uppercase flex items-center gap-1"><Award size={10} fill="currentColor"/> Editorial</span>}
+                                                      </div>
                                                   </div>
                                               </td>
                                               <td className="px-6 py-4 text-sm text-gray-600">{article.author}</td>
@@ -361,6 +368,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{article.category}</span>
                                                     {article.isFeatured && <Star size={10} className="text-news-gold" fill="currentColor"/>}
+                                                    {article.isEditorsChoice && <Award size={10} className="text-news-accent" fill="currentColor"/>}
                                                 </div>
                                                 <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">{article.title}</h3>
                                             </div>
@@ -481,8 +489,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   {/* --- TAXONOMY TAB --- */}
                   {activeTab === 'taxonomy' && (
                       <div className="max-w-7xl mx-auto pb-20">
-                          <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-serif font-bold">Taxonomy Management</h2>
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                            <div>
+                                <h2 className="text-2xl font-serif font-bold">Taxonomy & Navigation</h2>
+                                <p className="text-xs text-gray-500 mt-1">Manage categories here. These categories also populate the website header menu.</p>
+                            </div>
                             <button 
                                 onClick={handleTaxonomySave} 
                                 disabled={isSavingTaxonomy}
@@ -496,7 +507,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                               {/* Article Categories */}
                               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><FileText size={18}/> Article Categories</h3>
+                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><FileText size={18}/> Header Categories</h3>
                                   <div className="flex gap-2 mb-4">
                                       <input type="text" placeholder="New Category" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
                                       <button onClick={() => { if(newCategory) { onAddCategory(newCategory); setNewCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
@@ -565,7 +576,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               <div className="flex justify-between items-center mb-6">
                                   <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
                                   <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
-                                      {devices.filter(d => d.status === 'approved').length} / 5 Active
+                                      {devices.filter(d => d.status === 'approved').length} Active
                                   </span>
                               </div>
                               
@@ -577,35 +588,36 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       if (device.deviceType === 'tablet') Icon = Tablet;
                                       
                                       return (
-                                          <div key={device.id} className="flex flex-col md:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                              <div className="flex items-center gap-4 mb-4 md:mb-0 w-full md:w-auto">
+                                          <div key={device.id} className="flex flex-col md:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 gap-4">
+                                              <div className="flex items-center gap-4 w-full md:w-auto">
                                                   <div className={`p-3 rounded-full ${device.isCurrent ? 'bg-news-black text-news-gold' : 'bg-white border text-gray-500'}`}>
                                                       <Icon size={20} />
                                                   </div>
-                                                  <div>
-                                                      <div className="flex items-center gap-2">
-                                                          <span className="font-bold text-sm text-gray-900">{device.deviceName}</span>
-                                                          {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded">THIS DEVICE</span>}
+                                                  <div className="flex-1 min-w-0">
+                                                      <div className="flex items-center gap-2 flex-wrap">
+                                                          <span className="font-bold text-sm text-gray-900 truncate">{device.deviceName}</span>
+                                                          {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">THIS DEVICE</span>}
                                                           {device.isPrimary && <span className="bg-news-gold text-black text-[10px] font-bold px-1.5 py-0.5 rounded">PRIMARY</span>}
                                                       </div>
-                                                      <div className="text-xs text-gray-500 mt-1 flex gap-3">
+                                                      <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 items-center">
                                                           <span>{device.location}</span>
-                                                          <span>•</span>
+                                                          <span className="hidden md:inline">•</span>
                                                           <span>{device.browser}</span>
-                                                          <span>•</span>
-                                                          <span>Last Active: {device.lastActive}</span>
+                                                          <span className="hidden md:inline">•</span>
+                                                          <span>{device.lastActive}</span>
                                                       </div>
                                                   </div>
                                               </div>
-                                              <div className="flex items-center gap-3">
+                                              
+                                              <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-3">
                                                   {device.status === 'pending' && (
-                                                      <div className="flex items-center gap-2">
-                                                          <button onClick={() => onApproveDevice(device.id)} className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700">Approve</button>
-                                                          <button onClick={() => onRejectDevice(device.id)} className="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-700">Reject</button>
+                                                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                                                          <button onClick={() => onApproveDevice(device.id)} className="flex-1 bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700">Approve</button>
+                                                          <button onClick={() => onRejectDevice(device.id)} className="flex-1 bg-red-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-700">Reject</button>
                                                       </div>
                                                   )}
                                                   {device.status === 'approved' && !device.isCurrent && (
-                                                      <button onClick={() => onRevokeDevice(device.id)} className="text-red-500 hover:text-white hover:bg-red-500 transition-colors text-xs font-bold border border-red-200 bg-white px-3 py-1.5 rounded flex items-center gap-2">
+                                                      <button onClick={() => onRevokeDevice(device.id)} className="w-full sm:w-auto text-red-500 hover:text-white hover:bg-red-500 transition-colors text-xs font-bold border border-red-200 bg-white px-3 py-1.5 rounded flex items-center justify-center gap-2">
                                                           <Trash2 size={12}/> Remove
                                                       </button>
                                                   )}
@@ -668,16 +680,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                         </div>
                     </div>
                     <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]" />
-                    <div className="flex items-center gap-8 bg-gray-50 p-3 rounded border border-gray-100">
-                        <div className="flex items-center gap-3">
-                            <label className="font-bold text-sm">Status:</label>
-                            <div className="flex gap-2">
-                                {[ArticleStatus.DRAFT, ArticleStatus.PENDING, ArticleStatus.PUBLISHED].map(s => (
-                                    <button key={s} onClick={() => setModalStatus(s)} className={`px-3 py-1 rounded text-xs font-bold uppercase border ${modalStatus === s ? 'bg-news-black text-white border-news-black' : 'bg-white text-gray-500 border-gray-200'}`}>{s}</button>
-                                ))}
+                    <div className="flex flex-col gap-4 bg-gray-50 p-4 rounded border border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <label className="font-bold text-sm">Status:</label>
+                                <div className="flex gap-2">
+                                    {[ArticleStatus.DRAFT, ArticleStatus.PENDING, ArticleStatus.PUBLISHED].map(s => (
+                                        <button key={s} onClick={() => setModalStatus(s)} className={`px-3 py-1 rounded text-xs font-bold uppercase border ${modalStatus === s ? 'bg-news-black text-white border-news-black' : 'bg-white text-gray-500 border-gray-200'}`}>{s}</button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 pl-8 border-l border-gray-200">
+                        <div className="flex items-center gap-4 pt-2 border-t border-gray-200">
                             <label className="font-bold text-sm">Feature Mode:</label>
                             <button 
                                 onClick={() => setModalIsFeatured(!modalIsFeatured)}
@@ -685,6 +699,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                             >
                                 <Star size={12} fill={modalIsFeatured ? "currentColor" : "none"} /> 
                                 {modalIsFeatured ? "Featured" : "Standard"}
+                            </button>
+                            <button 
+                                onClick={() => setModalIsEditorsChoice(!modalIsEditorsChoice)}
+                                className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold uppercase border transition-colors ${modalIsEditorsChoice ? 'bg-news-gold text-black border-news-gold' : 'bg-white text-gray-500 border-gray-200'}`}
+                            >
+                                <Award size={12} fill={modalIsEditorsChoice ? "currentColor" : "none"} /> 
+                                {modalIsEditorsChoice ? "Editorial" : "Standard"}
                             </button>
                         </div>
                     </div>

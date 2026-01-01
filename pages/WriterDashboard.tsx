@@ -16,9 +16,14 @@ interface WriterDashboardProps {
   onNavigate: (path: string) => void;
   userAvatar?: string | null;
   userName?: string | null;
+  devices?: TrustedDevice[];
+  onRevokeDevice?: (id: string) => void;
 }
 
-const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName }) => {
+const WriterDashboard: React.FC<WriterDashboardProps> = ({ 
+    onSave, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName,
+    devices = [], onRevokeDevice
+}) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'settings'>('articles');
   const [showEditorModal, setShowEditorModal] = useState(false);
@@ -271,6 +276,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
               {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={existingArticles} role={ArticleStatus.PUBLISHED as any} /></div>}
               {activeTab === 'settings' && (
                   <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
+                      {/* Profile Section */}
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -310,6 +316,62 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                                     </button>
                                 </div>
                              </div>
+                          </div>
+                      </div>
+
+                      {/* Trusted Devices Section */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
+                          <div className="flex justify-between items-center mb-6">
+                              <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
+                              <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
+                                  {devices.filter(d => d.status === 'approved').length} Active
+                              </span>
+                          </div>
+                          
+                          <div className="space-y-4">
+                              {devices.length === 0 && <p className="text-gray-400 text-sm italic">No devices registered.</p>}
+                              {devices.map(device => {
+                                  let Icon = Monitor;
+                                  if (device.deviceType === 'mobile') Icon = Smartphone;
+                                  if (device.deviceType === 'tablet') Icon = Tablet;
+                                  
+                                  return (
+                                      <div key={device.id} className="flex flex-col md:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 gap-4">
+                                          <div className="flex items-center gap-4 w-full md:w-auto">
+                                              <div className={`p-3 rounded-full ${device.isCurrent ? 'bg-news-black text-news-gold' : 'bg-white border text-gray-500'}`}>
+                                                  <Icon size={20} />
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center gap-2 flex-wrap">
+                                                      <span className="font-bold text-sm text-gray-900 truncate">{device.deviceName}</span>
+                                                      {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">THIS DEVICE</span>}
+                                                  </div>
+                                                  <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 items-center">
+                                                      <span>{device.location}</span>
+                                                      <span className="hidden md:inline">•</span>
+                                                      <span>{device.browser}</span>
+                                                      <span className="hidden md:inline">•</span>
+                                                      <span>{device.lastActive}</span>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                          <div className="w-full md:w-auto flex justify-end">
+                                              {device.status === 'approved' && onRevokeDevice && (
+                                                  <button 
+                                                    onClick={() => {
+                                                      if(window.confirm('Remove this device? You will need to log in again on that device.')) {
+                                                        onRevokeDevice(device.id);
+                                                      }
+                                                    }} 
+                                                    className="w-full md:w-auto text-red-500 hover:text-white hover:bg-red-500 transition-colors text-xs font-bold border border-red-200 bg-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+                                                  >
+                                                      <Trash2 size={14}/> Remove Device
+                                                  </button>
+                                              )}
+                                          </div>
+                                      </div>
+                                  );
+                              })}
                           </div>
                       </div>
                   </div>

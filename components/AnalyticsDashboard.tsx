@@ -1,100 +1,203 @@
 
-import React from 'react';
-import { Article, UserRole } from '../types';
-import { BarChart3, Users, Eye, Clock, TrendingUp, Newspaper, MousePointer2 } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Article, UserRole, ArticleStatus } from '../types';
+import { BarChart3, FileText, CheckCircle, Clock, TrendingUp, PieChart as PieChartIcon, AlertCircle } from 'lucide-react';
 
 interface AnalyticsDashboardProps {
   articles: Article[];
   role: UserRole;
 }
 
-const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role }) => {
-  // Mock aggregated data
-  const totalViews = articles.length * 1240;
-  const avgReadTime = "4:20";
-  const engagementRate = "12.4%";
-  
-  const categories = Array.from(new Set(articles.map(a => a.category)));
-  const statsByCategory = categories.map(cat => ({
-    name: cat,
-    count: articles.filter(a => a.category === cat).length,
-    percentage: Math.round((articles.filter(a => a.category === cat).length / articles.length) * 100)
-  }));
+const COLORS = ['#0f2b46', '#c5a059', '#b91c1c', '#333333', '#64748b', '#94a3b8', '#cbd5e1'];
 
-  const StatCard = ({ icon: Icon, label, value, trend }: any) => (
-    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-      <div className="flex justify-between items-start mb-4">
-        <div className="p-2 bg-news-paper rounded-lg text-news-accent">
+const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role }) => {
+  // --- Real-time Calculations ---
+  const stats = useMemo(() => {
+    const total = articles.length;
+    const published = articles.filter(a => a.status === ArticleStatus.PUBLISHED).length;
+    const drafts = articles.filter(a => a.status === ArticleStatus.DRAFT).length;
+    const pending = articles.filter(a => a.status === ArticleStatus.PENDING).length;
+    
+    // Category Distribution
+    const catMap: Record<string, number> = {};
+    articles.forEach(a => {
+      catMap[a.category] = (catMap[a.category] || 0) + 1;
+    });
+    
+    const categories = Object.entries(catMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value); // Sort highest first
+
+    // Estimated total words (rough proxy for effort)
+    const totalWords = articles.reduce((acc, curr) => {
+        const txt = curr.content.replace(/<[^>]*>/g, '');
+        return acc + txt.split(/\s+/).length;
+    }, 0);
+
+    return { total, published, drafts, pending, categories, totalWords };
+  }, [articles]);
+
+  // --- SVG Pie Chart Component ---
+  const PieChart = ({ data }: { data: { name: string; value: number }[] }) => {
+    const total = data.reduce((acc, cur) => acc + cur.value, 0);
+    let currentAngle = 0;
+
+    if (total === 0) return <div className="text-center text-xs text-gray-400 py-10">No data available</div>;
+
+    return (
+      <div className="flex flex-col md:flex-row items-center justify-center gap-8">
+        <div className="relative w-48 h-48 shrink-0">
+          <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+            {data.map((entry, index) => {
+              const sliceAngle = (entry.value / total) * 360;
+              const x1 = 50 + 50 * Math.cos((Math.PI * currentAngle) / 180);
+              const y1 = 50 + 50 * Math.sin((Math.PI * currentAngle) / 180);
+              const x2 = 50 + 50 * Math.cos((Math.PI * (currentAngle + sliceAngle)) / 180);
+              const y2 = 50 + 50 * Math.sin((Math.PI * (currentAngle + sliceAngle)) / 180);
+              
+              const largeArc = sliceAngle > 180 ? 1 : 0;
+              const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`;
+              const color = COLORS[index % COLORS.length];
+              
+              currentAngle += sliceAngle;
+
+              return (
+                <path
+                  key={entry.name}
+                  d={pathData}
+                  fill={color}
+                  stroke="white"
+                  strokeWidth="1"
+                  className="hover:opacity-90 transition-opacity cursor-pointer"
+                >
+                  <title>{entry.name}: {entry.value}</title>
+                </path>
+              );
+            })}
+            {/* Inner Circle for Donut Effect */}
+            <circle cx="50" cy="50" r="30" fill="white" />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total</span>
+             <span className="text-xl font-black text-news-black">{total}</span>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="grid grid-cols-2 md:grid-cols-1 gap-x-4 gap-y-2 w-full max-w-xs">
+            {data.map((entry, index) => (
+                <div key={entry.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
+                        <span className="font-bold text-gray-700">{entry.name}</span>
+                    </div>
+                    <span className="font-mono text-gray-500">{Math.round((entry.value / total) * 100)}%</span>
+                </div>
+            ))}
+        </div>
+      </div>
+    );
+  };
+
+  const StatCard = ({ icon: Icon, label, value, subtext, colorClass }: any) => (
+    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-full">
+      <div className="flex justify-between items-start mb-2">
+        <div className={`p-2 rounded-lg ${colorClass || 'bg-gray-50 text-gray-600'}`}>
           <Icon size={20} />
         </div>
-        {trend && (
-          <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full flex items-center gap-1">
-            <TrendingUp size={10} /> {trend}
-          </span>
-        )}
       </div>
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{label}</p>
-      <h3 className="text-2xl font-bold text-gray-900 mt-1">{value}</h3>
+      <div>
+        <h3 className="text-2xl font-bold text-gray-900 mt-1">{value}</h3>
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{label}</p>
+        {subtext && <p className="text-[10px] text-gray-400 mt-1">{subtext}</p>}
+      </div>
     </div>
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+      <div className="flex items-center justify-between">
+          <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
+              <TrendingUp className="text-news-accent" /> Real-Time Performance
+          </h2>
+          <span className="text-[10px] font-bold uppercase tracking-widest bg-green-100 text-green-700 px-3 py-1 rounded-full flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> Live Data
+          </span>
+      </div>
+
       {/* Top Row Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={Newspaper} label="Total Articles" value={articles.length} trend="+12%" />
-        <StatCard icon={Eye} label="Total Page Views" value={totalViews.toLocaleString()} trend="+18.5%" />
-        <StatCard icon={Clock} label="Avg. Read Time" value={avgReadTime} />
-        <StatCard icon={MousePointer2} label="Engagement Rate" value={engagementRate} trend="+2.1%" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+        <StatCard 
+            icon={FileText} 
+            label="Total Articles" 
+            value={stats.total} 
+            subtext="All time content"
+            colorClass="bg-blue-50 text-blue-600"
+        />
+        <StatCard 
+            icon={CheckCircle} 
+            label="Published" 
+            value={stats.published} 
+            subtext="Live on site"
+            colorClass="bg-green-50 text-green-600"
+        />
+        <StatCard 
+            icon={AlertCircle} 
+            label="Pending/Draft" 
+            value={stats.drafts + stats.pending} 
+            subtext="In pipeline"
+            colorClass="bg-yellow-50 text-yellow-600"
+        />
+        <StatCard 
+            icon={Clock} 
+            label="Total Words" 
+            value={stats.totalWords.toLocaleString()} 
+            subtext="Content volume"
+            colorClass="bg-purple-50 text-purple-600"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Category Distribution Chart */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
-          <h4 className="font-bold text-gray-800 mb-8 flex items-center gap-2">
-            <BarChart3 size={18} className="text-news-gold" /> Content Distribution by Category
+        {/* Category Pie Chart */}
+        <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm">
+          <h4 className="font-bold text-gray-800 mb-8 flex items-center gap-2 border-b border-gray-100 pb-4">
+            <PieChartIcon size={18} className="text-news-gold" /> Category Distribution
           </h4>
-          <div className="space-y-6">
-            {statsByCategory.map(stat => (
-              <div key={stat.name} className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-bold text-gray-700">{stat.name}</span>
-                  <span className="text-gray-400">{stat.count} Articles ({stat.percentage}%)</span>
-                </div>
-                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-news-black transition-all duration-1000 ease-out" 
-                    style={{ width: `${stat.percentage}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <PieChart data={stats.categories} />
         </div>
 
-        {/* Reader Demographics (Mock) */}
-        <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
+        {/* Status Breakdown / Quick Facts */}
+        <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm flex flex-col">
           <h4 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <Users size={18} className="text-news-gold" /> Audience Reach
+            <BarChart3 size={18} className="text-news-gold" /> Content Health
           </h4>
-          <div className="space-y-4">
-             <div className="flex items-center justify-between p-4 bg-news-paper rounded-lg">
-                <span className="text-xs font-bold text-gray-600 uppercase">Subscribers</span>
-                <span className="font-bold text-news-black">4,280</span>
+          
+          <div className="flex-1 space-y-6">
+             <div className="space-y-2">
+                <div className="flex justify-between text-xs font-bold text-gray-600 uppercase tracking-wide">
+                    <span>Publication Rate</span>
+                    <span>{stats.total > 0 ? Math.round((stats.published / stats.total) * 100) : 0}%</span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.published / stats.total) * 100 : 0}%` }}></div>
+                </div>
              </div>
-             <div className="flex items-center justify-between p-4 bg-news-paper rounded-lg">
-                <span className="text-xs font-bold text-gray-600 uppercase">Guest Readers</span>
-                <span className="font-bold text-news-black">12.1k</span>
+
+             <div className="space-y-2">
+                <div className="flex justify-between text-xs font-bold text-gray-600 uppercase tracking-wide">
+                    <span>Draft Inventory</span>
+                    <span>{stats.total > 0 ? Math.round((stats.drafts / stats.total) * 100) : 0}%</span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-gray-400 transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.drafts / stats.total) * 100 : 0}%` }}></div>
+                </div>
              </div>
-             <div className="flex items-center justify-between p-4 bg-news-paper rounded-lg border-l-4 border-news-accent">
-                <span className="text-xs font-bold text-news-accent uppercase tracking-tighter">Premium Members</span>
-                <span className="font-bold text-news-black">842</span>
+
+             <div className="p-4 bg-gray-50 rounded-lg mt-auto border border-gray-100">
+                 <p className="text-[10px] text-gray-500 leading-relaxed font-medium">
+                    This dashboard reflects real-time database statistics. Charts update automatically as articles are added, modified, or changed in status.
+                 </p>
              </div>
-          </div>
-          <div className="mt-8 pt-8 border-t border-gray-100">
-             <p className="text-[10px] text-gray-400 leading-relaxed italic">
-                Analytics data is updated every 15 minutes. Views are calculated based on unique sessions longer than 10 seconds.
-             </p>
           </div>
         </div>
       </div>

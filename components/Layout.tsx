@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { UserRole, Article } from '../types';
-import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard } from 'lucide-react';
+import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
@@ -18,6 +18,7 @@ interface LayoutProps {
   onForceSync?: () => void;
   lastSync?: Date;
   articles?: Article[];
+  categories?: string[];
 }
 
 interface WeatherState {
@@ -29,7 +30,38 @@ interface WeatherState {
   lastUpdated: number;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, onForceSync, lastSync, articles = [] }) => {
+interface NavItemProps {
+  to: string;
+  label: string;
+  icon?: any;
+  onClick?: () => void;
+  isActive: boolean;
+  onNavigate: (path: string) => void;
+}
+
+// Updated NavItem: Smaller font size (text-[9px]), adjusted icon size
+const NavItem: React.FC<NavItemProps> = ({ 
+  to, 
+  label, 
+  icon: Icon, 
+  onClick, 
+  isActive, 
+  onNavigate 
+}) => (
+  <Link
+    to={to}
+    onNavigate={onNavigate}
+    onClick={onClick}
+    className={`text-[9px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-colors duration-200 h-full border-b-2 ${
+      isActive ? 'text-news-blue border-news-blue' : 'text-gray-500 hover:text-news-blue border-transparent'
+    }`}
+  >
+    {Icon && <Icon size={12} />}
+    {label}
+  </Link>
+);
+
+const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, onForceSync, lastSync, articles = [], categories = [] }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [time, setTime] = useState(new Date());
   
@@ -53,7 +85,10 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
 
-  const breakingNews = articles.slice(0, 8);
+  // Constants for Navigation
+  const MAX_VISIBLE_CATS = 6;
+  const visibleCats = categories.slice(0, MAX_VISIBLE_CATS);
+  const hiddenCats = categories.slice(MAX_VISIBLE_CATS);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -87,20 +122,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       setIsWeatherModalOpen(false);
     } catch (err: any) { setWeatherError(err.message); } finally { setIsWeatherLoading(false); }
   };
-
-  const NavItem = ({ to, label, icon: Icon, onClick }: { to: string, label: string, icon?: any, onClick?: () => void }) => (
-    <Link
-      to={to}
-      onNavigate={onNavigate}
-      onClick={onClick}
-      className={`text-[11px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-colors duration-200 ${
-        isActive(to) ? 'text-news-blue border-b-2 border-news-blue' : 'text-gray-500 hover:text-news-blue'
-      }`}
-    >
-      {Icon && <Icon size={14} />}
-      {label}
-    </Link>
-  );
 
   const isActive = (path: string) => currentPath === path;
   const isDashboard = currentPath.startsWith('/editor') || currentPath.startsWith('/writer');
@@ -213,15 +234,40 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
 
       {/* DESKTOP NAVIGATION */}
       <nav className="hidden md:block bg-white border-b border-gray-200 sticky top-0 z-50">
-         <div className="max-w-7xl mx-auto px-6 h-14 flex justify-center items-center gap-8">
-             <NavItem to="/" label="HOME" />
-             <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} />
-             <NavItem to="/classifieds" label="CLASSIFIEDS" />
-             <NavItem to="#" label="WORLD" />
-             <NavItem to="#" label="BUSINESS" />
-             <NavItem to="#" label="TECHNOLOGY" />
-             <NavItem to="#" label="CULTURE" />
-             <NavItem to="#" label="SPORTS" />
+         <div className="max-w-7xl mx-auto px-6 h-12 flex justify-center items-center gap-6 overflow-visible">
+             <NavItem to="/" label="HOME" isActive={isActive('/')} onNavigate={onNavigate} />
+             <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} isActive={isActive('/epaper')} onNavigate={onNavigate} />
+             <NavItem to="/editorial" label="EDITORIAL" icon={PenTool} isActive={isActive('/editorial')} onNavigate={onNavigate} />
+             <NavItem to="/classifieds" label="CLASSIFIEDS" isActive={isActive('/classifieds')} onNavigate={onNavigate} />
+             
+             {/* Dynamic Categories */}
+             <div className="h-3 w-[1px] bg-gray-200 mx-2"></div>
+             {visibleCats.map(cat => (
+                 <NavItem key={cat} to={`/category/${cat}`} label={cat} isActive={isActive(`/category/${cat}`)} onNavigate={onNavigate} />
+             ))}
+
+             {/* More Dropdown */}
+             {hiddenCats.length > 0 && (
+                 <div className="relative group h-full flex items-center">
+                     <button className="text-[9px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 text-gray-500 hover:text-news-blue transition-colors outline-none">
+                         MORE <ChevronDown size={10} />
+                     </button>
+                     <div className="absolute top-full left-1/2 -translate-x-1/2 pt-0 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                         <div className="bg-white border border-gray-200 shadow-xl rounded-sm py-2 mt-1">
+                             {hiddenCats.map(cat => (
+                                 <Link 
+                                     key={cat} 
+                                     to={`/category/${cat}`} 
+                                     onNavigate={onNavigate}
+                                     className={`block px-4 py-2 text-[9px] font-bold uppercase tracking-widest transition-colors ${isActive(`/category/${cat}`) ? 'text-news-blue bg-gray-50' : 'text-gray-600 hover:bg-gray-50 hover:text-news-blue'}`}
+                                 >
+                                     {cat}
+                                 </Link>
+                             ))}
+                         </div>
+                     </div>
+                 </div>
+             )}
          </div>
       </nav>
 
@@ -240,15 +286,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                         <LayoutDashboard size={14} /> Access Dashboard
                     </button>
                  )}
-                 <NavItem to="/" label="HOME" onClick={() => setIsMobileMenuOpen(false)} />
-                 <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} onClick={() => setIsMobileMenuOpen(false)} />
-                 <NavItem to="/classifieds" label="CLASSIFIEDS" onClick={() => setIsMobileMenuOpen(false)} />
+                 <NavItem to="/" label="HOME" onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/')} onNavigate={onNavigate} />
+                 <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/epaper')} onNavigate={onNavigate} />
+                 <NavItem to="/editorial" label="EDITORIAL" icon={PenTool} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/editorial')} onNavigate={onNavigate} />
+                 <NavItem to="/classifieds" label="CLASSIFIEDS" onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/classifieds')} onNavigate={onNavigate} />
                  <div className="h-[1px] bg-gray-100 w-full my-1"></div>
-                 <NavItem to="#" label="WORLD" onClick={() => setIsMobileMenuOpen(false)} />
-                 <NavItem to="#" label="BUSINESS" onClick={() => setIsMobileMenuOpen(false)} />
-                 <NavItem to="#" label="TECHNOLOGY" onClick={() => setIsMobileMenuOpen(false)} />
-                 <NavItem to="#" label="CULTURE" onClick={() => setIsMobileMenuOpen(false)} />
-                 <NavItem to="#" label="SPORTS" onClick={() => setIsMobileMenuOpen(false)} />
+                 {categories.map(cat => (
+                     <NavItem key={cat} to={`/category/${cat}`} label={cat} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive(`/category/${cat}`)} onNavigate={onNavigate} />
+                 ))}
                  <div className="h-[1px] bg-gray-100 w-full my-1"></div>
                  <button className="bg-news-accent text-white w-full py-3 rounded text-xs font-black uppercase tracking-widest shadow-lg">
                     SUBSCRIBE NOW

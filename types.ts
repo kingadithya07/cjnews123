@@ -39,6 +39,7 @@ export interface Article {
   summary?: string;
   isPremium?: boolean;
   isFeatured?: boolean;
+  isEditorsChoice?: boolean;
 }
 
 export interface EPaperRegion {

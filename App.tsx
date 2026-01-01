@@ -13,7 +13,7 @@ import ResetPassword from './pages/ResetPassword';
 import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice } from './types';
 import { MOCK_ARTICLES, MOCK_EPAPER, APP_NAME } from './constants';
 import { generateId, getDeviceId } from './utils';
-import { supabase } from './supabaseClient';
+import { supabase } from '../supabaseClient';
 
 // Use a fixed UUID for global settings to ensure compatibility with UUID columns in Supabase
 const GLOBAL_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
@@ -113,7 +113,8 @@ function App() {
           status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
           summary: a.summary,
           isPremium: a.isPremium || a.is_premium || false,
-          isFeatured: a.isFeatured || a.is_featured || false
+          isFeatured: a.isFeatured || a.is_featured || false,
+          isEditorsChoice: a.isEditorsChoice || a.is_editors_choice || false
         })) as Article[]);
       }
 
@@ -203,6 +204,22 @@ function App() {
   const persistDevicesToCloud = async (newDevices: TrustedDevice[]) => {
       setDevices(newDevices);
       await supabase.auth.updateUser({ data: { trusted_devices: newDevices } });
+      
+      // --- LOGOUT LOGIC IF CURRENT DEVICE REVOKED ---
+      const currentId = getDeviceId();
+      // Check if current device is still in the 'approved' list
+      const isCurrentDeviceActive = newDevices.some(d => d.id === currentId && d.status === 'approved');
+      
+      // If user is logged in (userId exists) AND current device is no longer approved
+      if (userId && !isCurrentDeviceActive) {
+          // Force logout immediately
+          await supabase.auth.signOut();
+          setUserId(null);
+          setUserName(null);
+          setUserRole(UserRole.READER);
+          navigate('/login');
+          alert("This device has been removed from trusted devices. Please log in again.");
+      }
   };
 
   useEffect(() => {
@@ -215,7 +232,19 @@ function App() {
           setUserName(profile.full_name || 'Staff');
           setUserRole(profile.role || UserRole.READER);
           setUserAvatar(profile.avatar_url || null);
-          if (profile.trusted_devices) setDevices(profile.trusted_devices);
+          if (profile.trusted_devices) {
+              setDevices(profile.trusted_devices);
+              
+              // Verify current device immediately on load
+              const currentId = getDeviceId();
+              const isApproved = profile.trusted_devices.some((d: TrustedDevice) => d.id === currentId && d.status === 'approved');
+              if (!isApproved) {
+                  // Silent logout if session exists but device is revoked (e.g. from another tab/device)
+                  await supabase.auth.signOut();
+                  setUserId(null);
+                  navigate('/login');
+              }
+          }
         }
       } catch (err) {
         console.warn("Auth check failed:", err);
@@ -307,7 +336,8 @@ function App() {
         published_at: article.publishedAt,
         status: article.status,
         user_id: userId,
-        is_featured: article.isFeatured
+        is_featured: article.isFeatured,
+        is_editors_choice: article.isEditorsChoice
     };
 
     const { error } = await supabase.from('articles').upsert(payload);
@@ -458,18 +488,32 @@ function App() {
         onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} 
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
-    content = <WriterDashboard onSave={handleSaveArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} />;
+    content = <WriterDashboard 
+        onSave={handleSaveArticle} 
+        existingArticles={articles} 
+        currentUserRole={userRole} 
+        categories={categories} 
+        onNavigate={navigate} 
+        userAvatar={userAvatar} 
+        devices={devices.filter(d => d.userId === userId)}
+        onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))}
+    />;
   } else if (path === '/' || path === '/home') {
-    content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
+    content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   } else if (path.startsWith('/article/')) {
     const id = currentPath.split('/article/')[1];
     content = <ArticleView articles={articles} articleId={id} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
+  } else if (path.startsWith('/category/')) {
+    const cat = decodeURIComponent(currentPath.split('/category/')[1]);
+    content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedCategory={cat} categories={categories} />;
   } else if (path === '/epaper') {
     content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} onSaveSettings={handleSaveGlobalConfig} />;
+  } else if (path === '/editorial') {
+    content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedCategory="Editorial" categories={categories} />;
   } else if (path === '/classifieds') {
     content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />;
   } else {
-    content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
+    content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   }
 
   return (
@@ -483,6 +527,7 @@ function App() {
       onForceSync={() => fetchData(true)}
       lastSync={lastSync}
       articles={articles}
+      categories={categories}
     >
       {content}
     </Layout>
