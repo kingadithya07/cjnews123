@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { UserRole, Article } from '../types';
-import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell } from 'lucide-react';
+import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
@@ -219,6 +219,15 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
              <NavItem to="#" label="TECHNOLOGY" />
              <NavItem to="#" label="CULTURE" />
              <NavItem to="#" label="SPORTS" />
+             {currentRole !== UserRole.READER && (
+                <div className="ml-4 border-l border-gray-200 pl-4">
+                    <NavItem 
+                        to={currentRole === UserRole.WRITER ? '/writer' : '/editor'} 
+                        label="DASHBOARD" 
+                        icon={LayoutDashboard} 
+                    />
+                </div>
+             )}
          </div>
       </nav>
 
@@ -226,6 +235,17 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white border-b border-gray-200 p-6 animate-in slide-in-from-top-2 shadow-lg">
              <div className="flex flex-col gap-6">
+                 {currentRole !== UserRole.READER && (
+                    <button 
+                        onClick={() => {
+                            onNavigate(currentRole === UserRole.WRITER ? '/writer' : '/editor');
+                            setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center gap-2 bg-news-black text-white p-3 rounded text-xs font-black uppercase tracking-widest justify-center"
+                    >
+                        <LayoutDashboard size={14} /> Access Dashboard
+                    </button>
+                 )}
                  <NavItem to="/" label="HOME" onClick={() => setIsMobileMenuOpen(false)} />
                  <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} onClick={() => setIsMobileMenuOpen(false)} />
                  <NavItem to="/classifieds" label="CLASSIFIEDS" onClick={() => setIsMobileMenuOpen(false)} />

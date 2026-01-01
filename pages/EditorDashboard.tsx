@@ -51,14 +51,15 @@ interface EditorDashboardProps {
 }
 
 const EditorDashboard: React.FC<EditorDashboardProps> = ({ 
-  articles, ePaperPages, categories, classifieds, advertisements,
+  articles, ePaperPages, categories, tags = [], adCategories, classifieds, advertisements,
   onAddPage, onDeletePage, onDeleteArticle, onSaveArticle, 
+  onAddCategory, onDeleteCategory, onAddTag, onDeleteTag, onAddAdCategory, onDeleteAdCategory,
   onAddClassified, onDeleteClassified, onAddAdvertisement, onDeleteAdvertisement,
   onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar,
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'classifieds' | 'ads' | 'analytics' | 'settings'>('articles');
+  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'classifieds' | 'ads' | 'taxonomy' | 'analytics' | 'settings'>('articles');
 
   // Article State
   const [showArticleModal, setShowArticleModal] = useState(false);
@@ -86,6 +87,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [newClassified, setNewClassified] = useState<Partial<ClassifiedAd>>({});
   const [showAdModal, setShowAdModal] = useState(false);
   const [newAd, setNewAd] = useState<Partial<Advertisement>>({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true });
+
+  // Taxonomy State
+  const [newCategory, setNewCategory] = useState('');
+  const [newTag, setNewTag] = useState('');
+  const [newAdCategory, setNewAdCategory] = useState('');
 
   // Settings State
   const [profileName, setProfileName] = useState(userName || '');
@@ -266,6 +272,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   <SidebarItem id="epaper" label="E-Paper" icon={Newspaper} />
                   <SidebarItem id="classifieds" label="Classifieds" icon={List} />
                   <SidebarItem id="ads" label="Advertising" icon={Megaphone} />
+                  <SidebarItem id="taxonomy" label="Taxonomy" icon={Tag} />
                   <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
                   <SidebarItem id="settings" label="System" icon={Settings} />
               </div>
@@ -297,7 +304,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               <h2 className="text-2xl font-serif font-bold">Articles</h2>
                               <button onClick={openNewArticle} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"><Plus size={16}/> New Article</button>
                           </div>
-                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                          
+                          {/* Desktop Table */}
+                          <div className="hidden md:block bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                               <table className="w-full text-left">
                                   <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
                                       <tr>
@@ -328,6 +337,37 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       ))}
                                   </tbody>
                               </table>
+                          </div>
+
+                          {/* Mobile Card List */}
+                          <div className="md:hidden space-y-4">
+                                {articles.map(article => (
+                                    <div key={article.id} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-3">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{article.category}</span>
+                                                    {article.isFeatured && <Star size={10} className="text-news-gold" fill="currentColor"/>}
+                                                </div>
+                                                <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">{article.title}</h3>
+                                            </div>
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase shrink-0 ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                {article.status}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                                            <span className="text-xs text-gray-400">{article.author}</span>
+                                            <div className="flex items-center gap-3">
+                                                <button onClick={() => openEditArticle(article)} className="p-2 bg-blue-50 text-blue-600 rounded-md">
+                                                    <PenSquare size={16}/>
+                                                </button>
+                                                <button onClick={() => onDeleteArticle(article.id)} className="p-2 bg-red-50 text-red-500 rounded-md">
+                                                    <Trash2 size={16}/>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                           </div>
                       </div>
                   )}
@@ -421,6 +461,65 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       </div>
                                   </div>
                               ))}
+                          </div>
+                      </div>
+                  )}
+
+                  {/* --- TAXONOMY TAB --- */}
+                  {activeTab === 'taxonomy' && (
+                      <div className="max-w-7xl mx-auto">
+                          <h2 className="text-2xl font-serif font-bold mb-6">Taxonomy Management</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                              {/* Article Categories */}
+                              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><FileText size={18}/> Article Categories</h3>
+                                  <div className="flex gap-2 mb-4">
+                                      <input type="text" placeholder="New Category" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                      <button onClick={() => { if(newCategory) { onAddCategory(newCategory); setNewCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                      {categories.map(cat => (
+                                          <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                              {cat}
+                                              <button onClick={() => onDeleteCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                          </span>
+                                      ))}
+                                  </div>
+                              </div>
+
+                              {/* Article Tags */}
+                              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Tag size={18}/> Article Tags</h3>
+                                  <div className="flex gap-2 mb-4">
+                                      <input type="text" placeholder="New Tag" value={newTag} onChange={e => setNewTag(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                      <button onClick={() => { if(newTag && onAddTag) { onAddTag(newTag); setNewTag(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                      {tags.map(tag => (
+                                          <span key={tag} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                              #{tag}
+                                              <button onClick={() => onDeleteTag && onDeleteTag(tag)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                          </span>
+                                      ))}
+                                  </div>
+                              </div>
+
+                              {/* Classified Categories */}
+                              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Ad Categories</h3>
+                                  <div className="flex gap-2 mb-4">
+                                      <input type="text" placeholder="New Category" value={newAdCategory} onChange={e => setNewAdCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                      <button onClick={() => { if(newAdCategory) { onAddAdCategory(newAdCategory); setNewAdCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                      {adCategories.map(cat => (
+                                          <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                              {cat}
+                                              <button onClick={() => onDeleteAdCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                          </span>
+                                      ))}
+                                  </div>
+                              </div>
                           </div>
                       </div>
                   )}
@@ -634,7 +733,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       {showArticleModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
             <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
                     <h3 className="font-bold">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
                     <button onClick={() => setShowArticleModal(false)}><X size={20}/></button>
                 </div>
@@ -700,7 +799,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                         </div>
                     </div>
                 </div>
-                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
                     <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>
                     <button onClick={handleSaveArticleInternal} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">Save Article</button>
                 </div>
@@ -756,7 +855,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                       <select className="w-full p-2 border rounded" value={newClassified.category || ''} onChange={e => setNewClassified({...newClassified, category: e.target.value})}>
                           <option value="">Select Category</option>
-                          {['Jobs', 'Real Estate', 'For Sale', 'Services', 'Community'].map(c => <option key={c} value={c}>{c}</option>)}
+                          {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                   </div>
                   <div className="mt-6 flex justify-end gap-3">

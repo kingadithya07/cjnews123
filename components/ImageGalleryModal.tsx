@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { X, Loader2, ImageIcon, AlertCircle } from 'lucide-react';
+import { X, Loader2, ImageIcon, AlertCircle, Upload } from 'lucide-react';
 import { FileObject } from 'https://esm.sh/@supabase/storage-js@2.5.5';
+import { generateId } from '../utils';
 
 interface ImageGalleryModalProps {
     isOpen: boolean;
@@ -12,6 +14,7 @@ interface ImageGalleryModalProps {
 const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, onSelectImage }) => {
     const [images, setImages] = useState<FileObject[]>([]);
     const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
     const BUCKET_NAME = 'images';
@@ -32,7 +35,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                 if (error) throw error;
                 if (data) {
                     // Add folder path to name for URL generation
-                    const prefixedData = data.map(file => ({...file, name: `${folder}/${file.name}`}));
+                    const prefixedData = data.map((file: any) => ({...file, name: `${folder}/${file.name}`}));
                     allImages.push(...prefixedData);
                 }
             }
@@ -43,6 +46,31 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
             setError(err.message || 'Failed to fetch images from one or more sources.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleMultipleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setUploading(true);
+        try {
+            const uploads = Array.from(files).map(async (file: File) => {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `gallery/${generateId()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(fileName, file);
+                if (uploadError) throw uploadError;
+                return fileName;
+            });
+
+            await Promise.all(uploads);
+            await fetchImages(); // Refresh list after upload
+        } catch (err: any) {
+            alert('Error uploading images: ' + err.message);
+        } finally {
+            setUploading(false);
+            // Reset input
+            e.target.value = '';
         }
     };
 
@@ -62,8 +90,22 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
     return (
         <div className="fixed inset-0 bg-black/70 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-lg w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
-                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-800">Choose from Media Library</h3>
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                    <div className="flex items-center gap-4">
+                        <h3 className="font-bold text-gray-800">Media Library</h3>
+                        <label className="flex items-center gap-2 bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase cursor-pointer hover:bg-gray-800 transition-colors">
+                            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                            <span>{uploading ? 'Uploading...' : 'Upload Files'}</span>
+                            <input 
+                                type="file" 
+                                className="hidden" 
+                                accept="image/*" 
+                                multiple 
+                                onChange={handleMultipleUpload}
+                                disabled={uploading}
+                            />
+                        </label>
+                    </div>
                     <button onClick={onClose} className="text-gray-500 hover:text-black"><X size={20}/></button>
                 </div>
                 
@@ -83,6 +125,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                             <div>
                                 <ImageIcon size={48} className="mx-auto mb-2 opacity-20"/>
                                 <p>No images found in your library.</p>
+                                <p className="text-xs mt-2">Click "Upload Files" to add images.</p>
                             </div>
                         </div>
                     ) : (
