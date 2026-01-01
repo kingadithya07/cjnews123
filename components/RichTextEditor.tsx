@@ -23,6 +23,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
   const [showGallery, setShowGallery] = useState(false);
   const [isFormatPainting, setIsFormatPainting] = useState(false);
   const [copiedStyle, setCopiedStyle] = useState<any>(null);
+  
+  // Ref to track the last time the context menu was triggered
+  const lastContextMenuTime = useRef<number>(0);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== content) {
@@ -130,6 +133,24 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     };
   };
 
+  /**
+   * Logic to allow "Double Long Press" for context menu.
+   * First long press (or right click) is blocked to prevent interference with selection handles.
+   * A second press within 2 seconds is allowed through.
+   */
+  const handleContextMenu = (e: React.MouseEvent) => {
+      const now = Date.now();
+      // Threshold of 2000ms (2 seconds) to consider it a "repeat" attempt
+      if (now - lastContextMenuTime.current < 2000) {
+          // Allow the menu (User really wants it)
+          lastContextMenuTime.current = 0; // Reset
+      } else {
+          // Block the menu (Assume user just wants to move selection handles)
+          e.preventDefault();
+          lastContextMenuTime.current = now;
+      }
+  };
+
   const ToolbarButton = ({ icon: Icon, command, value, title, active }: any) => (
     <button
       type="button"
@@ -158,8 +179,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
       />
       <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg bg-white ${className}`}>
         
-        {/* Toolbar - Sticky & Z-Index adjusted */}
-        <div className="sticky top-0 z-[20] flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50 overflow-x-auto no-scrollbar touch-pan-x shadow-sm">
+        {/* Toolbar - Wrapped for mobile responsiveness */}
+        <div className="sticky top-0 z-[20] flex flex-wrap items-center gap-x-1 gap-y-2 p-2 border-b border-gray-200 bg-gray-50 shadow-sm">
           
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
               <ToolbarButton icon={Undo} command="undo" title="Undo" />
@@ -181,8 +202,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           </div>
 
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
-              <ToolbarButton icon={Heading1} command="formatBlock" value="H2" title="Headline 1" />
-              <ToolbarButton icon={Heading2} command="formatBlock" value="H3" title="Headline 2" />
+              <ToolbarButton icon={Heading1} command="formatBlock" value="H1" title="Headline 1" />
+              <ToolbarButton icon={Heading2} command="formatBlock" value="H2" title="Headline 2" />
               <ToolbarButton icon={Quote} command="formatBlock" value="blockquote" title="Quote" />
           </div>
 
@@ -212,6 +233,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           contentEditable
           onInput={handleInput}
           onClick={handleEditorClick}
+          onContextMenu={handleContextMenu}
           suppressContentEditableWarning
           spellCheck={false}
           autoCorrect="off"
@@ -221,8 +243,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
               whiteSpace: 'pre-wrap',
               userSelect: 'text',
               WebkitUserSelect: 'text',
-              // Allow standard touch interactions (pan/zoom) but restrict callout via standard logic if browser supports it
-              touchAction: 'manipulation' 
+              touchAction: 'manipulation'
           }}
         />
         
