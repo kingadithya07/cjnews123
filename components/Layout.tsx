@@ -32,7 +32,6 @@ interface WeatherState {
 const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, onForceSync, lastSync, articles = [] }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [time, setTime] = useState(new Date());
-  const [isSyncing, setIsSyncing] = useState(false);
   
   const [weatherState, setWeatherState] = useState<WeatherState>(() => {
     try {
@@ -89,12 +88,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
     } catch (err: any) { setWeatherError(err.message); } finally { setIsWeatherLoading(false); }
   };
 
-  const getAQILabel = (aqi: number) => {
-    if (aqi <= 50) return 'GOOD';
-    if (aqi <= 100) return 'MOD. AIR';
-    return 'UNHEALTHY';
-  };
-
   const NavItem = ({ to, label, icon: Icon, onClick }: { to: string, label: string, icon?: any, onClick?: () => void }) => (
     <Link
       to={to}
@@ -127,6 +120,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          <div className="flex items-center gap-6">
              {userName ? (
                  <div className="flex items-center gap-4">
+                    {/* Dashboard Link Moved Here */}
+                    {currentRole !== UserRole.READER && (
+                        <Link 
+                            to={currentRole === UserRole.WRITER ? '/writer' : '/editor'} 
+                            onNavigate={onNavigate}
+                            className="hidden md:flex items-center gap-1.5 text-news-black hover:text-news-accent transition-colors mr-2 border-r border-gray-200 pr-4"
+                        >
+                            <LayoutDashboard size={14} /> DASHBOARD
+                        </Link>
+                    )}
                     <span className="text-news-blue font-extrabold hidden sm:inline">{userName.toUpperCase()}</span>
                     <button onClick={() => supabase.auth.signOut()} className="text-gray-400 hover:text-news-accent">LOGOUT</button>
                  </div>
@@ -219,15 +222,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
              <NavItem to="#" label="TECHNOLOGY" />
              <NavItem to="#" label="CULTURE" />
              <NavItem to="#" label="SPORTS" />
-             {currentRole !== UserRole.READER && (
-                <div className="ml-4 border-l border-gray-200 pl-4">
-                    <NavItem 
-                        to={currentRole === UserRole.WRITER ? '/writer' : '/editor'} 
-                        label="DASHBOARD" 
-                        icon={LayoutDashboard} 
-                    />
-                </div>
-             )}
          </div>
       </nav>
 

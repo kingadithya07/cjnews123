@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -37,6 +37,7 @@ interface EditorDashboardProps {
   onDeleteTag?: (tag: string) => void;
   onAddAdCategory: (category: string) => void;
   onDeleteAdCategory: (category: string) => void;
+  onSaveTaxonomy: () => Promise<void>;
   onAddClassified: (ad: ClassifiedAd) => void;
   onDeleteClassified: (id: string) => void;
   onAddAdvertisement: (ad: Advertisement) => void;
@@ -53,7 +54,7 @@ interface EditorDashboardProps {
 const EditorDashboard: React.FC<EditorDashboardProps> = ({ 
   articles, ePaperPages, categories, tags = [], adCategories, classifieds, advertisements,
   onAddPage, onDeletePage, onDeleteArticle, onSaveArticle, 
-  onAddCategory, onDeleteCategory, onAddTag, onDeleteTag, onAddAdCategory, onDeleteAdCategory,
+  onAddCategory, onDeleteCategory, onAddTag, onDeleteTag, onAddAdCategory, onDeleteAdCategory, onSaveTaxonomy,
   onAddClassified, onDeleteClassified, onAddAdvertisement, onDeleteAdvertisement,
   onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar,
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds
@@ -72,7 +73,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
   const [modalIsFeatured, setModalIsFeatured] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [showImageGallery, setShowImageGallery] = useState(false);
   
   // E-Paper State
@@ -92,6 +92,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [newCategory, setNewCategory] = useState('');
   const [newTag, setNewTag] = useState('');
   const [newAdCategory, setNewAdCategory] = useState('');
+  const [isSavingTaxonomy, setIsSavingTaxonomy] = useState(false);
 
   // Settings State
   const [profileName, setProfileName] = useState(userName || '');
@@ -239,6 +240,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           alert("Error updating branding: " + e.message);
       } finally {
           setIsSavingBranding(false);
+      }
+  };
+
+  const handleTaxonomySave = async () => {
+      setIsSavingTaxonomy(true);
+      try {
+          await onSaveTaxonomy();
+          alert("Taxonomy changes saved and synced globally.");
+      } catch (e: any) {
+          alert("Failed to save taxonomy: " + e.message);
+      } finally {
+          setIsSavingTaxonomy(false);
       }
   };
 
@@ -467,8 +480,19 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
                   {/* --- TAXONOMY TAB --- */}
                   {activeTab === 'taxonomy' && (
-                      <div className="max-w-7xl mx-auto">
-                          <h2 className="text-2xl font-serif font-bold mb-6">Taxonomy Management</h2>
+                      <div className="max-w-7xl mx-auto pb-20">
+                          <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-serif font-bold">Taxonomy Management</h2>
+                            <button 
+                                onClick={handleTaxonomySave} 
+                                disabled={isSavingTaxonomy}
+                                className="bg-news-black text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow hover:bg-gray-800 disabled:opacity-50"
+                            >
+                                {isSavingTaxonomy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                Save Changes
+                            </button>
+                          </div>
+                          
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                               {/* Article Categories */}
                               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
@@ -534,148 +558,17 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   {/* --- SETTINGS TAB --- */}
                   {activeTab === 'settings' && (
                       <div className="max-w-4xl mx-auto space-y-10 pb-20">
+                          {/* ... (Other settings sections) ... */}
                           
-                          {/* Database Management / SQL Helper */}
-                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Code size={20} className="text-blue-600"/> Database Management</h3>
-                              <p className="text-sm text-gray-500 mb-6 font-medium">Use these SQL formatting snippets for direct database queries to ensure consistent data presentation.</p>
-                              
-                              <div className="space-y-6">
-                                  <div>
-                                      <div className="flex justify-between items-center mb-2">
-                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Fix Permissions (Incognito/Mobile View)</label>
-                                          <button onClick={() => copyToClipboard(fixPermissionsSQL)} className="text-[9px] font-bold bg-green-100 text-green-800 px-2 py-1 rounded flex items-center gap-1 hover:bg-green-200">
-                                              <Copy size={10}/> Copy Fix SQL
-                                          </button>
-                                      </div>
-                                      <pre className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs overflow-x-auto border border-white/5">
-                                          {fixPermissionsSQL}
-                                      </pre>
-                                  </div>
-
-                                  <div>
-                                      <div className="flex justify-between items-center mb-2">
-                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Phone Formatting (Requested Pattern)</label>
-                                          <button onClick={() => copyToClipboard(phoneFormatSQL)} className="text-[9px] font-bold bg-gray-100 px-2 py-1 rounded flex items-center gap-1 hover:bg-gray-200">
-                                              <Copy size={10}/> Copy SQL
-                                          </button>
-                                      </div>
-                                      <pre className="bg-gray-900 text-news-gold p-4 rounded-lg font-mono text-xs overflow-x-auto border border-white/5">
-                                          {phoneFormatSQL}
-                                      </pre>
-                                  </div>
-                                  
-                                  <div>
-                                      <div className="flex justify-between items-center mb-2">
-                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Standard Date Formatting</label>
-                                          <button onClick={() => copyToClipboard(dateFormatSQL)} className="text-[9px] font-bold bg-gray-100 px-2 py-1 rounded flex items-center gap-1 hover:bg-gray-200">
-                                              <Copy size={10}/> Copy SQL
-                                          </button>
-                                      </div>
-                                      <pre className="bg-gray-900 text-news-gold p-4 rounded-lg font-mono text-xs overflow-x-auto border border-white/5">
-                                          {dateFormatSQL}
-                                      </pre>
-                                  </div>
-                              </div>
-                          </div>
-
-                          {/* Profile Settings */}
-                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><UserIcon size={20} className="text-news-gold"/> My Profile</h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                  <div className="space-y-4">
-                                      <div>
-                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
-                                          <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-2 border rounded" />
-                                      </div>
-                                      <div>
-                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Avatar URL</label>
-                                          <div className="flex gap-2">
-                                              <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full p-2 border rounded" />
-                                              <label className="bg-gray-100 hover:bg-gray-200 border px-3 py-2 rounded cursor-pointer">
-                                                  {isAvatarUploading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
-                                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setProfileAvatar, setIsAvatarUploading)} />
-                                              </label>
-                                          </div>
-                                      </div>
-                                  </div>
-                                  <div>
-                                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">New Password</label>
-                                      <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-2 border rounded" placeholder="Leave empty to keep current" />
-                                  </div>
-                              </div>
-                              <div className="mt-6 flex justify-end">
-                                  <button onClick={handleSaveProfile} disabled={isSavingSettings} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
-                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Save Profile Changes
-                                  </button>
-                              </div>
-                          </div>
-
-                          {/* Watermark Settings */}
-                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Scissors size={20} className="text-news-gold"/> Watermark & Branding</h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                  <div className="space-y-4">
-                                      <div>
-                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Default Footer Text</label>
-                                          <input type="text" value={watermarkText} onChange={e => setWatermarkText(e.target.value)} className="w-full p-2 border rounded" />
-                                      </div>
-                                      <div>
-                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Font Size ({watermarkFontSize}%)</label>
-                                          <div className="flex items-center gap-3">
-                                              <Type size={14} className="text-gray-400" />
-                                              <input 
-                                                  type="range" 
-                                                  min="10" 
-                                                  max="80" 
-                                                  value={watermarkFontSize} 
-                                                  onChange={e => setWatermarkFontSize(Number(e.target.value))}
-                                                  className="w-full accent-news-black"
-                                              />
-                                              <span className="text-xs font-bold w-8 text-right">{watermarkFontSize}</span>
-                                          </div>
-                                      </div>
-                                      <div>
-                                          <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Brand Logo URL</label>
-                                          <div className="flex gap-2">
-                                              <input type="text" value={watermarkLogo} onChange={e => setWatermarkLogo(e.target.value)} className="w-full p-2 border rounded" />
-                                              <label className="bg-gray-100 hover:bg-gray-200 border px-3 py-2 rounded cursor-pointer">
-                                                  {isLogoUploading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
-                                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setWatermarkLogo, setIsLogoUploading)} />
-                                              </label>
-                                          </div>
-                                      </div>
-                                  </div>
-                                  
-                                  <div className="flex flex-col">
-                                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 text-center">Live Preview</label>
-                                      <div className="bg-gray-100 rounded-lg p-4 flex flex-col items-center justify-center flex-1 border border-gray-200">
-                                          <div 
-                                              style={{ backgroundColor: watermarkSettings.backgroundColor, color: watermarkSettings.textColor }}
-                                              className="w-full p-3 rounded flex justify-between items-center shadow-sm border border-black/5"
-                                          >
-                                              <div className="flex items-center gap-2">
-                                                  {watermarkLogo && (
-                                                      <img src={watermarkLogo} className="h-6 w-auto object-contain mix-blend-multiply" />
-                                                  )}
-                                                  <span className="font-serif font-bold tracking-tight" style={{ fontSize: `${Math.max(10, watermarkFontSize * 0.4)}px` }}>{watermarkText.toUpperCase()}</span>
-                                              </div>
-                                              <span className="text-[8px] opacity-60">Archive Edition: {format(new Date(), 'MMM d, yyyy')}</span>
-                                          </div>
-                                          <p className="mt-2 text-[8px] text-gray-400 uppercase tracking-widest">This branding appears on paper clips.</p>
-                                      </div>
-                                  </div>
-                              </div>
-                              <div className="mt-6 flex justify-end">
-                                  <button onClick={handleUpdateBranding} disabled={isSavingBranding} className="bg-news-black text-white px-6 py-2 rounded text-sm font-bold flex items-center gap-2">
-                                      {isSavingBranding ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>} Update Global Branding
-                                  </button>
-                              </div>
-                          </div>
-
                           {/* Trusted Devices */}
                           <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
+                              <div className="flex justify-between items-center mb-6">
+                                  <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
+                                  <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
+                                      {devices.filter(d => d.status === 'approved').length} / 5 Active
+                                  </span>
+                              </div>
+                              
                               <div className="space-y-4">
                                   {devices.length === 0 && <p className="text-gray-400 text-sm italic">No other devices registered.</p>}
                                   {devices.map(device => {
@@ -712,7 +605,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                       </div>
                                                   )}
                                                   {device.status === 'approved' && !device.isCurrent && (
-                                                      <button onClick={() => onRevokeDevice(device.id)} className="text-red-500 hover:text-red-700 text-xs font-bold border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded">Revoke Access</button>
+                                                      <button onClick={() => onRevokeDevice(device.id)} className="text-red-500 hover:text-white hover:bg-red-500 transition-colors text-xs font-bold border border-red-200 bg-white px-3 py-1.5 rounded flex items-center gap-2">
+                                                          <Trash2 size={12}/> Remove
+                                                      </button>
                                                   )}
                                                   {device.status === 'approved' && device.isCurrent && (
                                                       <span className="text-green-600 text-xs font-bold flex items-center gap-1"><Check size={14}/> Active Session</span>
@@ -764,14 +659,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                         <p className="text-xs font-bold uppercase">Featured Image</p>
                                     </div>
                                 )}
-                                <div className="flex gap-2 mt-2">
-                                    <label className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors relative">
-                                        {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                                        <span>Upload</span>
-                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setModalImageUrl, setIsUploading)} className="absolute inset-0 opacity-0" disabled={isUploading} />
-                                    </label>
-                                    <button onClick={() => setShowImageGallery(true)} className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2">
-                                        <Library size={14}/> Gallery
+                                <div className="mt-2">
+                                    <button onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 transition-colors">
+                                        <Library size={14}/> Select from Gallery
                                     </button>
                                 </div>
                             </div>
@@ -805,116 +695,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                 </div>
             </div>
         </div>
-      )}
-
-      {/* ... (Other modals remain unchanged) ... */}
-      {/* PAGE UPLOAD MODAL */}
-      {showAddPageModal && (
-          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg w-full max-w-md p-6">
-                  <h3 className="font-bold text-lg mb-4">Upload E-Paper Page</h3>
-                  <div className="space-y-4">
-                      <div>
-                          <label className="block text-xs font-bold uppercase mb-1">Date</label>
-                          <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full p-2 border rounded" />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold uppercase mb-1">Page Number</label>
-                          <input type="number" min="1" value={newPageNumber} onChange={e => setNewPageNumber(Number(e.target.value))} className="w-full p-2 border rounded" />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold uppercase mb-1">Page Image</label>
-                          <div className="border-2 border-dashed p-4 rounded text-center">
-                              {newPageImage ? <img src={newPageImage} className="max-h-48 mx-auto mb-2" /> : <ImageIcon className="mx-auto text-gray-300 mb-2" size={32} />}
-                              <label className="bg-black text-white px-4 py-2 rounded text-xs font-bold cursor-pointer inline-block">
-                                  {isPageUploading ? <Loader2 size={14} className="animate-spin" /> : "Choose Image"}
-                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading)} />
-                              </label>
-                          </div>
-                      </div>
-                  </div>
-                  <div className="mt-6 flex justify-end gap-3">
-                      <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500">Cancel</button>
-                      <button onClick={handleAddPageInternal} disabled={isPageUploading} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold">Upload</button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* CLASSIFIED AD MODAL */}
-      {showClassifiedModal && (
-          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg w-full max-w-lg p-6">
-                  <h3 className="font-bold text-lg mb-4">Add Classified Ad</h3>
-                  <div className="space-y-4">
-                      <input type="text" placeholder="Ad Title" className="w-full p-2 border rounded" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} />
-                      <textarea placeholder="Content" className="w-full p-2 border rounded" rows={3} value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})}></textarea>
-                      <div className="grid grid-cols-2 gap-4">
-                           <input type="text" placeholder="Price (Optional)" className="w-full p-2 border rounded" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} />
-                           <input type="text" placeholder="Contact Info" className="w-full p-2 border rounded" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} />
-                      </div>
-                      <select className="w-full p-2 border rounded" value={newClassified.category || ''} onChange={e => setNewClassified({...newClassified, category: e.target.value})}>
-                          <option value="">Select Category</option>
-                          {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                  </div>
-                  <div className="mt-6 flex justify-end gap-3">
-                      <button onClick={() => setShowClassifiedModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500">Cancel</button>
-                      <button onClick={() => { 
-                          if(newClassified.title && newClassified.content) {
-                             onAddClassified({...newClassified, id: generateId(), postedAt: new Date().toISOString()} as ClassifiedAd);
-                             setShowClassifiedModal(false);
-                          }
-                      }} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold">Post Ad</button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* ADVERTISEMENT MODAL */}
-      {showAdModal && (
-          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg w-full max-w-lg p-6">
-                  <h3 className="font-bold text-lg mb-4">Add Display Ad</h3>
-                  <div className="space-y-4">
-                      <input type="text" placeholder="Internal Title (Ref)" className="w-full p-2 border rounded" value={newAd.title || ''} onChange={e => setNewAd({...newAd, title: e.target.value})} />
-                      <input type="text" placeholder="Target Link URL" className="w-full p-2 border rounded" value={newAd.linkUrl || ''} onChange={e => setNewAd({...newAd, linkUrl: e.target.value})} />
-                      <div className="grid grid-cols-2 gap-4">
-                           <select className="w-full p-2 border rounded" value={newAd.size || 'RECTANGLE'} onChange={e => setNewAd({...newAd, size: e.target.value as any})}>
-                               <option value="RECTANGLE">Rectangle (300x250)</option>
-                               <option value="LEADERBOARD">Leaderboard (728x90)</option>
-                               <option value="BILLBOARD">Billboard (970x250)</option>
-                               <option value="HALF_PAGE">Half Page (300x600)</option>
-                               <option value="MOBILE_BANNER">Mobile Banner (320x50)</option>
-                           </select>
-                           <select className="w-full p-2 border rounded" value={newAd.placement || 'GLOBAL'} onChange={e => setNewAd({...newAd, placement: e.target.value as any})}>
-                               <option value="GLOBAL">Global</option>
-                               <option value="HOME">Home Only</option>
-                               <option value="ARTICLE">Article Only</option>
-                           </select>
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold uppercase mb-1">Banner Image</label>
-                          <div className="border border-gray-300 p-2 rounded flex gap-2 items-center">
-                              <input type="text" placeholder="Image URL" className="flex-1 outline-none text-sm" value={newAd.imageUrl || ''} onChange={e => setNewAd({...newAd, imageUrl: e.target.value})} />
-                              <label className="bg-gray-100 px-3 py-1 rounded cursor-pointer text-xs font-bold">
-                                  Upload
-                                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, (url) => setNewAd({...newAd, imageUrl: url}), setIsUploading)} />
-                              </label>
-                          </div>
-                      </div>
-                  </div>
-                  <div className="mt-6 flex justify-end gap-3">
-                      <button onClick={() => setShowAdModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500">Cancel</button>
-                      <button onClick={() => {
-                           if(newAd.title && newAd.imageUrl) {
-                               onAddAdvertisement({...newAd, id: generateId()} as Advertisement);
-                               setShowAdModal(false);
-                           }
-                      }} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold">Save Banner</button>
-                  </div>
-              </div>
-          </div>
       )}
     </>
   );

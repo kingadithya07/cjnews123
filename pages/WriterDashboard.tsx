@@ -31,7 +31,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
   const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
   const [isFeatured, setIsFeatured] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [showImageGallery, setShowImageGallery] = useState(false);
 
@@ -51,33 +50,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
       setWordCount(0);
     }
   }, [content]);
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${generateId()}.${fileExt}`;
-      // Upload to 'gallery' folder so it appears in the media library
-      const filePath = `gallery/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from('images').getPublicUrl(filePath);
-      setImageUrl(data.publicUrl);
-    } catch (error: any) {
-      console.error('Upload Error:', error.message);
-      alert("Failed to upload image. " + error.message);
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -379,15 +351,10 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
                                     <p className="text-xs font-bold uppercase">Featured Image</p>
                                 </div>
                             )}
-                             <div className="flex gap-2 mt-2">
-                                <label className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors relative">
-                                    {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                                    <span>{isUploading ? '...' : 'Upload'}</span>
-                                    <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0" disabled={isUploading} />
-                                </label>
-                                <button type="button" onClick={() => setShowImageGallery(true)} className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                             <div className="mt-2">
+                                <button type="button" onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
                                     <Library size={14} />
-                                    <span>Gallery</span>
+                                    <span>Select from Gallery</span>
                                 </button>
                             </div>
                         </div>
@@ -415,8 +382,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({ onSave, existingArtic
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
               <button onClick={() => setShowEditorModal(false)} className="px-5 py-2 text-sm font-bold text-gray-600">Cancel</button>
-              <button onClick={handleSave} disabled={isUploading} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800 disabled:opacity-50">
-                  {isUploading ? 'Uploading...' : 'Save Draft'}
+              <button onClick={handleSave} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">
+                  Save Draft
               </button>
             </div>
           </div>

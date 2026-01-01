@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { 
   Bold, Italic, Underline, Heading1, Heading2, Quote, 
@@ -18,8 +19,6 @@ interface RichTextEditorProps {
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onImageUpload, placeholder, className }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
   const [showGallery, setShowGallery] = useState(false);
 
@@ -58,27 +57,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     }
   };
   
-  const handleImageButtonClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setIsUploading(true);
-      try {
-        const url = await onImageUpload(file);
-        exec('insertImage', url);
-      } catch (error) {
-        console.error("Content image upload failed:", error);
-        alert("Failed to upload image into content.");
-      } finally {
-        setIsUploading(false);
-        if (e.target) e.target.value = '';
-      }
-    }
-  };
-
   const handleGallerySelect = (url: string) => {
     if (editorRef.current) {
         editorRef.current.focus();
@@ -171,22 +149,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           </div>
           <div className="flex gap-0.5">
                <ToolbarButton icon={LinkIcon} command="createLink" title="Insert Link" />
-               <button
-                type="button"
-                onMouseDown={(e) => { e.preventDefault(); handleImageButtonClick(); }}
-                className="p-1.5 text-gray-500 hover:text-black hover:bg-gray-200 rounded transition-colors relative"
-                title="Upload New Image"
-                disabled={isUploading}
-              >
-                {isUploading ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/*"
-                className="hidden"
-              />
               <button
                   type="button"
                   onMouseDown={(e) => { e.preventDefault(); setShowGallery(true); }}

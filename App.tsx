@@ -66,9 +66,15 @@ function App() {
                   // Critical: Update state immediately so all components see new branding
                   setWatermarkSettings(parsedSettings.watermark);
               }
-              // Ideally also sync categories/tags if they were stored here, 
-              // but for now they are client-side state in this mockup structure 
-              // or could be moved to a proper DB table in future.
+              if (parsedSettings.categories && Array.isArray(parsedSettings.categories)) {
+                  setCategories(parsedSettings.categories);
+              }
+              if (parsedSettings.tags && Array.isArray(parsedSettings.tags)) {
+                  setTags(parsedSettings.tags);
+              }
+              if (parsedSettings.adCategories && Array.isArray(parsedSettings.adCategories)) {
+                  setAdCategories(parsedSettings.adCategories);
+              }
           } catch (e) {
               console.error("Failed to parse global settings", e);
           }
@@ -244,15 +250,21 @@ function App() {
       if (avatar) setUserAvatar(avatar);
   };
 
-  const handleSaveWatermarkSettings = async (settings: WatermarkSettings) => {
-      // Optimistic update
-      setWatermarkSettings(settings);
-      
+  const handleSaveGlobalConfig = async (newWatermark?: WatermarkSettings) => {
+      // If new watermark provided, update state optimistically
+      const watermarkToSave = newWatermark || watermarkSettings;
+      if (newWatermark) setWatermarkSettings(newWatermark);
+
       const payload = {
           id: GLOBAL_SETTINGS_ID,
           title: 'SYSTEM_CONFIG',
-          subline: 'Global Watermark and Branding Configuration',
-          content: JSON.stringify({ watermark: settings }),
+          subline: 'Global System Configuration',
+          content: JSON.stringify({ 
+              watermark: watermarkToSave,
+              categories: categories,
+              tags: tags,
+              adCategories: adCategories
+          }),
           author: 'SYSTEM',
           category: 'Config',
           imageUrl: 'https://placehold.co/100?text=Config',
@@ -393,33 +405,58 @@ function App() {
   } else if (path === '/staff/login') {
     content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={(d) => persistDevicesToCloud([...devices, d])} onEmergencyReset={() => {}} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
-    content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={handleSaveWatermarkSettings} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} onDeletePage={handleDeletePage} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} 
-    onAddCategory={c => setCategories(prev => [...prev, c])} 
-    onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} 
-    onAddTag={t => setTags(prev => [...prev, t])} 
-    onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} 
-    onAddAdCategory={c => setAdCategories(prev => [...prev, c])} 
-    onDeleteAdCategory={c => setAdCategories(prev => prev.filter(old => old !== c))} 
-    onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
-    onAddAdvertisement={async (ad) => { 
-        // Map to DB columns (snake_case)
-        const dbAd = {
-            id: ad.id,
-            title: ad.title,
-            image_url: ad.imageUrl,
-            link_url: ad.linkUrl,
-            size: ad.size,
-            placement: ad.placement,
-            is_active: ad.isActive
-        };
-        const { error } = await supabase.from('advertisements').insert(dbAd); 
-        if (error) {
-            alert("Error saving banner: " + error.message);
-        } else {
-            fetchData(true); 
-        }
-    }} 
-    onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} />;
+    content = <EditorDashboard 
+        articles={articles} 
+        ePaperPages={ePaperPages} 
+        categories={categories} 
+        tags={tags} 
+        adCategories={adCategories} 
+        classifieds={classifieds} 
+        advertisements={advertisements} 
+        globalAdsEnabled={globalAdsEnabled} 
+        watermarkSettings={watermarkSettings} 
+        onToggleGlobalAds={setGlobalAdsEnabled} 
+        onUpdateWatermarkSettings={(w) => handleSaveGlobalConfig(w)} 
+        onUpdatePage={handleUpdatePage} 
+        onAddPage={handleAddPage} 
+        onDeletePage={handleDeletePage} 
+        onDeleteArticle={handleDeleteArticle} 
+        onSaveArticle={handleSaveArticle} 
+        onAddCategory={c => setCategories(prev => [...prev, c])} 
+        onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} 
+        onAddTag={t => setTags(prev => [...prev, t])} 
+        onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} 
+        onAddAdCategory={c => setAdCategories(prev => [...prev, c])} 
+        onDeleteAdCategory={c => setAdCategories(prev => prev.filter(old => old !== c))}
+        onSaveTaxonomy={() => handleSaveGlobalConfig()} // Save all current taxonomy state
+        onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} 
+        onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
+        onAddAdvertisement={async (ad) => { 
+            // Map to DB columns (snake_case)
+            const dbAd = {
+                id: ad.id,
+                title: ad.title,
+                image_url: ad.imageUrl,
+                link_url: ad.linkUrl,
+                size: ad.size,
+                placement: ad.placement,
+                is_active: ad.isActive
+            };
+            const { error } = await supabase.from('advertisements').insert(dbAd); 
+            if (error) {
+                alert("Error saving banner: " + error.message);
+            } else {
+                fetchData(true); 
+            }
+        }} 
+        onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
+        onNavigate={navigate} 
+        userAvatar={userAvatar} 
+        devices={devices.filter(d => d.userId === userId)} 
+        onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} 
+        onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} 
+        onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} 
+    />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard onSave={handleSaveArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} />;
   } else if (path === '/' || path === '/home') {
@@ -428,7 +465,7 @@ function App() {
     const id = currentPath.split('/article/')[1];
     content = <ArticleView articles={articles} articleId={id} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path === '/epaper') {
-    content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} onSaveSettings={handleSaveWatermarkSettings} />;
+    content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} onSaveSettings={handleSaveGlobalConfig} />;
   } else if (path === '/classifieds') {
     content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />;
   } else {
