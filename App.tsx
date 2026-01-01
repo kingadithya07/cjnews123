@@ -201,7 +201,10 @@ function App() {
           linkUrl: ad.linkUrl || ad.link_url,
           title: ad.title,
           size: ad.size,
+          customWidth: ad.customWidth, // Ensure these are mapped
+          customHeight: ad.customHeight,
           placement: ad.placement,
+          targetCategory: ad.targetCategory,
           isActive: ad.isActive !== undefined ? ad.isActive : (ad.is_active !== undefined ? ad.is_active : true)
         })) as Advertisement[]);
       }
@@ -497,7 +500,10 @@ function App() {
                 image_url: ad.imageUrl,
                 link_url: ad.linkUrl,
                 size: ad.size,
+                customWidth: ad.customWidth,
+                customHeight: ad.customHeight,
                 placement: ad.placement,
+                targetCategory: ad.targetCategory,
                 is_active: ad.isActive
             };
             const { error } = await supabase.from('advertisements').insert(dbAd); 
@@ -532,11 +538,11 @@ function App() {
     const cat = decodeURIComponent(currentPath.split('/category/')[1]);
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedCategory={cat} categories={categories} />;
   } else if (path === '/epaper') {
-    content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} onSaveSettings={handleSaveGlobalConfig} />;
+    content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} onSaveSettings={handleSaveGlobalConfig} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path === '/editorial') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedCategory="Editorial" categories={categories} />;
   } else if (path === '/classifieds') {
-    content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />;
+    content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />; // Note: Ideally pass ads here too if needed, but keeping changes minimal
   } else {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   }

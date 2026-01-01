@@ -443,9 +443,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   <div key={ad.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden group hover:shadow-md transition-all">
                                       <div className="relative h-40 bg-gray-100 flex items-center justify-center p-4">
                                           <img src={ad.imageUrl} className="max-w-full max-h-full object-contain" alt={ad.title} />
-                                          <div className="absolute top-2 right-2 flex flex-col gap-1">
-                                              <span className="bg-black/70 backdrop-blur text-white text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider">{ad.size.replace('_', ' ')}</span>
-                                              <span className="bg-white/90 text-black text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider border border-gray-200">{ad.placement}</span>
+                                          <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                                              <span className="bg-black/70 backdrop-blur text-white text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider mb-1">
+                                                  {ad.size === 'CUSTOM' ? `${ad.customWidth}x${ad.customHeight}` : ad.size.replace('_', ' ')}
+                                              </span>
+                                              <span className="bg-white/90 text-black text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider border border-gray-200">
+                                                  {ad.placement} {ad.placement === 'CATEGORY' ? `(${ad.targetCategory})` : ''}
+                                              </span>
                                           </div>
                                       </div>
                                       <div className="p-5">
@@ -453,7 +457,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                               <h3 className="font-bold text-gray-900 truncate pr-2">{ad.title}</h3>
                                               <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${ad.isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
                                           </div>
-                                          <p className="text-xs text-gray-500 truncate mb-4 flex items-center gap-1"><Globe size={12}/> {ad.linkUrl}</p>
+                                          <p className="text-xs text-gray-500 truncate mb-4 flex items-center gap-1">
+                                              <Globe size={12}/> {ad.linkUrl || "Offline / Display Only"}
+                                          </p>
                                           
                                           <div className="flex gap-2 pt-3 border-t border-gray-100">
                                               <button onClick={() => onDeleteAdvertisement(ad.id)} className="flex-1 text-red-600 hover:bg-red-50 py-2 rounded text-xs font-bold uppercase border border-transparent hover:border-red-100 transition-colors flex items-center justify-center gap-2">
@@ -699,7 +705,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                 
                 <div className="p-4 md:p-6 overflow-y-auto space-y-6">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        
+                        {/* Article Form Fields... (same as before) */}
                         {/* LEFT COLUMN: Main Metadata */}
                         <div className="lg:col-span-2 space-y-4">
                             <div>
@@ -838,12 +844,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       {/* AD CAMPAIGN MODAL */}
       {showAdModal && (
         <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl">
+            <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl max-h-[90vh] flex flex-col">
                 <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900">New Ad Campaign</h3>
                     <button onClick={() => setShowAdModal(false)}><X size={20}/></button>
                 </div>
-                <div className="p-6 space-y-5">
+                <div className="p-6 space-y-5 overflow-y-auto">
                     {/* Image Upload */}
                     <div className="space-y-2">
                         <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Creative Banner</label>
@@ -880,6 +886,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     <option value="SKYSCRAPER">Desktop Sidebar Slim (160x600)</option>
                                     <option value="HALF_PAGE">Desktop Sidebar Large (300x600)</option>
                                 </optgroup>
+                                <optgroup label="Custom">
+                                    <option value="CUSTOM">Custom Dimensions</option>
+                                </optgroup>
                             </select>
                         </div>
                         <div className="space-y-2">
@@ -892,9 +901,43 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                 <option value="GLOBAL">Run Everywhere</option>
                                 <option value="HOME">Home Page Only</option>
                                 <option value="ARTICLE">Article Pages Only</option>
+                                <option value="EPAPER">E-Paper Section</option>
+                                <option value="EDITORIAL">Editorial Section</option>
+                                <option value="CLASSIFIEDS">Classifieds Section</option>
+                                <option value="CATEGORY">Specific Category</option>
                             </select>
                         </div>
                     </div>
+
+                    {/* Conditional Fields based on selection */}
+                    {newAd.size === 'CUSTOM' && (
+                        <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Width (px)</label>
+                                <input type="number" value={newAd.customWidth || ''} onChange={(e) => setNewAd({...newAd, customWidth: Number(e.target.value)})} className="w-full p-2 border rounded-md text-sm" placeholder="e.g. 300" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Height (px)</label>
+                                <input type="number" value={newAd.customHeight || ''} onChange={(e) => setNewAd({...newAd, customHeight: Number(e.target.value)})} className="w-full p-2 border rounded-md text-sm" placeholder="e.g. 100" />
+                            </div>
+                        </div>
+                    )}
+
+                    {newAd.placement === 'CATEGORY' && (
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Select Category</label>
+                            <select 
+                                value={newAd.targetCategory || ''} 
+                                onChange={(e) => setNewAd({...newAd, targetCategory: e.target.value})}
+                                className="w-full p-2.5 border rounded-lg text-xs font-bold bg-white focus:border-news-black outline-none"
+                            >
+                                <option value="">-- Choose Category --</option>
+                                {categories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Campaign Title</label>
@@ -902,27 +945,39 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Destination URL</label>
-                        <input type="url" value={newAd.linkUrl || ''} onChange={(e) => setNewAd({...newAd, linkUrl: e.target.value})} className="w-full p-3 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="https://..." />
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Destination URL (Optional)</label>
+                        <input type="url" value={newAd.linkUrl || ''} onChange={(e) => setNewAd({...newAd, linkUrl: e.target.value})} className="w-full p-3 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="https://... (Leave empty for offline/display-only)" />
                     </div>
                 </div>
-                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 mt-auto">
                     <button onClick={() => setShowAdModal(false)} className="px-5 py-2.5 text-xs font-bold text-gray-500 hover:text-black">Cancel</button>
                     <button 
                         onClick={() => {
-                            if (newAd.title && newAd.imageUrl && newAd.linkUrl) {
+                            if (newAd.title && newAd.imageUrl) {
+                                if (newAd.size === 'CUSTOM' && (!newAd.customWidth || !newAd.customHeight)) {
+                                    alert("Please specify dimensions for custom size.");
+                                    return;
+                                }
+                                if (newAd.placement === 'CATEGORY' && !newAd.targetCategory) {
+                                    alert("Please select a target category.");
+                                    return;
+                                }
+
                                 onAddAdvertisement({
                                     id: generateId(),
                                     title: newAd.title,
                                     imageUrl: newAd.imageUrl,
-                                    linkUrl: newAd.linkUrl,
+                                    linkUrl: newAd.linkUrl || undefined, // Allow undefined
                                     size: newAd.size as any,
+                                    customWidth: newAd.customWidth,
+                                    customHeight: newAd.customHeight,
                                     placement: newAd.placement as any,
+                                    targetCategory: newAd.targetCategory,
                                     isActive: true
                                 });
                                 setShowAdModal(false);
                             } else {
-                                alert("Please fill all fields.");
+                                alert("Please fill required fields (Title & Image).");
                             }
                         }} 
                         className="px-6 py-2.5 bg-news-black text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all flex items-center gap-2"

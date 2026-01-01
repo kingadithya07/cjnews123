@@ -87,6 +87,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
   // --- CATEGORY VIEW RENDER ---
   if (selectedCategory) {
+      const placementContext = selectedCategory === 'Editorial' ? 'EDITORIAL' : 'CATEGORY';
+      
       return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-12 max-w-7xl mx-auto px-4 md:px-0">
             {/* Back Button */}
@@ -107,6 +109,14 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                     {selectedCategory === 'Editorial' ? 'Curated Journalism' : 'Category Archive'}
                 </p>
             </div>
+
+            <AdvertisementBanner 
+                ads={advertisements} 
+                size="LEADERBOARD" 
+                placement={placementContext}
+                currentCategory={selectedCategory !== 'Editorial' ? selectedCategory : undefined}
+                globalAdsEnabled={globalAdsEnabled}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {displayArticles.length === 0 ? (
@@ -398,6 +408,17 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                           View All <ChevronRight size={10} />
                       </Link>
                   </div>
+                  
+                  {/* Category Banner Ad */}
+                  <AdvertisementBanner 
+                    ads={advertisements} 
+                    size="LEADERBOARD" 
+                    placement="CATEGORY"
+                    currentCategory={category}
+                    globalAdsEnabled={globalAdsEnabled}
+                    className="!my-0 mb-6 hidden md:flex"
+                  />
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                       {categoryArticles.map(article => (
                           <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="group block">

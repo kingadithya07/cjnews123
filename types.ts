@@ -83,17 +83,21 @@ export type AdSize =
   | 'RECTANGLE'       // 300x250 (Sidebar/Content)
   | 'HALF_PAGE'       // 300x600 (Sidebar Large)
   | 'SKYSCRAPER'      // 160x600 (Sidebar Slim)
-  | 'MOBILE_BANNER';  // 320x50 (Mobile Only)
+  | 'MOBILE_BANNER'   // 320x50 (Mobile Only)
+  | 'CUSTOM';         // User defined
 
-export type AdPlacement = 'GLOBAL' | 'HOME' | 'ARTICLE';
+export type AdPlacement = 'GLOBAL' | 'HOME' | 'ARTICLE' | 'EPAPER' | 'EDITORIAL' | 'CLASSIFIEDS' | 'CATEGORY';
 
 export interface Advertisement {
   id: string;
   imageUrl: string;
-  linkUrl: string;
+  linkUrl?: string; // Optional for offline ads
   title: string; // For alt text and admin ref
   size: AdSize;
+  customWidth?: number;
+  customHeight?: number;
   placement: AdPlacement;
+  targetCategory?: string; // If placement is CATEGORY
   isActive: boolean;
 }
 

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { EPaperPage, EPaperRegion, Article, WatermarkSettings } from '../types';
+import { EPaperPage, EPaperRegion, Article, WatermarkSettings, Advertisement } from '../types';
 import EPaperViewer from '../components/EPaperViewer';
 import Cropper from 'cropperjs';
 import { 
@@ -11,6 +11,7 @@ import { format, isValid } from 'date-fns';
 import { APP_NAME } from '../constants';
 import { generateId } from '../utils';
 import { supabase } from '../supabaseClient';
+import AdvertisementBanner from '../components/Advertisement';
 
 interface EPaperReaderProps {
   pages: EPaperPage[];
@@ -18,9 +19,11 @@ interface EPaperReaderProps {
   onNavigate: (path: string) => void;
   watermarkSettings: WatermarkSettings;
   onSaveSettings?: (settings: WatermarkSettings) => void;
+  advertisements?: Advertisement[]; // Make optional to not break existing calls if not updated yet
+  globalAdsEnabled?: boolean;
 }
 
-const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermarkSettings, onSaveSettings }) => {
+const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermarkSettings, onSaveSettings, advertisements = [], globalAdsEnabled = true }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'reader'>('grid');
   
   const uniqueDates = useMemo(() => {
@@ -345,12 +348,25 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
       {viewMode === 'grid' && (
           <div className="flex-1 overflow-y-auto p-6 md:p-12 animate-in fade-in duration-500">
+              
               <div className="max-w-7xl mx-auto space-y-10">
-                  <div className="border-b border-gray-200 pb-6">
-                      <h1 className="text-3xl md:text-5xl font-serif font-black text-gray-900 mb-2 uppercase tracking-tighter">CJ NEWSHUB</h1>
-                      <p className="text-gray-500 text-[9px] font-black uppercase tracking-[0.4em] flex items-center gap-3">
-                        <Calendar size={12} className="text-news-gold"/> Edition: {safeFormat(selectedDate, 'MMMM do, yyyy')}
-                      </p>
+                  <div className="border-b border-gray-200 pb-6 flex flex-col md:flex-row justify-between items-end gap-4">
+                      <div>
+                        <h1 className="text-3xl md:text-5xl font-serif font-black text-gray-900 mb-2 uppercase tracking-tighter">CJ NEWSHUB</h1>
+                        <p className="text-gray-500 text-[9px] font-black uppercase tracking-[0.4em] flex items-center gap-3">
+                            <Calendar size={12} className="text-news-gold"/> Edition: {safeFormat(selectedDate, 'MMMM do, yyyy')}
+                        </p>
+                      </div>
+                      <div className="w-full md:w-auto">
+                          {/* Banner Ad for E-Paper Section */}
+                          <AdvertisementBanner 
+                            ads={advertisements} 
+                            size="LEADERBOARD" 
+                            placement="EPAPER"
+                            globalAdsEnabled={globalAdsEnabled}
+                            className="!my-0"
+                          />
+                      </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 pb-20">
                       {currentEditionPages.map((page, idx) => (
