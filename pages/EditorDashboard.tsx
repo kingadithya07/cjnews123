@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -373,19 +373,53 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
                   )}
 
-                  {/* Re-injecting tabs */}
+                  {/* Restored Editorial Tab */}
                   {activeTab === 'editorial' && (
                     <div className="max-w-7xl mx-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-serif font-bold">Editorial Picks</h2>
-                            <button onClick={() => setActiveTab('articles')} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"><Plus size={16}/> Add Stories</button>
+                            <button onClick={() => setActiveTab('articles')} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2">
+                                <Plus size={16}/> Select Stories
+                            </button>
                         </div>
-                        {/* Editoral Table - Simplified for length */}
                         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                            <div className="p-10 text-center text-gray-400">Content same as previous...</div>
+                             <table className="w-full text-left">
+                                  <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
+                                      <tr>
+                                          <th className="px-6 py-4">Article</th>
+                                          <th className="px-6 py-4">Date</th>
+                                          <th className="px-6 py-4 text-right">Actions</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {articles.filter(a => a.isEditorsChoice).map(article => (
+                                        <tr key={article.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden shrink-0">
+                                                        <img src={article.imageUrl} className="w-full h-full object-cover"/>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-sm text-gray-900">{article.title}</p>
+                                                        <span className="text-[10px] text-news-gold font-bold uppercase">Featured Editorial</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs text-gray-500">{format(new Date(article.publishedAt), 'MMM d, yyyy')}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button onClick={() => onSaveArticle({ ...article, isEditorsChoice: false })} className="text-red-500 text-xs font-bold uppercase hover:underline">Remove</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {articles.filter(a => a.isEditorsChoice).length === 0 && (
+                                        <tr><td colSpan={3} className="text-center py-10 text-gray-400">No editorial picks selected.</td></tr>
+                                    )}
+                                  </tbody>
+                             </table>
                         </div>
                     </div>
                   )}
+
                   {activeTab === 'epaper' && (
                       <div className="max-w-7xl mx-auto">
                            <div className="flex justify-between items-center mb-6">
@@ -410,8 +444,41 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
                   )}
+
+                  {/* Restored Classifieds Tab */}
                   {activeTab === 'classifieds' && (
-                      <div className="max-w-7xl mx-auto"><h2 className="text-2xl font-serif font-bold mb-6">Classifieds</h2><div className="p-10 text-center bg-white border rounded">Classifieds management...</div></div>
+                      <div className="max-w-7xl mx-auto pb-20">
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                              <h2 className="text-2xl font-serif font-bold">Classifieds</h2>
+                              <button onClick={() => { setNewClassified({}); setShowClassifiedModal(true); }} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 shadow hover:bg-gray-800">
+                                  <Plus size={16} /> New Listing
+                              </button>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                               {classifieds.map(ad => (
+                                   <div key={ad.id} className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                                       <div>
+                                           <div className="flex justify-between items-start mb-2">
+                                               <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">{ad.category}</span>
+                                               <span className="text-news-accent font-bold">{ad.price || 'N/A'}</span>
+                                           </div>
+                                           <h3 className="font-bold text-gray-900 mb-2 truncate">{ad.title}</h3>
+                                           <p className="text-xs text-gray-500 line-clamp-3 mb-4">{ad.content}</p>
+                                       </div>
+                                       <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
+                                           <div className="text-[10px] text-gray-400 font-bold uppercase">{format(new Date(ad.postedAt), 'MMM d')}</div>
+                                           <button onClick={() => onDeleteClassified(ad.id)} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                                       </div>
+                                   </div>
+                               ))}
+                               {classifieds.length === 0 && (
+                                   <div className="col-span-full py-20 text-center text-gray-400 bg-white border border-dashed rounded-lg">
+                                       <p>No active classifieds.</p>
+                                   </div>
+                               )}
+                          </div>
+                      </div>
                   )}
                   {activeTab === 'ads' && (
                       <div className="max-w-7xl mx-auto space-y-8 pb-20">
@@ -582,7 +649,49 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                  </div>
                               </div>
                           </div>
-                          {/* Branding Settings (same as before) ... */}
+                          
+                          {/* Restored Watermark/Branding Settings */}
+                          <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                              <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Scissors size={20} className="text-news-gold"/> Global Branding & Watermark</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                  <div className="space-y-4">
+                                      <div>
+                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Watermark Text</label>
+                                          <input type="text" value={watermarkText} onChange={e => setWatermarkText(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                      </div>
+                                      <div>
+                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Logo URL (Transparent PNG)</label>
+                                          <div className="flex gap-2">
+                                              <input type="text" value={watermarkLogo} onChange={e => setWatermarkLogo(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black text-xs" />
+                                              <label className="bg-gray-100 border border-gray-300 text-gray-700 px-3 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-200">
+                                                  {isLogoUploading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
+                                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setWatermarkLogo, setIsLogoUploading)} />
+                                              </label>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div className="space-y-6">
+                                      <div>
+                                          <div className="flex justify-between mb-2">
+                                              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Font Size</label>
+                                              <span className="text-xs font-bold text-gray-600">{watermarkFontSize}px</span>
+                                          </div>
+                                          <input 
+                                              type="range" 
+                                              min="10" max="60" 
+                                              value={watermarkFontSize} 
+                                              onChange={e => setWatermarkFontSize(Number(e.target.value))} 
+                                              className="w-full accent-news-black h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                          />
+                                      </div>
+                                      <div className="pt-2">
+                                          <button onClick={handleUpdateBranding} disabled={isSavingBranding} className="w-full bg-news-gold text-black py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-yellow-500 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                              {isSavingBranding ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Branding
+                                          </button>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
                       </div>
                   )}
               </div>
@@ -591,7 +700,76 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
       {/* ARTICLE MODAL (same as before) ... */}
       
-      {/* AD CAMPAIGN MODAL */}
+      {/* AD CAMPAIGN MODAL (same as before) ... */}
+
+      {/* NEW CLASSIFIED MODAL */}
+      {showClassifiedModal && (
+          <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+               <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl flex flex-col max-h-[90vh]">
+                   <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                       <h3 className="font-bold text-gray-900">New Classified Ad</h3>
+                       <button onClick={() => setShowClassifiedModal(false)}><X size={20}/></button>
+                   </div>
+                   <div className="p-6 space-y-4 overflow-y-auto">
+                       <div>
+                           <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Title</label>
+                           <input type="text" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="Ad Headline"/>
+                       </div>
+                       <div className="grid grid-cols-2 gap-4">
+                           <div>
+                               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Category</label>
+                               <select value={newClassified.category || ''} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black bg-white">
+                                   <option value="">Select...</option>
+                                   {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                               </select>
+                           </div>
+                           <div>
+                               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Price (Optional)</label>
+                               <input type="text" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="$0.00"/>
+                           </div>
+                       </div>
+                       <div>
+                           <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Description</label>
+                           <textarea value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black min-h-[100px]" placeholder="Details about the listing..."></textarea>
+                       </div>
+                       <div className="grid grid-cols-2 gap-4">
+                           <div>
+                               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Contact Info</label>
+                               <input type="text" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="Phone or Email"/>
+                           </div>
+                           <div>
+                               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Location</label>
+                               <input type="text" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="City, State"/>
+                           </div>
+                       </div>
+                   </div>
+                   <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 mt-auto">
+                       <button onClick={() => setShowClassifiedModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500">Cancel</button>
+                       <button onClick={() => {
+                           if(newClassified.title && newClassified.category && newClassified.content && newClassified.contactInfo) {
+                               onAddClassified({
+                                   id: generateId(),
+                                   title: newClassified.title,
+                                   category: newClassified.category,
+                                   content: newClassified.content,
+                                   contactInfo: newClassified.contactInfo,
+                                   price: newClassified.price,
+                                   location: newClassified.location,
+                                   postedAt: new Date().toISOString()
+                               } as ClassifiedAd);
+                               setShowClassifiedModal(false);
+                               setNewClassified({});
+                           } else {
+                               alert("Please fill in all required fields.");
+                           }
+                       }} className="px-6 py-2 bg-news-black text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-gray-800">
+                           Post Listing
+                       </button>
+                   </div>
+               </div>
+          </div>
+      )}
+
       {showAdModal && (
         <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl max-h-[90vh] flex flex-col">

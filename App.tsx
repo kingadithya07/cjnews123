@@ -555,7 +555,8 @@ function App() {
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard 
-        onSave={handleSaveArticle} 
+        onSave={handleSaveArticle}
+        onDelete={handleDeleteArticle} // Passed delete handler
         existingArticles={articles} 
         currentUserRole={userRole} 
         categories={categories} 

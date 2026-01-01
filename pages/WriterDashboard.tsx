@@ -11,6 +11,7 @@ import CategorySelector from '../components/CategorySelector';
 
 interface WriterDashboardProps {
   onSave: (article: Article) => void;
+  onDelete?: (id: string) => void;
   existingArticles: Article[];
   currentUserRole: UserRole;
   categories: string[];
@@ -22,7 +23,7 @@ interface WriterDashboardProps {
 }
 
 const WriterDashboard: React.FC<WriterDashboardProps> = ({ 
-    onSave, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName,
+    onSave, onDelete, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName,
     devices = [], onRevokeDevice
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -108,6 +109,12 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
     };
     onSave(newArticle);
     setShowEditorModal(false);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this article?")) {
+        if (onDelete) onDelete(id);
+    }
   };
 
   const openNewArticle = () => {
@@ -249,10 +256,15 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                        </div>
                                    )}
 
-                                   <div className="pt-3 border-t border-gray-100 mt-1 flex justify-end">
+                                   <div className="pt-3 border-t border-gray-100 mt-1 flex justify-end gap-3">
                                        <button onClick={() => openEditArticle(article)} className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase px-3 py-1.5 rounded hover:bg-blue-50 transition-colors">
-                                           <PenSquare size={14}/> Edit Article
+                                           <PenSquare size={14}/> Edit
                                        </button>
+                                       {onDelete && (
+                                           <button onClick={() => handleDelete(article.id)} className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase px-3 py-1.5 rounded hover:bg-red-50 transition-colors">
+                                               <Trash2 size={14}/> Delete
+                                           </button>
+                                       )}
                                    </div>
                                </div>
                            ))}
@@ -295,7 +307,12 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                                 <span className={`px-2 py-1 rounded ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{article.status}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button onClick={() => openEditArticle(article)} className="text-blue-600 font-bold text-xs uppercase">Edit</button>
+                                                <div className="flex justify-end gap-3">
+                                                    <button onClick={() => openEditArticle(article)} className="text-blue-600 font-bold text-xs uppercase hover:text-blue-800">Edit</button>
+                                                    {onDelete && (
+                                                        <button onClick={() => handleDelete(article.id)} className="text-red-500 font-bold text-xs uppercase hover:text-red-700">Delete</button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
