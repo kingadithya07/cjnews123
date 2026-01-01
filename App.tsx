@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -390,7 +389,26 @@ function App() {
   } else if (path === '/staff/login') {
     content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={(d) => persistDevicesToCloud([...devices, d])} onEmergencyReset={() => {}} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
-    content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={handleSaveWatermarkSettings} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} onDeletePage={handleDeletePage} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={() => {}} onDeleteAdCategory={() => {}} onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} onAddAdvertisement={async (ad) => { await supabase.from('advertisements').insert(ad); fetchData(true); }} onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} />;
+    content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={setGlobalAdsEnabled} onUpdateWatermarkSettings={handleSaveWatermarkSettings} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} onDeletePage={handleDeletePage} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} onAddCategory={c => setCategories(prev => [...prev, c])} onDeleteCategory={c => setCategories(prev => prev.filter(old => old !== c))} onAddTag={t => setTags(prev => [...prev, t])} onDeleteTag={t => setTags(prev => prev.filter(old => old !== t))} onAddAdCategory={() => {}} onDeleteAdCategory={() => {}} onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
+    onAddAdvertisement={async (ad) => { 
+        // Map to DB columns (snake_case)
+        const dbAd = {
+            id: ad.id,
+            title: ad.title,
+            image_url: ad.imageUrl,
+            link_url: ad.linkUrl,
+            size: ad.size,
+            placement: ad.placement,
+            is_active: ad.isActive
+        };
+        const { error } = await supabase.from('advertisements').insert(dbAd); 
+        if (error) {
+            alert("Error saving banner: " + error.message);
+        } else {
+            fetchData(true); 
+        }
+    }} 
+    onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} onNavigate={navigate} userAvatar={userAvatar} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => persistDevicesToCloud(devices.map(d => d.id === id ? {...d, status: 'approved'} : d))} onRejectDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} onRevokeDevice={(id) => persistDevicesToCloud(devices.filter(d => d.id !== id))} />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard onSave={handleSaveArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} />;
   } else if (path === '/' || path === '/home') {

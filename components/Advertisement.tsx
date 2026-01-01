@@ -27,21 +27,29 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
   const ad = availableAds[Math.floor(Math.random() * availableAds.length)];
 
   // 5. Determine styles based on size
+  // Optimized for mobile responsiveness using aspect-ratio and max-width scaling
   const getSizeStyles = (s: AdSize) => {
     switch (s) {
       case 'BILLBOARD':
-        return 'w-full max-w-[970px] h-[250px] hidden md:block';
+        // 970x250 - Scale down on mobile, do not hide
+        return 'w-full max-w-[970px] aspect-[97/25] h-auto';
       case 'LEADERBOARD':
-        return 'w-full max-w-[728px] h-[90px] hidden sm:block';
+        // 728x90 - Scale down on mobile
+        return 'w-full max-w-[728px] aspect-[728/90] h-auto';
       case 'HALF_PAGE':
-        return 'w-[300px] h-[600px] hidden lg:block';
+        // 300x600 - Fixed width usually, but scale if container is smaller
+        return 'w-full max-w-[300px] aspect-[300/600] h-auto';
       case 'SKYSCRAPER':
-        return 'w-[160px] h-[600px] hidden lg:block';
+        // 160x600
+        return 'w-full max-w-[160px] aspect-[160/600] h-auto';
       case 'MOBILE_BANNER':
-        return 'w-[320px] h-[50px] block sm:hidden';
+        // 320x50 - Only show on mobile breakpoints to avoid clutter on desktop if desired, 
+        // or allow everywhere if layout permits. Keeping strict mobile targeting as per name.
+        return 'w-full max-w-[320px] aspect-[32/5] h-auto block sm:hidden';
       case 'RECTANGLE':
       default:
-        return 'w-[300px] h-[250px]';
+        // 300x250
+        return 'w-full max-w-[300px] aspect-[300/250] h-auto';
     }
   };
 
@@ -49,8 +57,8 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
 
   return (
     <div className={`w-full flex justify-center items-center my-6 ${className}`}>
-      <div className={`relative group overflow-hidden bg-gray-100 border border-gray-200 shadow-sm ${containerClasses}`}>
-        <span className="absolute top-0 right-0 bg-white/90 text-[8px] font-sans text-gray-400 px-1 uppercase tracking-widest z-10 border-b border-l border-gray-100">
+      <div className={`relative group overflow-hidden bg-gray-100 border border-gray-200 shadow-sm mx-auto ${containerClasses}`}>
+        <span className="absolute top-0 right-0 bg-white/90 text-[8px] font-sans text-gray-400 px-1 uppercase tracking-widest z-10 border-b border-l border-gray-100 pointer-events-none">
             Ad
         </span>
         <a 
@@ -62,7 +70,7 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
             <img 
                 src={ad.imageUrl} 
                 alt={ad.title} 
-                className="w-full h-full object-cover transition-opacity hover:opacity-90"
+                className="w-full h-full object-fill transition-opacity hover:opacity-90"
             />
         </a>
       </div>
