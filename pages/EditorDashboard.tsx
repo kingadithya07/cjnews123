@@ -303,8 +303,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   {activeTab === 'articles' && (
                       <div className="max-w-7xl mx-auto">
                           <div className="flex justify-between items-center mb-6">
-                              <h2 className="text-2xl font-serif font-bold">All Articles</h2>
-                              <button onClick={openNewArticle} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"><Plus size={16}/> New Article</button>
+                              <h2 className="text-xl md:text-2xl font-serif font-bold">All Articles</h2>
+                              <button onClick={openNewArticle} className="bg-news-black text-white px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2">
+                                  <Plus size={16}/> <span className="hidden sm:inline">New Article</span><span className="sm:hidden">New</span>
+                              </button>
                           </div>
                           {/* ... Article table code ... */}
                           <div className="hidden md:block bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
@@ -698,7 +700,94 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           </div>
       </div>
 
-      {/* ARTICLE MODAL (same as before) ... */}
+      {/* ARTICLE MODAL */}
+      {showArticleModal && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                <h3 className="font-bold text-gray-900">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
+                <button onClick={() => setShowArticleModal(false)} className="p-2 -mr-2 text-gray-500 hover:text-black"><X size={20}/></button>
+            </div>
+            <div className="p-4 md:p-6 overflow-y-auto space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 space-y-4">
+                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Article Headline"/>
+                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
+                            <button onClick={() => setShowCategorySelector(true)} className="w-full p-2 border rounded text-sm bg-white text-left flex justify-between items-center">
+                                <span className={modalCategories.length === 0 ? 'text-gray-400' : ''}>
+                                    {modalCategories.length === 0 ? 'Select Categories' : `${modalCategories.length} Selected`}
+                                </span>
+                                <ChevronDown size={14} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="md:col-span-1 space-y-4">
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-[180px] flex flex-col justify-between">
+                            {modalImageUrl ? (
+                                <div className="relative group w-full h-full">
+                                    <img src={modalImageUrl} className="w-full h-full object-cover rounded shadow" />
+                                    <button onClick={() => setModalImageUrl('')} className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="py-4 text-gray-400 flex flex-col items-center justify-center h-full">
+                                    <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
+                                    <p className="text-xs font-bold uppercase">Featured Image</p>
+                                </div>
+                            )}
+                        </div>
+                        <button onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2">
+                            <Library size={14} /> Select from Gallery
+                        </button>
+                        
+                        <div className="space-y-3 pt-2">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</label>
+                                <select value={modalStatus} onChange={(e) => setModalStatus(e.target.value as ArticleStatus)} className="w-full p-2 border rounded text-sm bg-white">
+                                    <option value={ArticleStatus.DRAFT}>Draft</option>
+                                    <option value={ArticleStatus.PENDING}>Pending Review</option>
+                                    <option value={ArticleStatus.PUBLISHED}>Published</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
+                                <label className="flex items-center gap-2 cursor-pointer w-full">
+                                    <input type="checkbox" checked={modalIsFeatured} onChange={e => setModalIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
+                                    <div className="flex items-center gap-2">
+                                        <Star size={12} className={modalIsFeatured ? "text-news-accent" : "text-gray-400"} />
+                                        <span className="text-xs font-bold uppercase">Featured</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
+                                <label className="flex items-center gap-2 cursor-pointer w-full">
+                                    <input type="checkbox" checked={modalIsEditorsChoice} onChange={e => setModalIsEditorsChoice(e.target.checked)} className="w-4 h-4 accent-news-gold" />
+                                    <div className="flex items-center gap-2">
+                                        <Award size={12} className={modalIsEditorsChoice ? "text-news-gold" : "text-gray-400"} />
+                                        <span className="text-xs font-bold uppercase">Editor's Pick</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="relative">
+                  <RichTextEditor content={modalContent} onChange={setModalContent} className="min-h-[300px] md:min-h-[400px]" onImageUpload={handleContentImageUpload} />
+                </div>
+
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
+              <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold text-gray-600">Cancel</button>
+              <button onClick={handleSaveArticleInternal} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">
+                  Save Article
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* AD CAMPAIGN MODAL (same as before) ... */}
 
