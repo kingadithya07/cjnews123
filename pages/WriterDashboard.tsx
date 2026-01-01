@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -38,6 +38,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
   const [isFeatured, setIsFeatured] = useState(false);
+  const [isEditorsChoice, setIsEditorsChoice] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [showImageGallery, setShowImageGallery] = useState(false);
 
@@ -101,6 +102,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
       publishedAt: new Date().toISOString(),
       status: status,
       isFeatured: isFeatured,
+      isEditorsChoice: isEditorsChoice,
       // Save current user's avatar with the article
       authorAvatar: profileAvatar || undefined 
     };
@@ -109,11 +111,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setShowEditorModal(true);
+      setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setIsEditorsChoice(false); setSelectedCategories(['General']); setShowEditorModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setShowEditorModal(true);
+      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setIsEditorsChoice(article.isEditorsChoice || false); setShowEditorModal(true);
   };
 
   const handleSelectFromGallery = (url: string) => {
@@ -436,11 +438,29 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                 <ChevronDown size={14} />
                             </button>
                         </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</label>
+                                <select 
+                                    value={status} 
+                                    onChange={(e) => setStatus(e.target.value as ArticleStatus)} 
+                                    className="w-full p-2 border rounded text-sm bg-white"
+                                >
+                                    <option value={ArticleStatus.DRAFT}>Draft</option>
+                                    <option value={ArticleStatus.PENDING}>Pending Review</option>
+                                    <option value={ArticleStatus.PUBLISHED}>Published</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tags</label>
+                                <input type="text" placeholder="Add tags..." className="w-full p-2 border rounded text-sm" />
+                            </div>
+                        </div>
                     </div>
                     <div className="md:col-span-1">
-                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-full flex flex-col justify-between min-h-[200px]">
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-[200px] flex flex-col justify-between">
                             {imageUrl ? (
-                                <div className="relative group aspect-video">
+                                <div className="relative group w-full h-full">
                                     <img src={imageUrl} className="w-full h-full object-cover rounded shadow" />
                                     <button onClick={() => setImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
                                         <Trash2 size={14} />
@@ -452,11 +472,31 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                     <p className="text-xs font-bold uppercase">Featured Image</p>
                                 </div>
                             )}
-                             <div className="mt-2">
-                                <button type="button" onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                                    <Library size={14} />
-                                    <span>Select from Gallery</span>
-                                </button>
+                        </div>
+                        <div className="mt-2">
+                            <button type="button" onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                                <Library size={14} />
+                                <span>Select from Gallery</span>
+                            </button>
+                        </div>
+                        <div className="mt-4 space-y-2">
+                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
+                                <label className="flex items-center gap-2 cursor-pointer w-full">
+                                    <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
+                                    <div className="flex items-center gap-2">
+                                        <Star size={12} className={isFeatured ? "text-news-accent fill-news-accent" : "text-gray-400"} />
+                                        <span className="text-xs font-bold uppercase">Featured</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
+                                <label className="flex items-center gap-2 cursor-pointer w-full">
+                                    <input type="checkbox" checked={isEditorsChoice} onChange={e => setIsEditorsChoice(e.target.checked)} className="w-4 h-4 accent-news-gold" />
+                                    <div className="flex items-center gap-2">
+                                        <Award size={12} className={isEditorsChoice ? "text-news-gold fill-news-gold" : "text-gray-400"} />
+                                        <span className="text-xs font-bold uppercase">Editor's Pick</span>
+                                    </div>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -467,17 +507,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                   <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded pointer-events-none">
                       {wordCount} Words
                   </div>
-                </div>
-                
-                <div className="flex items-center gap-3 bg-gray-50 p-3 rounded border border-gray-100 w-fit">
-                    <label className="font-bold text-sm">Feature Mode:</label>
-                    <button 
-                        onClick={() => setIsFeatured(!isFeatured)}
-                        className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold uppercase border transition-colors ${isFeatured ? 'bg-news-accent text-white border-news-accent' : 'bg-white text-gray-500 border-gray-200'}`}
-                    >
-                        <Star size={12} fill={isFeatured ? "currentColor" : "none"} /> 
-                        {isFeatured ? "Featured" : "Standard"}
-                    </button>
                 </div>
 
             </div>

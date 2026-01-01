@@ -598,28 +598,148 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           </div>
       </div>
 
-      {/* ARTICLE MODAL - Simplified for update */}
+      {/* ARTICLE MODAL */}
       {showArticleModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="bg-white rounded-lg w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden animate-in zoom-in-95">
                 <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
-                    <h3 className="font-bold">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
-                    <button onClick={() => setShowArticleModal(false)}><X size={20}/></button>
+                    <h3 className="font-bold text-gray-900">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
+                    <button onClick={() => setShowArticleModal(false)} className="p-2 -mr-2 text-gray-500 hover:text-black"><X size={20}/></button>
                 </div>
-                <div className="p-6 overflow-y-auto space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="md:col-span-2 space-y-4">
-                            <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline" />
-                            {/* ... inputs ... */}
+                
+                <div className="p-4 md:p-6 overflow-y-auto space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        {/* LEFT COLUMN: Main Metadata */}
+                        <div className="lg:col-span-2 space-y-4">
+                            <div>
+                                <input 
+                                    type="text" 
+                                    value={modalTitle} 
+                                    onChange={(e) => setModalTitle(e.target.value)} 
+                                    className="w-full p-4 border rounded-lg text-xl font-serif font-bold placeholder:text-gray-300 focus:border-news-black outline-none" 
+                                    placeholder="Article Headline" 
+                                />
+                            </div>
+                            <div>
+                                <textarea 
+                                    value={modalSubline} 
+                                    onChange={(e) => setModalSubline(e.target.value)} 
+                                    className="w-full p-3 border rounded-lg text-sm text-gray-700 italic min-h-[80px] placeholder:text-gray-300 focus:border-news-black outline-none resize-none" 
+                                    placeholder="Subline / Summary... (displayed under headline)" 
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Author Name & Title</label>
+                                     <div className="relative">
+                                        <UserIcon size={16} className="absolute left-3 top-3 text-gray-400" />
+                                        <input 
+                                            type="text" 
+                                            value={modalAuthor} 
+                                            onChange={(e) => setModalAuthor(e.target.value)} 
+                                            className="w-full pl-9 p-2.5 border rounded-lg text-sm font-medium focus:border-news-black outline-none" 
+                                            placeholder="e.g. John Doe, Senior Editor" 
+                                        />
+                                     </div>
+                                </div>
+                                <div>
+                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Publication Status</label>
+                                     <div className="relative">
+                                        <select 
+                                            value={modalStatus} 
+                                            onChange={(e) => setModalStatus(e.target.value as ArticleStatus)} 
+                                            className="w-full p-2.5 border rounded-lg text-sm font-bold bg-white focus:border-news-black outline-none appearance-none"
+                                        >
+                                            <option value={ArticleStatus.DRAFT}>Draft</option>
+                                            <option value={ArticleStatus.PENDING}>Pending Review</option>
+                                            <option value={ArticleStatus.PUBLISHED}>Published</option>
+                                        </select>
+                                        <ChevronDown size={14} className="absolute right-3 top-3.5 text-gray-400 pointer-events-none"/>
+                                     </div>
+                                </div>
+                            </div>
+
+                             <div>
+                                 <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Categories & Tags</label>
+                                 <div className="flex gap-2">
+                                     <button onClick={() => setShowCategorySelector(true)} className="flex-1 p-2.5 border rounded-lg text-sm text-left flex justify-between items-center bg-white hover:bg-gray-50">
+                                        <span className={modalCategories.length ? 'text-gray-900 font-bold' : 'text-gray-400'}>
+                                            {modalCategories.length ? `${modalCategories.length} Categories Selected` : 'Select Categories'}
+                                        </span>
+                                        <List size={16} className="text-gray-400" />
+                                     </button>
+                                     <div className="flex-1 relative">
+                                        <Tag size={16} className="absolute left-3 top-3 text-gray-400" />
+                                        <input type="text" placeholder="Tags (comma separated)" className="w-full pl-9 p-2.5 border rounded-lg text-sm focus:border-news-black outline-none" /> 
+                                     </div>
+                                 </div>
+                                 {modalCategories.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                        {modalCategories.map(c => (
+                                            <span key={c} className="bg-gray-100 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 group">
+                                                {c} <button onClick={() => setModalCategories(prev => prev.filter(x => x !== c))} className="text-gray-400 hover:text-red-500"><X size={10}/></button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                 )}
+                            </div>
                         </div>
-                        {/* ... images ... */}
+
+                        {/* RIGHT COLUMN: Image & Flags */}
+                        <div className="lg:col-span-1 space-y-4">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Featured Image</label>
+                            <div className="border-2 border-dashed border-gray-300 p-2 rounded-lg bg-gray-50 text-center relative overflow-hidden h-[200px] flex flex-col justify-center items-center">
+                                {modalImageUrl ? (
+                                    <>
+                                        <img src={modalImageUrl} className="w-full h-full object-cover rounded" />
+                                        <button onClick={() => setModalImageUrl('')} type="button" className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-red-600 transition-colors backdrop-blur-sm" title="Remove image">
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <div className="py-4 text-gray-400 flex flex-col items-center justify-center">
+                                        <ImageIcon size={40} className="mx-auto mb-2 opacity-20" />
+                                        <p className="text-[10px] font-bold uppercase">No Image Selected</p>
+                                    </div>
+                                )}
+                            </div>
+                            <button type="button" onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-3 py-2.5 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-colors uppercase tracking-wide">
+                                <Library size={14} />
+                                <span>Select from Gallery / Upload</span>
+                            </button>
+
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-3 mt-4">
+                                <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white rounded transition-colors">
+                                    <input type="checkbox" checked={modalIsFeatured} onChange={e => setModalIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
+                                    <div className="flex items-center gap-2">
+                                        <Star size={14} className={modalIsFeatured ? "text-news-accent fill-news-accent" : "text-gray-400"} />
+                                        <span className="text-xs font-bold uppercase tracking-wide">Featured Article</span>
+                                    </div>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white rounded transition-colors">
+                                    <input type="checkbox" checked={modalIsEditorsChoice} onChange={e => setModalIsEditorsChoice(e.target.checked)} className="w-4 h-4 accent-news-gold" />
+                                    <div className="flex items-center gap-2">
+                                        <Award size={14} className={modalIsEditorsChoice ? "text-news-gold fill-news-gold" : "text-gray-400"} />
+                                        <span className="text-xs font-bold uppercase tracking-wide">Editor's Pick</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
                     </div>
-                    <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]" />
-                    {/* ... status ... */}
+
+                    <div className="relative border-t border-gray-200 pt-6">
+                         <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Content Editor</label>
+                         <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]" />
+                    </div>
                 </div>
+                
                 <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
-                    <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold">Cancel</button>
-                    <button onClick={handleSaveArticleInternal} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">Save Article</button>
+                    <button onClick={() => setShowArticleModal(false)} className="px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-gray-600 hover:text-black transition-colors">Cancel</button>
+                    <button onClick={handleSaveArticleInternal} className="px-8 py-2.5 bg-news-black text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all flex items-center gap-2">
+                        <Save size={16} /> Save Article
+                    </button>
                 </div>
             </div>
         </div>
