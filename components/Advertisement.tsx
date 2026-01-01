@@ -20,9 +20,12 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
     // Basic checks
     if (!ad.isActive) return false;
     
-    // Size match: Strict match OR Custom size (allows custom ads to run in any slot)
-    const matchesSize = ad.size === size || ad.size === 'CUSTOM';
-    if (!matchesSize) return false;
+    // Strict Size Match:
+    // The ad's declared slot type (ad.size) must match the current slot (size).
+    // Even "Custom" sized ads must optionally belong to a slot type (e.g. BILLBOARD) to render here.
+    // We treat 'CUSTOM' legacy type as a fallback that matches nothing specific unless forced, 
+    // but the new UI forces a slot selection.
+    if (ad.size !== size) return false;
 
     // Global ads run everywhere
     if (ad.placement === 'GLOBAL') return true;
@@ -47,7 +50,8 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
 
   // 5. Determine styles based on size
   const getSizeStyles = (s: AdSize, customW?: number, customH?: number) => {
-    if (s === 'CUSTOM' && customW && customH) {
+    // Priority: Custom Dimensions (if provided)
+    if (customW && customH) {
         return {
             width: '100%',
             maxWidth: `${customW}px`,
@@ -62,19 +66,34 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
       case 'LEADERBOARD': return { maxWidth: '728px', aspectRatio: '728/90' };
       case 'HALF_PAGE': return { maxWidth: '300px', aspectRatio: '300/600' };
       case 'SKYSCRAPER': return { maxWidth: '160px', aspectRatio: '160/600' };
-      case 'MOBILE_BANNER': return { maxWidth: '320px', aspectRatio: '32/5', display: 'block' }; // Usually hidden on desktop, logic handled via CSS classes in parent or media queries
+      case 'MOBILE_BANNER': return { maxWidth: '320px', aspectRatio: '32/5' };
       case 'RECTANGLE': default: return { maxWidth: '300px', aspectRatio: '300/250' };
     }
   };
 
   const styles = getSizeStyles(ad.size, ad.customWidth, ad.customHeight);
   
-  // Use the requested slot 'size' to determine visibility, not the ad content size.
-  // This ensures a Custom ad in a Mobile slot is still hidden on desktop.
-  const extraClasses = size === 'MOBILE_BANNER' ? 'block sm:hidden' : '';
+  // Responsive Visibility Logic based on SLOT TYPE
+  // This ensures Billboards don't crush mobile layouts, and Mobile Banners don't appear on desktop.
+  let visibilityClasses = '';
+  switch (size) {
+      case 'MOBILE_BANNER':
+          visibilityClasses = 'block md:hidden'; // Only on mobile
+          break;
+      case 'BILLBOARD':
+      case 'LEADERBOARD':
+      case 'SKYSCRAPER':
+      case 'HALF_PAGE':
+          visibilityClasses = 'hidden md:flex'; // Only on desktop
+          break;
+      case 'RECTANGLE':
+      default:
+          visibilityClasses = 'flex'; // Visible everywhere (Sidebar/Content boxes)
+          break;
+  }
 
   return (
-    <div className={`w-full flex justify-center items-center my-6 ${className} ${extraClasses}`}>
+    <div className={`w-full justify-center items-center my-6 ${visibilityClasses} ${className || ''}`}>
       <div 
         className="relative group overflow-hidden bg-gray-100 border border-gray-200 shadow-sm mx-auto w-full h-auto"
         style={styles as React.CSSProperties}
