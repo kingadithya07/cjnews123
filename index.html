@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Digital Newsroom</title>
+    <title>CJ NEWSHUB | Global Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -12,19 +13,22 @@
             colors: {
               news: {
                 black: '#1a1a1a',
-                paper: '#f9f9f7',
-                accent: '#c0392b',
-                secondary: '#2c3e50',
-                gold: '#bfa17b', 
+                paper: '#fcfcf9',
+                accent: '#b91c1c', 
+                secondary: '#333333',
+                gold: '#c5a059', 
+                blue: '#0f2b46',
+                lightyellow: '#fffdf2',
+                border: '#e5e5e1',
               },
             },
             fontFamily: {
-              serif: ['Merriweather', 'Noto Sans Telugu', 'serif'],
-              sans: ['Inter', 'Noto Sans Telugu', 'sans-serif'],
-              display: ['"Playfair Display"', 'Noto Sans Telugu', 'serif'],
+              serif: ['"Playfair Display"', 'serif'],
+              sans: ['Inter', 'sans-serif'],
+              display: ['"Playfair Display"', 'serif'],
             },
             animation: {
-              marquee: 'marquee 25s linear infinite',
+              marquee: 'marquee 120s linear infinite',
             },
             keyframes: {
               marquee: {
@@ -35,34 +39,31 @@
           },
         },
       };
-      // Polyfill process for libraries that expect it (like some uuid versions or internal checks)
-      window.process = {
-        env: {
-          NODE_ENV: 'development'
-        }
-      };
-      // Polyfill global for libraries that expect it
+      window.process = { env: { NODE_ENV: 'development' } };
       window.global = window;
     </script>
     <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.0/dist/es-module-shims.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Noto+Sans+Telugu:wght@100..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
     <style>
       body {
-        font-family: 'Inter', 'Noto Sans Telugu', sans-serif;
-        background-color: #f9f9f7;
+        font-family: 'Inter', sans-serif;
+        background-color: #fcfcf9;
         color: #1a1a1a;
       }
       h1, h2, h3, h4, h5, h6 {
-        font-family: 'Merriweather', 'Noto Sans Telugu', serif;
+        font-family: 'Playfair Display', serif;
       }
       .font-display {
-        font-family: 'Playfair Display', 'Noto Sans Telugu', serif;
+        font-family: 'Playfair Display', serif;
       }
-      /* Cropper Customization */
-      .cropper-view-box,
-      .cropper-face {
-        border-radius: 0;
+      .cropper-view-box, .cropper-face { border-radius: 0; }
+
+      /* Increase base font size on larger screens (Desktop) */
+      @media (min-width: 1024px) {
+        html {
+          font-size: 16px; 
+        }
       }
     </style>
   <script type="importmap">

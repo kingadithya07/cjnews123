@@ -21,7 +21,6 @@ interface EPaperReaderProps {
 }
 
 const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermarkSettings, onSaveSettings }) => {
-  // --- Mode & Navigation ---
   const [viewMode, setViewMode] = useState<'grid' | 'reader'>('grid');
   
   const uniqueDates = useMemo(() => {
@@ -50,7 +49,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     return isValid(d) ? format(d, formatStr) : 'N/A';
   };
 
-  // --- Reader View Controls ---
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [hSliderVal, setHSliderVal] = useState(0.5);
@@ -71,7 +69,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     initialScale: number; 
   } | null>(null);
 
-  // --- Direct Clipping Workflow ---
   const [isCropping, setIsCropping] = useState(false);
   const [cropPreview, setCropPreview] = useState<string | null>(null);
   const [workshopScale, setWorkshopScale] = useState(1);
@@ -93,7 +90,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     return () => { document.body.style.overflow = 'auto'; };
   }, [viewMode, activePageIndex]);
 
-  // DESKTOP: MANUAL DRAG-TO-PAN
   const handleMouseDown = (e: React.MouseEvent) => {
     if (scale > 1 && !isCropping && !isOverSlider.current) {
         isDragging.current = true;
@@ -123,7 +119,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
   const handleMouseUp = () => { isDragging.current = false; };
 
-  // TOUCH INTERACTION
   const handleTouchStart = (e: React.TouchEvent) => {
       isTouchInteraction.current = true;
       if (e.touches.length === 1 && scale > 1) {
@@ -207,13 +202,12 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
     ctx.drawImage(croppedCanvas, 0, 0);
     
-    ctx.fillStyle = watermarkSettings.backgroundColor;
+    ctx.fillStyle = watermarkSettings.backgroundColor || '#1a1a1a';
     ctx.fillRect(0, clipHeight, finalCanvas.width, footerHeight);
     
     const padding = Math.max(10, clipWidth * 0.05);
     const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
     
-    // Use watermarkSettings prop directly
     const brandLabel = (watermarkSettings.text || APP_NAME).toUpperCase();
     const fontSizePercent = (watermarkSettings.fontSize || 30) / 100;
     
@@ -260,15 +254,15 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         
         const maxBrandWidth = clipWidth - currentX - padding;
         const initialSize = footerHeight * fontSizePercent;
-        const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Merriweather", "Noto Sans Telugu", serif');
-        ctx.font = `bold ${brandFontSize}px "Merriweather", "Noto Sans Telugu", serif`;
-        ctx.fillStyle = watermarkSettings.textColor;
+        const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Playfair Display", serif');
+        ctx.font = `bold ${brandFontSize}px "Playfair Display", serif`;
+        ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
         ctx.fillText(brandLabel, currentX, line1Y);
         
-        const fullDateStr = `Archive Edition: ${dateStr}`;
+        const fullDateStr = `CJ NEWSHUB ARCHIVE: ${dateStr}`;
         const maxDateWidth = clipWidth - (padding * 2);
-        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", "Noto Sans Telugu", sans-serif');
-        ctx.font = `500 ${dateFontSize}px "Inter", "Noto Sans Telugu", sans-serif`;
+        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", sans-serif');
+        ctx.font = `500 ${dateFontSize}px "Inter", sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.fillText(fullDateStr, padding, line2Y);
         
@@ -284,13 +278,13 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             currentX += logoW + (padding * 0.5);
         }
         
-        const fullDateStr = `Archive Edition: ${dateStr}`;
+        const fullDateStr = `CJ NEWSHUB GLOBAL ARCHIVE: ${dateStr}`;
         const baseFontSize = footerHeight * fontSizePercent;
         const totalAvailableWidth = clipWidth - currentX - (padding * 2);
         
-        ctx.font = `bold ${baseFontSize}px "Merriweather", "Noto Sans Telugu", serif`;
+        ctx.font = `bold ${baseFontSize}px "Playfair Display", serif`;
         const brandW = ctx.measureText(brandLabel).width;
-        ctx.font = `500 ${baseFontSize * 0.6}px "Inter", "Noto Sans Telugu", sans-serif`;
+        ctx.font = `500 ${baseFontSize * 0.6}px "Inter", sans-serif`;
         const dateW = ctx.measureText(fullDateStr).width;
         
         let fontSize = baseFontSize;
@@ -299,12 +293,12 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             fontSize = Math.max(10, baseFontSize * scale);
         }
 
-        ctx.font = `bold ${fontSize}px "Merriweather", "Noto Sans Telugu", serif`;
-        ctx.fillStyle = watermarkSettings.textColor;
+        ctx.font = `bold ${fontSize}px "Playfair Display", serif`;
+        ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
         ctx.textAlign = 'left';
         ctx.fillText(brandLabel, currentX, textY);
         
-        ctx.font = `500 ${fontSize * 0.6}px "Inter", "Noto Sans Telugu", sans-serif`;
+        ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.textAlign = 'right';
         ctx.fillText(fullDateStr, clipWidth - padding, textY);
@@ -318,7 +312,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (!cropPreview) return;
     const link = document.createElement('a');
     link.href = cropPreview;
-    link.download = `ChaanvikaJyothi_${activePage?.date}.jpg`;
+    link.download = `CJ_NEWSHUB_EXTRACT_${activePage?.date}.jpg`;
     link.click();
   };
 
@@ -326,8 +320,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
       if (!cropPreview || !navigator.share) return;
       try {
           const blob = await (await fetch(cropPreview)).blob();
-          const file = new File([blob], `Clip_${activePage?.date}.jpg`, { type: 'image/jpeg' });
-          await navigator.share({ files: [file], title: 'Paper Clipping', text: `Extracted from Chaanvika Jyothi` });
+          const file = new File([blob], `CJNEWSHUB_CLIP_${activePage?.date}.jpg`, { type: 'image/jpeg' });
+          await navigator.share({ files: [file], title: 'News Clipping', text: `Extracted from CJ NEWSHUB Global Edition` });
       } catch (err) { console.error('Share failed', err); }
   };
 
@@ -345,7 +339,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                   <button disabled={selectedDate === uniqueDates[0]} onClick={() => setSelectedDate(uniqueDates[uniqueDates.indexOf(selectedDate) - 1])} className="p-1.5 hover:bg-white rounded-full disabled:opacity-20"><ChevronRight size={16} /></button>
               </div>
            </div>
-           <div className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 hidden md:block">Archive Explorer</div>
+           <div className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 hidden md:block">CJ NEWSHUB ARCHIVE</div>
         </div>
       )}
 
@@ -353,7 +347,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
           <div className="flex-1 overflow-y-auto p-6 md:p-12 animate-in fade-in duration-500">
               <div className="max-w-7xl mx-auto space-y-10">
                   <div className="border-b border-gray-200 pb-6">
-                      <h1 className="text-3xl md:text-5xl font-serif font-black text-gray-900 mb-2">Chaanvika Jyothi</h1>
+                      <h1 className="text-3xl md:text-5xl font-serif font-black text-gray-900 mb-2 uppercase tracking-tighter">CJ NEWSHUB</h1>
                       <p className="text-gray-500 text-[9px] font-black uppercase tracking-[0.4em] flex items-center gap-3">
                         <Calendar size={12} className="text-news-gold"/> Edition: {safeFormat(selectedDate, 'MMMM do, yyyy')}
                       </p>
@@ -398,7 +392,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                   <div className="flex items-center gap-4 md:gap-6">
                       <button onClick={() => setIsCropping(true)} className="flex items-center gap-2 px-4 md:px-8 py-1.5 md:py-2 bg-news-gold text-black rounded-full transition-all hover:bg-white shadow-lg active:scale-95">
                           <Scissors size={14} />
-                          <span className="text-[9px] font-black uppercase tracking-[0.2em]">CROP</span>
+                          <span className="text-[9px] font-black uppercase tracking-[0.2em]">EXTRACT CLIP</span>
                       </button>
                       <div className="flex items-center gap-1 bg-white/5 rounded-full px-1.5 py-0.5 border border-white/5">
                           <button onClick={() => setScale(s => Math.max(1, s - 0.5))} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-white/60"><ZoomOut size={16} /></button>
@@ -420,14 +414,14 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                   ) : (
                       <div className="flex flex-col items-center gap-4 opacity-30">
                           <Loader2 size={32} className="animate-spin text-news-gold" />
-                          <p className="font-black uppercase tracking-[0.5em] text-[9px]">Initializing Archive Scan...</p>
+                          <p className="font-black uppercase tracking-[0.5em] text-[9px]">Awaiting Archival Connection...</p>
                       </div>
                   )}
                   {scale > 1 && (
                       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[85vw] md:w-[480px] px-6 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full z-[60] flex items-center gap-4 shadow-2xl animate-in slide-in-from-bottom-4 safe-area-bottom" onMouseEnter={() => { isOverSlider.current = true; }} onMouseLeave={() => { isOverSlider.current = false; }} onTouchStart={(e) => e.stopPropagation()} >
                           <div className="text-news-gold opacity-50"><MoveHorizontal size={14} /></div>
                           <input type="range" min="0" max="1" step="0.001" value={hSliderVal} onChange={handleSliderChange} className="flex-1 accent-news-gold h-1 bg-white/10 rounded-full appearance-none cursor-pointer" />
-                          <div className="hidden md:flex items-center gap-2 text-[8px] font-black text-news-gold uppercase tracking-[0.2em] bg-white/5 px-2 py-1 rounded">NAVIGATOR</div>
+                          <div className="hidden md:flex items-center gap-2 text-[8px] font-black text-news-gold uppercase tracking-[0.2em] bg-white/5 px-2 py-1 rounded">HORIZON NAV</div>
                       </div>
                   )}
                   {scale === 1 && (
@@ -453,7 +447,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                     <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="p-1.5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all"><X size={24} /></button>
                     <div>
                         <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-news-gold leading-none">Workshop</h2>
-                        <p className="text-[7px] text-gray-600 uppercase tracking-widest font-bold hidden md:block mt-1">Refining Extraction</p>
+                        <p className="text-[7px] text-gray-600 uppercase tracking-widest font-bold hidden md:block mt-1">CJ NEWSHUB Digital Lab</p>
                     </div>
                 </div>
                 <div className="flex gap-2 md:gap-4">
@@ -472,7 +466,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                             </div>
                             <button onClick={generateBrandedClip} disabled={isProcessing} className="bg-news-gold text-black px-4 md:px-10 py-2.5 rounded-full flex items-center gap-2 hover:bg-white transition-all shadow-xl disabled:opacity-50 active:scale-95">
                                 {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em]">{isProcessing ? 'Busy' : 'Apply Crop'}</span>
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em]">{isProcessing ? 'Busy' : 'Export Clip'}</span>
                             </button>
                         </div>
                     )}

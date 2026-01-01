@@ -6,17 +6,9 @@ import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
 import { getDeviceId, getDeviceMetadata } from '../utils';
 
-interface StaffLoginProps {
-  onLogin: (role: UserRole, name: string, avatar?: string) => void;
-  onNavigate: (path: string) => void;
-  existingDevices: TrustedDevice[];
-  onAddDevice: (device: TrustedDevice) => void;
-  onEmergencyReset: () => void;
-}
-
 type StaffType = 'admin' | 'editor' | 'publisher';
 
-const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDevices, onAddDevice, onEmergencyReset }) => {
+const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAddDevice, onEmergencyReset }) => {
   const [activeTab, setActiveTab] = useState<StaffType>('admin');
   const [isRegistering, setIsRegistering] = useState(false);
   const [isAwaitingApproval, setIsAwaitingApproval] = useState(false);
@@ -39,7 +31,6 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     return () => { isMounted.current = false; };
   }, []);
 
-  // Check for existing session on mount
   useEffect(() => {
     const checkExistingSession = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -50,7 +41,6 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     checkExistingSession();
   }, [existingDevices]);
 
-  // Poll for device approval
   useEffect(() => {
     let interval: any;
     if (isAwaitingApproval && pendingUser) {
@@ -79,10 +69,10 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
                 userId: session.user.id,
                 deviceName: meta.name,
                 deviceType: meta.type,
-                location: 'New Detected Station',
+                location: 'Remote Station',
                 lastActive: 'Just Now',
                 isCurrent: true,
-                isPrimary: false, // Not primary because user has existing devices
+                isPrimary: false, 
                 status: 'pending',
                 browser: meta.browser
             });
@@ -90,7 +80,6 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
             setIsAwaitingApproval(true);
         }
     } else {
-        // No devices found for this user, so this is the First Device -> Make Primary
         const meta = getDeviceMetadata();
         onAddDevice({
             id: currentId,
@@ -100,7 +89,7 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
             location: 'Primary Station',
             lastActive: 'Active Now',
             isCurrent: true,
-            isPrimary: true, // PRIMARY
+            isPrimary: true, 
             status: 'approved',
             browser: meta.browser
         });
@@ -124,7 +113,6 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     if (metaRole) {
         role = metaRole as UserRole;
     } else {
-        // Fallback based on current tab selection if metadata missing (edge case)
         if (activeTab === 'admin') role = UserRole.ADMIN;
         else if (activeTab === 'editor') role = UserRole.EDITOR;
         else role = UserRole.WRITER;
@@ -135,15 +123,6 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     if (role === UserRole.ADMIN || role === UserRole.EDITOR) onNavigate('/editor');
     else if (role === UserRole.WRITER) onNavigate('/writer');
     else onNavigate('/');
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setAvatar(reader.result as string);
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -163,21 +142,12 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
           email,
           password,
           options: {
-            data: { 
-                full_name: name, 
-                role: role, 
-                avatar_url: avatar
-            }
+            data: { full_name: name, role: role, avatar_url: avatar }
           }
         });
         if (signUpErr) throw signUpErr;
-
-        if (data.session) {
-            handleSessionFound(data.session);
-        } else {
-            setIsVerifyingEmail(true);
-        }
-
+        if (data.session) handleSessionFound(data.session);
+        else setIsVerifyingEmail(true);
       } else {
         const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
         if (signInErr) throw signInErr;
@@ -195,15 +165,9 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
     setLoading(true);
     setError(null);
     try {
-        const { data, error } = await supabase.auth.verifyOtp({
-            email,
-            token: otp,
-            type: 'signup'
-        });
+        const { data, error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'signup' });
         if (error) throw error;
-        if (data.session) {
-            handleSessionFound(data.session);
-        }
+        if (data.session) handleSessionFound(data.session);
     } catch (err: any) {
         setError(err.message || "Invalid code.");
     } finally {
@@ -219,28 +183,16 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
                       <Mail size={32} />
                   </div>
                   <div>
-                      <h2 className="text-3xl font-black text-white mb-2">Verify Credential</h2>
-                      <p className="text-gray-400 text-sm">A verification code has been sent to {email}. Enter it to finalize staff registration.</p>
+                      <h2 className="text-3xl font-black text-white mb-2">Verify Identity</h2>
+                      <p className="text-gray-400 text-sm">A security code has been dispatched to {email}. Required for CJ NEWSHUB staff registration.</p>
                   </div>
-                  
                   <form onSubmit={handleVerifyOtp} className="space-y-4">
-                      <input 
-                          type="text" 
-                          placeholder="000000" 
-                          value={otp} 
-                          onChange={e => setOtp(e.target.value)}
-                          className="w-full bg-black/50 border border-news-gold/30 text-news-gold text-center text-4xl font-mono tracking-widest p-4 rounded-xl focus:outline-none focus:border-news-gold"
-                      />
-                      <button 
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-4 bg-news-gold text-black rounded-xl font-bold uppercase tracking-widest hover:bg-yellow-500 transition-colors"
-                      >
-                          {loading ? <Loader2 className="animate-spin inline mr-2"/> : null} Verify Identity
+                      <input type="text" placeholder="000000" value={otp} onChange={e => setOtp(e.target.value)} className="w-full bg-black/50 border border-news-gold/30 text-news-gold text-center text-4xl font-mono tracking-widest p-4 rounded-xl focus:outline-none focus:border-news-gold" />
+                      <button type="submit" disabled={loading} className="w-full py-4 bg-news-gold text-black rounded-xl font-bold uppercase tracking-widest hover:bg-yellow-500 transition-colors">
+                          {loading ? <Loader2 className="animate-spin inline mr-2"/> : null} Verify Credentials
                       </button>
                   </form>
-                  
-                  <button onClick={() => setIsVerifyingEmail(false)} className="text-xs text-gray-500 hover:text-white">Go Back</button>
+                  <button onClick={() => setIsVerifyingEmail(false)} className="text-xs text-gray-500 hover:text-white">Abort Registration</button>
              </div>
         </div>
       );
@@ -257,9 +209,9 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
                        </div>
                   </div>
                   <div className="space-y-4">
-                      <h2 className="text-3xl font-black text-white">Handshake Pending</h2>
+                      <h2 className="text-3xl font-black text-white">Terminal Handshake</h2>
                       <p className="text-gray-500 text-sm leading-relaxed">
-                          Terminal unauthorized for administrative access. Please approve this connection from your <b>Primary Device Dashboard</b>.
+                          Secure station connection pending. Authorization required from your <b>Primary CJ NEWSHUB Terminal</b>.
                       </p>
                   </div>
                   <div className="bg-white/5 py-4 rounded-xl border border-white/5 text-news-gold font-bold text-xs uppercase tracking-[0.3em] flex flex-col items-center gap-4">
@@ -267,15 +219,14 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
                         <Loader2 size={18} className="animate-spin" /> Authorization Awaited
                       </div>
                       <button onClick={checkApprovalStatus} className="text-white/40 hover:text-news-gold transition-colors flex items-center gap-2">
-                          <RotateCw size={14} /> Force Refresh Status
+                          <RotateCw size={14} /> Manually Verify
                       </button>
                   </div>
-
                   <div className="pt-6 border-t border-white/5 flex flex-col gap-4">
                       <button onClick={onEmergencyReset} className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-[0.2em] transition-colors py-2 px-4 border border-red-900/30 rounded-lg">
-                          Factory Reset: Reclaim Primary Access
+                          Factory Reset: Emergency Reclaim
                       </button>
-                      <button onClick={async () => { await supabase.auth.signOut(); setIsAwaitingApproval(false); setPendingUser(null); }} className="text-gray-600 hover:text-white text-[10px] font-bold uppercase tracking-widest">Sign Out & Disconnect</button>
+                      <button onClick={async () => { await supabase.auth.signOut(); setIsAwaitingApproval(false); setPendingUser(null); }} className="text-gray-600 hover:text-white text-[10px] font-bold uppercase tracking-widest">Sign Out</button>
                   </div>
              </div>
         </div>
@@ -293,91 +244,55 @@ const StaffLogin: React.FC<StaffLoginProps> = ({ onLogin, onNavigate, existingDe
            <div>
               <div className="flex items-center gap-2 mb-1">
                  <Newspaper size={24} className="text-news-gold" />
-                 <h1 className="text-white font-serif text-2xl font-black tracking-tight uppercase">DIGITAL</h1>
+                 <h1 className="text-white font-serif text-2xl font-black tracking-tighter uppercase italic">CJ <span className="not-italic text-white">NEWSHUB</span></h1>
               </div>
-              <p className="text-news-gold text-[10px] font-bold uppercase tracking-[0.3em] mb-12">Staff Secure Portal</p>
+              <p className="text-news-gold text-[10px] font-bold uppercase tracking-[0.3em] mb-12">Authorized Personnel Only</p>
               <div className="space-y-4">
                  <button onClick={() => { setActiveTab('admin'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'admin' ? 'bg-white/5 border-red-500/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
                     <Server size={22} className={activeTab === 'admin' ? 'text-red-500' : ''} />
-                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'admin' ? 'text-white' : ''}`}>Administrator</span></div>
+                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'admin' ? 'text-white' : ''}`}>Global Admin</span></div>
                  </button>
                  <button onClick={() => { setActiveTab('editor'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'editor' ? 'bg-white/5 border-news-gold/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
                     <Shield size={22} className={activeTab === 'editor' ? 'text-news-gold' : ''} />
-                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'editor' ? 'text-white' : ''}`}>Editor Admin</span></div>
+                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'editor' ? 'text-white' : ''}`}>Chief Editor</span></div>
                  </button>
                  <button onClick={() => { setActiveTab('publisher'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'publisher' ? 'bg-white/5 border-blue-500/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
                     <Feather size={22} className={activeTab === 'publisher' ? 'text-blue-500' : ''} />
-                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'publisher' ? 'text-white' : ''}`}>Writer Panel</span></div>
+                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'publisher' ? 'text-white' : ''}`}>Editorial Writer</span></div>
                  </button>
               </div>
            </div>
            <div className="pt-8 mt-10 border-t border-white/5">
               <button onClick={onEmergencyReset} className="text-[9px] text-gray-700 hover:text-white font-bold uppercase tracking-[0.4em] transition-colors">
-                  System Security Reset
+                  System Security Protocol
               </button>
            </div>
         </div>
 
         <div className="w-full md:w-7/12 p-8 md:p-14 bg-[#1a1a1a]">
            <div className="mb-10 text-center md:text-left">
-              <h2 className="text-3xl font-black text-white mb-2">{isRegistering ? 'Account Initialization' : 'Authorized Access'}</h2>
-              <p className="text-sm text-gray-500 font-medium">Verified credentials for internal Digital Newsroom tools.</p>
+              <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">{isRegistering ? ' Enrollment' : 'Staff Login'}</h2>
+              <p className="text-sm text-gray-500 font-medium">Verified credentials required for internal CJ NEWSHUB stations.</p>
            </div>
            {error && <div className="mb-6 p-4 bg-red-900/20 border border-red-900/30 text-red-500 text-xs rounded-xl flex items-center gap-3"><AlertCircle size={16}/> {error}</div>}
-           {message && <div className="mb-6 p-4 bg-green-900/20 border border-green-900/30 text-green-500 text-xs rounded-xl flex items-center gap-3"><CheckCircle size={16}/> {message}</div>}
-
            <form onSubmit={handleSubmit} className="space-y-6">
               {isRegistering && (
-                  <>
-                      <div className="flex items-center gap-6 mb-2 p-4 bg-white/5 rounded-2xl border border-white/5">
-                           <div className="w-16 h-16 rounded-full bg-black border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                               {avatar ? <img src={avatar} className="w-full h-full object-cover" /> : <Lock size={24} className="text-gray-700" />}
-                           </div>
-                           <div className="flex-1">
-                               <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="staff-id-up" />
-                               <label htmlFor="staff-id-up" className="bg-white/10 hover:bg-white/20 text-white text-[10px] font-black px-4 py-2 rounded-lg cursor-pointer border border-white/5 transition-colors">IDENTIFICATION UPLOAD</label>
-                           </div>
-                       </div>
-                       <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="Full Legal Name" className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 px-5 focus:border-news-gold outline-none transition-all" />
-                  </>
+                  <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="Full Staff Name" className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 px-5 focus:border-news-gold outline-none transition-all" />
               )}
-              
               <div className="relative">
                 <Mail className="absolute left-4 top-4.5 text-gray-500" size={18}/>
-                <input 
-                    type="email" 
-                    required 
-                    value={email} 
-                    onChange={e => setEmail(e.target.value)} 
-                    className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" 
-                    placeholder={activeTab === 'admin' ? "admin@newsroom.com" : "staff@internal.news"}
-                />
+                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" placeholder="staff@cjnewshub.com" />
               </div>
-
               <div className="relative">
                 <Lock className="absolute left-4 top-4.5 text-gray-500" size={18}/>
-                <input 
-                    type="password" 
-                    required 
-                    value={password} 
-                    onChange={e => setPassword(e.target.value)} 
-                    className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" 
-                    placeholder="Security Password" 
-                />
+                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" placeholder="Station Key" />
               </div>
-              
-              <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${activeTab === 'admin' ? 'bg-red-600 text-white hover:bg-red-500' : activeTab === 'editor' ? 'bg-news-gold text-black hover:bg-yellow-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>
-                {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'REGISTER CREDENTIALS' : 'REQUEST HANDSHAKE'} <ArrowRight size={18}/></>}
+              <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${activeTab === 'admin' ? 'bg-red-600 text-white' : activeTab === 'editor' ? 'bg-news-gold text-black' : 'bg-blue-600 text-white'}`}>
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'INITIATE ENROLLMENT' : 'STAFF HANDSHAKE'} <ArrowRight size={18}/></>}
               </button>
-              
               <div className="text-center pt-4">
                   <button type="button" onClick={() => setIsRegistering(!isRegistering)} className="text-[10px] font-bold text-gray-600 hover:text-white uppercase tracking-widest transition-colors">
-                      {isRegistering ? 'Back to Login' : 'Request New Staff ID'}
-                  </button>
-              </div>
-              <div className="pt-8 text-center">
-                  <button type="button" onClick={() => onNavigate('/')} className="text-[10px] text-gray-700 hover:text-gray-400 font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto">
-                      <ArrowRight size={14} className="rotate-180" /> Reader Homepage
+                      {isRegistering ? 'Back to Access' : 'New Staff Application'}
                   </button>
               </div>
            </form>

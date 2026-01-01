@@ -1,10 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { UserRole, Article } from '../types';
-import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw } from 'lucide-react';
+import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
+import { supabase } from '../supabaseClient';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ interface WeatherState {
   condition: string;
   aqi: number;
   humidity?: number;
+  lastUpdated: number;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, onForceSync, lastSync, articles = [] }) => {
@@ -33,13 +35,17 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   const [isSyncing, setIsSyncing] = useState(false);
   
   const [weatherState, setWeatherState] = useState<WeatherState>(() => {
-    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('newsroom_weather_location') : null;
+    try {
+      const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('newsroom_full_weather') : null;
+      if (saved) return JSON.parse(saved);
+    } catch (e) { console.warn("Failed to load weather", e); }
     return {
-      location: saved || 'Mumbai, India',
-      temp: 28,
+      location: 'Hyderabad',
+      temp: 19,
       condition: 'Sunny',
-      aqi: 72,
-      humidity: 65
+      aqi: 74,
+      humidity: 45,
+      lastUpdated: 0
     };
   });
 
@@ -48,7 +54,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
 
-  // Filter latest articles for breaking news
   const breakingNews = articles.slice(0, 8);
 
   useEffect(() => {
@@ -56,382 +61,246 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    fetchWeatherData(weatherState.location);
-  }, []);
-
-  const handleSync = () => {
-      if (onForceSync) {
-          setIsSyncing(true);
-          onForceSync();
-          setTimeout(() => setIsSyncing(false), 1000);
-      }
-  };
-
   const fetchWeatherData = async (query: string) => {
     setIsWeatherLoading(true);
     setWeatherError(null);
     try {
       const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`);
       const geoData = await geoRes.json();
-
-      if (!geoData.results || geoData.results.length === 0) {
-        throw new Error("Location not found. Try a city name.");
-      }
-
-      const { latitude, longitude, name, admin1, country } = geoData.results[0];
-      const fullName = `${name}${admin1 ? `, ${admin1}` : ''}, ${country}`;
-
+      if (!geoData.results || geoData.results.length === 0) throw new Error("Location not found.");
+      const { latitude, longitude, name } = geoData.results[0];
       const [weatherRes, aqiRes] = await Promise.all([
-        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code`),
-        fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${latitude}&longitude=${longitude}&current=us_aqi`)
+        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto`),
+        fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${latitude}&longitude=${longitude}&current=us_aqi&timezone=auto`)
       ]);
-
       const weatherData = await weatherRes.json();
       const aqiData = await aqiRes.json();
-
-      const temp = Math.round(weatherData.current.temperature_2m);
-      const humidity = weatherData.current.relative_humidity_2m;
-      const aqiValue = Math.round(aqiData.current.us_aqi);
-      
-      const code = weatherData.current.weather_code;
-      let condition = 'Clear';
-      if (code >= 1 && code <= 3) condition = 'Partly Cloudy';
-      else if (code >= 45 && code <= 48) condition = 'Foggy';
-      else if (code >= 51 && code <= 67) condition = 'Rainy';
-      else if (code >= 71 && code <= 86) condition = 'Snowy';
-      else if (code >= 95) condition = 'Thunderstorm';
-
-      setWeatherState({
-        location: fullName,
-        temp,
-        condition,
-        aqi: aqiValue,
-        humidity
-      });
-      localStorage.setItem('newsroom_weather_location', fullName);
+      const newState = {
+        location: name,
+        temp: Math.round(weatherData.current.temperature_2m),
+        condition: 'Sunny', 
+        aqi: Math.round(aqiData.current.us_aqi),
+        humidity: weatherData.current.relative_humidity_2m,
+        lastUpdated: Date.now()
+      };
+      setWeatherState(newState);
+      localStorage.setItem('newsroom_full_weather', JSON.stringify(newState));
       setIsWeatherModalOpen(false);
-    } catch (err: any) {
-      setWeatherError(err.message || "Failed to fetch weather data.");
-    } finally {
-      setIsWeatherLoading(false);
-    }
-  };
-
-  const handleWeatherSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!locationQuery.trim()) return;
-    fetchWeatherData(locationQuery);
-  };
-
-  const getAQIColor = (aqi: number) => {
-    if (aqi <= 50) return 'text-green-500';
-    if (aqi <= 100) return 'text-yellow-500';
-    if (aqi <= 150) return 'text-orange-500';
-    if (aqi <= 200) return 'text-red-500';
-    return 'text-purple-600';
+    } catch (err: any) { setWeatherError(err.message); } finally { setIsWeatherLoading(false); }
   };
 
   const getAQILabel = (aqi: number) => {
-    if (aqi <= 50) return 'Good';
-    if (aqi <= 100) return 'Moderate';
-    if (aqi <= 150) return 'Unhealthy (SG)';
-    if (aqi <= 200) return 'Unhealthy';
-    return 'Hazardous';
+    if (aqi <= 50) return 'GOOD';
+    if (aqi <= 100) return 'MOD. AIR';
+    return 'UNHEALTHY';
   };
 
-  const WeatherIcon = ({ condition, size = 18 }: { condition: string, size?: number }) => {
-    if (condition.includes('Rain') || condition.includes('Thunderstorm')) return <CloudRain size={size} className="text-blue-400" />;
-    if (condition.includes('Cloud')) return <Cloud size={size} className="text-gray-400" />;
-    return <Sun size={size} className="text-news-gold" />;
-  };
-
-  const isActive = (path: string) => currentPath === path;
-  const isDashboard = currentPath.startsWith('/editor') || currentPath.startsWith('/writer');
-
-  if (isDashboard) {
-      return <div className="min-h-screen bg-gray-50">{children}</div>;
-  }
-
-  const NavItem = ({ to, label, icon: Icon }: { to: string, label: string, icon?: any }) => (
+  const NavItem = ({ to, label, icon: Icon, onClick }: { to: string, label: string, icon?: any, onClick?: () => void }) => (
     <Link
       to={to}
       onNavigate={onNavigate}
-      className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 transition-colors duration-200 ${
-        isActive(to) ? 'text-news-accent' : 'text-gray-600 hover:text-news-black'
+      onClick={onClick}
+      className={`text-[11px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-colors duration-200 ${
+        isActive(to) ? 'text-news-blue border-b-2 border-news-blue' : 'text-gray-500 hover:text-news-blue'
       }`}
     >
-      {Icon && <Icon size={14} className="mb-0.5" />}
+      {Icon && <Icon size={14} />}
       {label}
     </Link>
   );
 
-  const MobileNavIcon = ({ to, label, icon: Icon, onClick }: { to?: string, label: string, icon: any, onClick?: () => void }) => {
-    const active = to ? isActive(to) : false;
-    const content = (
-      <div className={`flex flex-col items-center gap-1 py-2`}>
-        <div className={`p-1.5 rounded-full transition-colors ${active ? 'bg-news-accent/10 text-news-accent' : 'text-gray-500'}`}>
-             {label === 'PROFILE' && userAvatar ? (
-                 <img src={userAvatar} alt="Profile" className="w-5 h-5 rounded-full object-cover" />
-             ) : (
-                 <Icon size={20} />
-             )}
-        </div>
-        <span className={`text-[9px] font-bold uppercase tracking-widest ${active ? 'text-news-accent' : 'text-gray-500'}`}>
-          {label}
-        </span>
-      </div>
-    );
-    if (to) return <Link to={to} onNavigate={onNavigate} className="flex-1 flex justify-center">{content}</Link>;
-    return <button onClick={onClick} className="flex-1 flex justify-center">{content}</button>;
-  };
-
-  const dashboardLink = currentRole === UserRole.EDITOR ? '/editor' : currentRole === UserRole.WRITER ? '/writer' : null;
-  const DashboardIcon = currentRole === UserRole.EDITOR ? Shield : PenTool;
+  const isActive = (path: string) => currentPath === path;
+  const isDashboard = currentPath.startsWith('/editor') || currentPath.startsWith('/writer');
+  if (isDashboard) return <div className="min-h-screen bg-gray-50">{children}</div>;
 
   return (
     <div className="min-h-screen flex flex-col bg-news-paper">
       
-      {/* MOBILE TOP BAR */}
-      <div className="md:hidden flex flex-col bg-white">
-          <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 bg-gray-50">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{format(new Date(), 'dd MMM yyyy')}</span>
-              <div className="flex items-center gap-3">
-                  {onForceSync && (
-                      <button onClick={handleSync} className={`text-gray-400 hover:text-news-gold ${isSyncing ? 'animate-spin' : ''}`}>
-                          <RefreshCcw size={12}/>
-                      </button>
-                  )}
-                  <Link to={userName ? (dashboardLink || '/login') : '/login'} onNavigate={onNavigate} className="text-[10px] font-bold text-news-gold uppercase">
-                     {userName ? 'Account' : 'Login'}
-                  </Link>
-              </div>
-          </div>
-          <div className="px-5 py-6 flex justify-between items-center">
-              <Link to="/" onNavigate={onNavigate}>
-                <h1 className="font-display text-3xl font-black tracking-tighter text-news-black flex items-baseline leading-none">
-                    <span>DIGITAL</span>
-                    <span className="text-news-gold italic ml-1.5">Newsroom</span>
-                </h1>
-              </Link>
-              <button onClick={() => setIsWeatherModalOpen(true)} className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                  <div className="flex flex-col items-end leading-none">
-                    <span className="text-xs font-black">{weatherState.temp}°</span>
-                    <span className={`text-[8px] font-bold ${getAQIColor(weatherState.aqi)}`}>AQI {weatherState.aqi}</span>
-                  </div>
-                  <WeatherIcon condition={weatherState.condition} size={16} />
-              </button>
-          </div>
-          <div className="flex justify-between items-center px-2 bg-white border-y border-gray-200 sticky top-0 z-50 h-[65px] shadow-sm">
-             <MobileNavIcon to="/" label="HOME" icon={Home} />
-             <MobileNavIcon to="/epaper" label="PAPER" icon={Newspaper} />
-             <MobileNavIcon to="/classifieds" label="ADS" icon={Briefcase} />
-             <MobileNavIcon to={userName ? (dashboardLink || '/login') : '/login'} label="PROFILE" icon={userName && dashboardLink ? DashboardIcon : User} />
-             <MobileNavIcon label={isMobileMenuOpen ? "CLOSE" : "MORE"} icon={isMobileMenuOpen ? X : MoreHorizontal} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
-          </div>
-      </div>
-
-      {/* DESKTOP TOP BAR */}
-      <div className="hidden md:flex bg-white border-b border-gray-200 text-xs text-gray-500 py-1.5 px-4 font-sans tracking-widest uppercase justify-between items-center sticky top-0 z-50">
-         <div className="flex gap-6 items-center">
-            <span className="font-bold text-gray-700">{format(new Date(), 'EEEE, MMMM dd, yyyy').toUpperCase()}</span>
-            <span className="flex items-center gap-1"><Clock size={12} className="text-news-gold" /> {format(time, 'hh:mm:ss a')}</span>
-            {onForceSync && (
-                <button 
-                  onClick={handleSync} 
-                  title={`Last Updated: ${lastSync ? format(lastSync, 'HH:mm:ss') : 'N/A'}`}
-                  className={`flex items-center gap-1 hover:text-news-gold transition-colors ml-4 border-l border-gray-200 pl-4 ${isSyncing ? 'text-news-gold' : ''}`}
-                >
-                    <RefreshCcw size={12} className={isSyncing ? 'animate-spin' : ''} />
-                    <span>SYNC DATA</span>
-                </button>
-            )}
+      {/* TOP BAR: DATE & LOGIN */}
+      <div className="bg-white border-b border-gray-100 py-2.5 px-4 md:px-6 flex justify-between items-center text-[10px] font-bold tracking-widest uppercase text-gray-400">
+         <div className="flex gap-4 items-center">
+            <span>{format(new Date(), 'dd MMM yyyy')}</span>
+            <span className="text-news-gold hidden sm:flex items-center gap-1.5 border-l border-gray-200 pl-4">
+              <Clock size={12} /> {format(time, 'hh:mm:ss a')}
+            </span>
          </div>
-         <div className="flex items-center gap-4">
+         <div className="flex items-center gap-6">
              {userName ? (
-                 <div className="flex items-center gap-3">
-                     {dashboardLink && (
-                        <Link to={dashboardLink} onNavigate={onNavigate} className="bg-news-black text-news-gold px-3 py-1 rounded text-[10px] font-bold">DASHBOARD</Link>
-                     )}
-                     <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
-                         {userAvatar ? <img src={userAvatar} className="w-5 h-5 rounded-full object-cover" /> : <User size={12}/>}
-                         <span className="font-bold text-news-black">{userName}</span>
-                         <Link to="/login" onNavigate={onNavigate} className="text-gray-400 hover:text-red-600 ml-2"><LogOut size={12}/></Link>
-                     </div>
+                 <div className="flex items-center gap-4">
+                    <span className="text-news-blue font-extrabold hidden sm:inline">{userName.toUpperCase()}</span>
+                    <button onClick={() => supabase.auth.signOut()} className="text-gray-400 hover:text-news-accent">LOGOUT</button>
                  </div>
              ) : (
-                 <Link to="/login" onNavigate={onNavigate} className="font-bold text-gray-700 hover:text-news-accent">LOGIN</Link>
+                 <Link to="/login" onNavigate={onNavigate} className="flex items-center gap-1.5 hover:text-news-blue">
+                   <LogIn size={12} /> LOGIN
+                 </Link>
              )}
          </div>
       </div>
 
-      {/* DESKTOP BRAND HEADER */}
-      <header className="hidden md:block bg-white px-4 py-8 border-b border-gray-100">
+      {/* BRAND HEADER */}
+      <header className="bg-white px-4 md:px-6 py-4 md:py-8 border-b border-gray-100 relative z-20">
          <div className="max-w-7xl mx-auto flex items-center justify-between">
-             <div className="w-1/4 relative">
-                 <input type="text" placeholder="Search news..." className="w-full border-b border-gray-300 py-2 pr-8 text-sm italic font-serif bg-transparent focus:outline-none focus:border-news-black" />
-                 <Search className="absolute right-0 top-2 text-gray-400" size={16}/>
+             
+             {/* LEFT: SPACER (Formerly Search) - Keeps layout balanced on desktop */}
+             <div className="hidden md:block w-1/4">
+                 {/* Search Removed */}
              </div>
-             <div className="w-1/2 text-center">
-                 <Link to="/" onNavigate={onNavigate}>
-                    <h1 className="font-display text-7xl font-black tracking-tighter text-news-black leading-none inline-flex items-baseline">
-                        <span>DIGITAL</span>
-                        <span className="text-news-gold italic ml-3">Newsroom</span>
+
+             {/* CENTER: LOGO - Left on Mobile, Center on Desktop */}
+             <div className="flex-1 md:w-1/2 text-left md:text-center min-w-0 pr-2 md:pr-0 flex items-center">
+                 <Link to="/" onNavigate={onNavigate} className="inline-block">
+                    <h1 className="font-serif text-2xl md:text-5xl font-extrabold tracking-tighter text-news-blue leading-none uppercase whitespace-nowrap">
+                        <span className="text-news-gold">CJ</span> NEWSHUB
                     </h1>
-                    <div className="flex items-center justify-center gap-3 mt-3">
-                        <span className="h-px bg-gray-300 w-12"></span>
-                        <span className="text-[10px] uppercase tracking-[0.4em] text-gray-500 font-bold">Global Editorial Excellence</span>
-                        <span className="h-px bg-gray-300 w-12"></span>
+                    {/* Subline - Hidden on mobile for cleaner look */}
+                    <div className="hidden md:flex items-center justify-center gap-4 mt-3">
+                        <span className="h-[1px] bg-gray-200 w-12"></span>
+                        <span className="text-[9px] uppercase tracking-[0.4em] text-gray-400 font-bold italic">Global Editorial Excellence</span>
+                        <span className="h-[1px] bg-gray-200 w-12"></span>
                     </div>
                  </Link>
              </div>
-             <div className="w-1/4 flex justify-end">
-                 <button onClick={() => setIsWeatherModalOpen(true)} className="flex items-center gap-4 bg-gray-50 px-5 py-2.5 rounded-xl border border-gray-100 hover:bg-gray-100 transition-all group">
-                    <WeatherIcon condition={weatherState.condition} size={28} />
-                    <div className="flex flex-col items-start leading-tight">
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-black text-gray-900">{weatherState.temp}°</span>
-                            <span className={`text-[10px] font-bold ${getAQIColor(weatherState.aqi)}`}>AQI {weatherState.aqi}</span>
+
+             {/* RIGHT: WEATHER & SUBSCRIBE & MOBILE MENU */}
+             <div className="w-auto md:w-1/4 flex justify-end items-center gap-3 md:gap-6 shrink-0">
+                 
+                 {/* Mobile Weather Widget (Compact) - Visible on small screens */}
+                 <button onClick={() => setIsWeatherModalOpen(true)} className="flex md:hidden items-center gap-1.5 text-right group border-r border-gray-100 pr-2 mr-1">
+                    <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-[8px] font-black text-gray-800 uppercase tracking-tight max-w-[70px] truncate leading-none">{weatherState.location}</span>
+                        <div className="flex items-center gap-1.5 leading-none">
+                             <span className="text-[7px] font-bold text-gray-500">AQI {weatherState.aqi}</span>
+                             <span className="text-xs font-black text-news-blue">{weatherState.temp}°</span>
                         </div>
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{weatherState.location}</span>
                     </div>
+                    <Sun size={16} className="text-news-gold shrink-0" />
+                 </button>
+
+                 {/* Desktop Weather (Full) */}
+                 <button onClick={() => setIsWeatherModalOpen(true)} className="hidden md:flex items-center gap-3 text-left group">
+                    <Sun size={24} className="text-news-gold group-hover:scale-110 transition-transform" />
+                    <div className="flex flex-col leading-none">
+                        <span className="text-lg font-black text-news-blue">{weatherState.temp}°</span>
+                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">{weatherState.location}</span>
+                    </div>
+                    <div className="h-8 w-[1px] bg-gray-100 mx-1"></div>
+                    <div className="flex flex-col leading-none">
+                        <span className="text-[10px] font-black text-news-gold">{weatherState.aqi}</span>
+                        <span className="text-[7px] font-bold text-gray-400 uppercase tracking-tighter">AQI</span>
+                    </div>
+                 </button>
+
+                 {/* Subscribe - Desktop Only */}
+                 <button className="hidden md:flex bg-news-accent text-white px-6 py-2.5 rounded text-[11px] font-black uppercase tracking-wider shadow-lg hover:bg-red-800 transition-all flex-col items-center leading-tight">
+                    <span>SUBSCRIBE</span>
+                    <span className="text-[8px] opacity-80">NOW</span>
+                 </button>
+
+                 {/* Mobile Menu Toggle */}
+                 <button 
+                    className="md:hidden text-news-blue p-2 -mr-2 hover:bg-gray-100 rounded transition-colors"
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                 >
+                    {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                  </button>
              </div>
          </div>
       </header>
 
-      {/* DESKTOP NAV */}
-      <div className="hidden md:block bg-white border-b border-gray-200 sticky top-[33px] z-50 shadow-sm">
-         <div className="max-w-7xl mx-auto px-4">
-             <nav className="flex justify-center items-center h-12 space-x-10">
-                 <NavItem to="/" label="Home" />
-                 <NavItem to="/epaper" label="E-Paper" icon={FileText} />
-                 <NavItem to="/classifieds" label="Classifieds" />
-                 <NavItem to="#" label="World" />
-                 <NavItem to="#" label="Technology" />
-                 <NavItem to="#" label="Business" />
-                 <NavItem to="#" label="Culture" />
-             </nav>
+      {/* DESKTOP NAVIGATION */}
+      <nav className="hidden md:block bg-white border-b border-gray-200 sticky top-0 z-50">
+         <div className="max-w-7xl mx-auto px-6 h-14 flex justify-center items-center gap-8">
+             <NavItem to="/" label="HOME" />
+             <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} />
+             <NavItem to="/classifieds" label="CLASSIFIEDS" />
+             <NavItem to="#" label="WORLD" />
+             <NavItem to="#" label="BUSINESS" />
+             <NavItem to="#" label="TECHNOLOGY" />
+             <NavItem to="#" label="CULTURE" />
+             <NavItem to="#" label="SPORTS" />
          </div>
-      </div>
+      </nav>
 
-      {/* BREAKING TICKER */}
-      <div className="bg-news-black text-white text-xs font-medium flex border-b border-gray-800 h-10 items-center overflow-hidden">
-          <div className="bg-news-gold text-black px-6 h-full font-bold uppercase tracking-widest flex items-center gap-2 shrink-0 z-10">
-              <Flame size={14} className="animate-pulse" /> Breaking
+      {/* MOBILE NAVIGATION MENU */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden bg-white border-b border-gray-200 p-6 animate-in slide-in-from-top-2 shadow-lg">
+             <div className="flex flex-col gap-6">
+                 <NavItem to="/" label="HOME" onClick={() => setIsMobileMenuOpen(false)} />
+                 <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} onClick={() => setIsMobileMenuOpen(false)} />
+                 <NavItem to="/classifieds" label="CLASSIFIEDS" onClick={() => setIsMobileMenuOpen(false)} />
+                 <div className="h-[1px] bg-gray-100 w-full my-1"></div>
+                 <NavItem to="#" label="WORLD" onClick={() => setIsMobileMenuOpen(false)} />
+                 <NavItem to="#" label="BUSINESS" onClick={() => setIsMobileMenuOpen(false)} />
+                 <NavItem to="#" label="TECHNOLOGY" onClick={() => setIsMobileMenuOpen(false)} />
+                 <NavItem to="#" label="CULTURE" onClick={() => setIsMobileMenuOpen(false)} />
+                 <NavItem to="#" label="SPORTS" onClick={() => setIsMobileMenuOpen(false)} />
+                 <div className="h-[1px] bg-gray-100 w-full my-1"></div>
+                 <button className="bg-news-accent text-white w-full py-3 rounded text-xs font-black uppercase tracking-widest shadow-lg">
+                    SUBSCRIBE NOW
+                 </button>
+             </div>
+        </div>
+      )}
+
+      {/* TICKER */}
+      <div className="bg-news-blue text-white h-11 flex items-center overflow-hidden border-b border-gray-800">
+          <div className="bg-news-gold text-black px-5 h-full font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 shrink-0 z-10">
+              <Flame size={14} /> BREAKING
           </div>
-          <div className="flex-1 whitespace-nowrap overflow-hidden relative flex items-center">
+          <div className="flex-1 whitespace-nowrap overflow-hidden flex items-center">
               <div className="animate-marquee inline-flex items-center">
-                  {breakingNews.length > 0 ? (
-                      breakingNews.map((article, idx) => (
-                          <React.Fragment key={article.id}>
-                              <span className="mx-4 text-gray-300 font-bold uppercase tracking-wider">{article.title}</span>
-                              {idx < breakingNews.length - 1 && <span className="text-news-gold mx-2">•</span>}
-                          </React.Fragment>
-                      ))
-                  ) : (
-                      <>
-                          <span className="mx-8">Welcome to Digital Newsroom. Bringing you the latest updates from around the globe.</span>
-                          <span className="mx-8">Exclusive coverage, in-depth analysis, and real-time reporting.</span>
-                      </>
-                  )}
+                  {articles.length > 0 ? articles.map((a, i) => (
+                      <React.Fragment key={a.id}>
+                          <span className={`mx-2 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${i % 3 === 0 ? 'bg-[#0b1f36] text-gray-300' : i % 3 === 1 ? 'bg-[#12314f] text-gray-300' : 'bg-[#0f2b46] text-gray-400'}`}>
+                              {a.category}
+                          </span>
+                          <span className="text-[11px] font-bold text-gray-200 mr-8 uppercase">{a.title} <span className="text-gray-500 ml-2">+++</span></span>
+                      </React.Fragment>
+                  )) : <span className="mx-8 text-[11px] font-bold text-gray-400 uppercase">Awaiting dispatches from our global news bureaus...</span>}
               </div>
           </div>
       </div>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-grow container mx-auto px-4 py-8">
-        {children}
+      <main className="flex-grow max-w-7xl mx-auto px-4 md:px-6 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <div className="lg:col-span-9">
+                {children}
+            </div>
+            
+            <div className="lg:col-span-3 space-y-8">
+                {/* Weather widget removed from here as requested */}
+                
+                <div className="bg-[#f0f0ed] p-1 rounded-sm text-center">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.4em]">PREMIUM GLOBAL PARTNERS</span>
+                </div>
+                
+                {/* Newsletter section removed as requested */}
+                
+            </div>
+        </div>
       </main>
 
-      {/* FOOTER */}
-      <footer className="bg-news-black text-gray-400 py-16 border-t-4 border-news-gold">
-        <div className="max-w-7xl mx-auto px-4">
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-              <div>
-                  <h2 className="font-serif text-2xl font-bold text-white mb-4">DIGITAL <span className="text-news-gold">NEWSROOM</span></h2>
-                  <p className="text-sm leading-relaxed text-gray-500">The premier destination for in-depth journalism, real-time reporting, and global perspectives.</p>
-              </div>
-              <div>
-                 <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Explore</h4>
-                 <ul className="space-y-3 text-sm">
-                    <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">World News</Link></li>
-                    <li><Link to="/epaper" onNavigate={onNavigate} className="hover:text-news-gold">E-Paper Edition</Link></li>
-                    <li><Link to="/classifieds" onNavigate={onNavigate} className="hover:text-news-gold">Classifieds</Link></li>
-                 </ul>
-              </div>
-              <div>
-                 <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Support</h4>
-                 <ul className="space-y-3 text-sm">
-                    <li><Link to="#" onNavigate={onNavigate} className="hover:text-news-gold">Help Center</Link></li>
-                    <li><Link to="/staff/login" onNavigate={onNavigate} className="hover:text-news-gold">Staff Portal</Link></li>
-                 </ul>
-              </div>
-              <div>
-                 <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-6 pb-2 border-b border-gray-800">Subscribe</h4>
-                 <div className="flex mt-4">
-                    <input type="email" placeholder="Email" className="bg-gray-800 text-white px-4 py-3 w-full text-xs focus:outline-none" />
-                    <button className="bg-news-gold text-black px-4 py-3 text-xs font-bold uppercase">Join</button>
-                 </div>
-              </div>
-           </div>
-           <p className="text-center text-[10px] tracking-widest uppercase text-gray-700 mt-12">© {new Date().getFullYear()} Digital Newsroom Publishing Group. All rights reserved.</p>
+      <footer className="bg-news-lightyellow text-gray-900 py-16 border-t-4 border-news-gold">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+           <h2 className="font-serif text-3xl md:text-4xl font-extrabold text-news-blue mb-4 uppercase tracking-tighter">
+               <span className="text-news-gold">CJ</span> NEWSHUB
+           </h2>
+           <p className="text-[10px] tracking-[0.5em] uppercase text-gray-600 mt-12">© {new Date().getFullYear()} CJ NEWSHUB MEDIA GROUP. ALL RIGHTS RESERVED.</p>
         </div>
       </footer>
 
-      {/* WEATHER MODAL */}
       {isWeatherModalOpen && (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden">
-                <button onClick={() => setIsWeatherModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-black z-10"><X size={20}/></button>
-                
-                <div className="relative mb-6">
-                    <h3 className="font-serif text-2xl font-bold">Weather & Air Quality</h3>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Search any city globally</p>
-                </div>
-
-                <form onSubmit={handleWeatherSubmit} className="space-y-4 mb-8">
-                    <div className="relative">
-                        <MapPin className="absolute left-3 top-3 text-gray-400" size={18}/>
-                        <input 
-                            type="text" 
-                            value={locationQuery} 
-                            onChange={e => setLocationQuery(e.target.value)} 
-                            placeholder="Search e.g. Mumbai, New York..." 
-                            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg outline-none focus:border-news-black bg-gray-50" 
-                        />
-                    </div>
-                    {weatherError && <p className="text-xs text-red-500 font-bold">{weatherError}</p>}
-                    <button type="submit" disabled={isWeatherLoading} className="w-full bg-news-black text-white py-3 rounded-lg font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors">
-                        {isWeatherLoading ? <Loader2 className="animate-spin" size={16}/> : 'Fetch Latest Data'}
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-md">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+                <button onClick={() => setIsWeatherModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-black"><X size={20}/></button>
+                <h3 className="font-serif text-xl font-bold mb-4">Update Location</h3>
+                <form onSubmit={(e) => { e.preventDefault(); fetchWeatherData(locationQuery); }} className="space-y-4">
+                    <input type="text" value={locationQuery} onChange={e => setLocationQuery(e.target.value)} placeholder="Enter city name..." className="w-full p-3 border rounded-lg focus:border-news-blue outline-none" />
+                    <button type="submit" disabled={isWeatherLoading} className="w-full bg-news-blue text-white py-3 rounded-lg font-bold uppercase text-[10px] tracking-widest">
+                        {isWeatherLoading ? 'Fetching...' : 'Update Weather'}
                     </button>
                 </form>
-
-                <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 flex flex-col gap-4">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <WeatherIcon condition={weatherState.condition} size={32} />
-                            <div>
-                                <p className="text-3xl font-black leading-none">{weatherState.temp}°C</p>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">{weatherState.condition}</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className={`text-2xl font-black leading-none ${getAQIColor(weatherState.aqi)}`}>{weatherState.aqi}</p>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">AQI: {getAQILabel(weatherState.aqi)}</p>
-                        </div>
-                    </div>
-                    <div className="flex gap-4 pt-4 border-t border-gray-200">
-                        <div className="flex items-center gap-2">
-                            <Droplets size={14} className="text-blue-500" />
-                            <span className="text-xs font-bold">{weatherState.humidity}% Humidity</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Globe size={14} className="text-news-gold" />
-                            <span className="text-xs font-bold truncate max-w-[150px]">{weatherState.location}</span>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
       )}

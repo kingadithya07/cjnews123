@@ -21,7 +21,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   const [message, setMessage] = useState<string | null>(null);
   const isMounted = useRef(true);
 
-  // Email Based Auth
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -35,9 +34,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     return () => { isMounted.current = false; };
   }, []);
 
-  // Check for existing session on mount AND when devices prop updates
-  // This is crucial: When App.tsx detects a cloud update (Desktop approved Mobile), 
-  // existingDevices changes, triggering this effect, which calls finalizeLogin.
   useEffect(() => {
     const checkExistingSession = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -60,9 +56,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
             setPendingUser(session.user);
             setMode('awaiting_approval');
         } else {
-            // New device found for existing user -> It's secondary
             const meta = getDeviceMetadata();
-            // Call parent to sync "pending" status to cloud
             onAddDevice({
                 id: currentId,
                 userId: session.user.id,
@@ -79,7 +73,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
             setMode('awaiting_approval');
         }
     } else {
-        // First device ever seen for this user -> Make it PRIMARY
         const meta = getDeviceMetadata();
         onAddDevice({
             id: currentId,
@@ -98,7 +91,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   };
 
   const manualRefresh = async () => {
-      // Force a session refresh to pull latest metadata immediately
       await supabase.auth.refreshSession();
   };
 
@@ -131,11 +123,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
         });
         if (error) throw error;
         
-        // If a session exists immediately, email confirmation is off
         if (data.session) {
              handleSessionFound(data.session);
         } else {
-             // Email confirmation required
              setMode('verify_email');
              setMessage(`Verification code sent to ${email}`);
         }
@@ -174,16 +164,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   };
 
   const handleRecoveryClick = () => {
-      const currentId = getDeviceId();
-      const isApproved = existingDevices.some(d => d.id === currentId && d.status === 'approved');
-      
-      if (!isApproved && existingDevices.length > 0) {
-          alert("Security Notice: This device is not currently trusted. You must log in (even if password fails) to register this device request, then approve it from your Primary Device before you can reset your password.");
-      }
       onNavigate('/reset-password');
   };
 
-  // Render the "Verification Code" screen after signup
   if (mode === 'verify_email') {
       return (
           <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-4 bg-news-paper">
@@ -192,14 +175,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                       <Mail size={32} />
                   </div>
                   <div>
-                      <h2 className="text-2xl font-serif font-black text-gray-900 mb-2">Verify Email Address</h2>
-                      <p className="text-gray-500 text-sm">We've sent a code to <b>{email}</b>. Enter it below to complete registration.</p>
+                      <h2 className="text-2xl font-serif font-black text-gray-900 mb-2">Verify Staff Email</h2>
+                      <p className="text-gray-500 text-sm">We've dispatched a code to <b>{email}</b>. Please input it below.</p>
                   </div>
                   
                   <form onSubmit={handleVerifyOtp} className="space-y-4">
                       <input 
                           type="text" 
-                          placeholder="Enter 6-digit code" 
+                          placeholder="000000" 
                           value={otp} 
                           onChange={e => setOtp(e.target.value)}
                           className="w-full text-center text-2xl font-mono tracking-widest p-3 border border-gray-300 rounded-lg focus:border-news-black outline-none"
@@ -209,7 +192,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                         disabled={loading}
                         className="w-full py-3 bg-news-black text-white rounded-xl font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors flex justify-center items-center gap-2"
                       >
-                          {loading ? <Loader2 className="animate-spin" /> : "Verify & Login"}
+                          {loading ? <Loader2 className="animate-spin" /> : "Verify Identity"}
                       </button>
                   </form>
 
@@ -235,9 +218,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                       </div>
                   </div>
                   <div>
-                      <h2 className="text-3xl font-serif font-black text-gray-900 mb-4">Authorize Device</h2>
+                      <h2 className="text-3xl font-serif font-black text-gray-900 mb-4 uppercase">CJ NEWSHUB Access</h2>
                       <p className="text-gray-500 leading-relaxed text-sm">
-                          Credentials verified for <b>{pendingUser?.user_metadata?.full_name || 'User'}</b>. Approve this session from your <b>Primary Device</b>.
+                          Handshake initiated for <b>{pendingUser?.user_metadata?.full_name || 'User'}</b>. Authorization required from your <b>Primary Device</b>.
                       </p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 space-y-3">
@@ -255,12 +238,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                           <Loader2 size={14} className="animate-spin" /> Awaiting Handshake...
                       </div>
                       <button onClick={manualRefresh} className="flex items-center justify-center gap-2 text-news-gold font-bold text-[10px] uppercase tracking-[0.2em] hover:text-news-black transition-colors">
-                          <RotateCw size={14} /> Manually Refresh Status
+                          <RotateCw size={14} /> Re-verify Approval Status
                       </button>
                       
                       <div className="pt-4 border-t border-gray-100">
                         <button onClick={onEmergencyReset} className="text-[10px] font-black text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-red-100 uppercase tracking-widest">
-                            Factory Reset: Reclaim Primary Access
+                            Factory Reset: System Recovery
                         </button>
                       </div>
                       
@@ -281,16 +264,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
            <div className="relative z-10">
               <div className="flex items-center space-x-3 mb-8 text-news-gold">
                  <Newspaper size={28} />
-                 <span className="font-serif text-3xl font-bold tracking-tight text-white uppercase">{APP_NAME}</span>
+                 <span className="font-serif text-3xl font-black tracking-tighter text-white uppercase italic">CJ <span className="not-italic text-white">NEWSHUB</span></span>
               </div>
-              <h2 className="text-4xl font-serif font-bold leading-tight mb-6">
-                {mode === 'signup' ? "Publisher Registration" : "Staff Access"}
+              <h2 className="text-4xl font-serif font-black leading-tight mb-6 uppercase">
+                {mode === 'signup' ? "Staff Enrollment" : "Editorial Access"}
               </h2>
-              <p className="text-gray-400 text-lg leading-relaxed font-light">Secure gateway to the Digital Newsroom publishing suite.</p>
+              <p className="text-gray-400 text-lg leading-relaxed font-light">Secure gateway to the CJ NEWSHUB global publishing suite. Professional editorial tools for modern journalism.</p>
            </div>
            <div className="relative z-10 pt-8 border-t border-white/10">
                <button onClick={onEmergencyReset} className="text-[10px] text-gray-500 hover:text-white font-bold uppercase tracking-[0.3em] transition-colors">
-                   Factory Reset System
+                   System Security Protocol
                </button>
            </div>
         </div>
@@ -304,11 +287,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  {mode === 'signup' && (
                     <>
                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Full Legal Name</label>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Staff Legal Name</label>
                           <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"/>
                        </div>
                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Staff Role</label>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Station Role</label>
                           <div className="grid grid-cols-3 gap-2">
                              {[UserRole.READER, UserRole.WRITER, UserRole.EDITOR].map((role) => (
                                 <button key={role} type="button" onClick={() => setSelectedRole(role)} className={`py-2 text-[10px] font-bold uppercase rounded-lg border transition-all ${selectedRole === role ? 'bg-news-black text-white border-news-black shadow-lg' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{role}</button>
@@ -319,7 +302,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  )}
 
                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Editorial Email</label>
                     <div className="relative">
                         <Mail className="absolute left-3 top-3.5 text-gray-400" size={16}/>
                         <input 
@@ -328,13 +311,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                             value={email} 
                             onChange={e => setEmail(e.target.value)} 
                             className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all font-medium" 
-                            placeholder="you@company.com"
+                            placeholder="staff@cjnewshub.com"
                         />
                     </div>
                  </div>
 
                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Password</label>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Security Credential</label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-3.5 text-gray-400" size={16}/>
                         <input 
@@ -349,18 +332,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
 
                  {mode === 'signin' && (
                     <div className="text-right">
-                       <button type="button" onClick={handleRecoveryClick} className="text-[10px] text-news-accent hover:underline font-black uppercase tracking-widest">Recover Account</button>
+                       <button type="button" onClick={handleRecoveryClick} className="text-[10px] text-news-accent hover:underline font-black uppercase tracking-widest">Account Recovery</button>
                     </div>
                  )}
 
                  <button type="submit" disabled={loading} className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 flex justify-center items-center gap-3 shadow-xl transition-all">
-                    {loading ? <Loader2 className="animate-spin" size={20}/> : (mode === 'signup' ? "Create Account" : "Secure Sign In")}
+                    {loading ? <Loader2 className="animate-spin" size={20}/> : (mode === 'signup' ? "Complete Enrollment" : "Verified Sign In")}
                     {!loading && <ArrowRight size={18} />}
                  </button>
               </form>
 
               <div className="mt-8 text-center text-xs text-gray-500">
-                 {mode === 'signin' ? <p>New staff member? <button onClick={() => setMode('signup')} className="font-black text-news-black hover:underline uppercase">Register Access</button></p> : <p>Already registered? <button onClick={() => setMode('signin')} className="font-black text-news-black hover:underline uppercase">Sign In</button></p>}
+                 {mode === 'signin' ? <p>New staff member? <button onClick={() => setMode('signup')} className="font-black text-news-black hover:underline uppercase">Enroll Now</button></p> : <p>Existing staff? <button onClick={() => setMode('signin')} className="font-black text-news-black hover:underline uppercase">Sign In</button></p>}
               </div>
            </div>
         </div>
