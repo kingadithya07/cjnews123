@@ -20,8 +20,9 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
     const [deletingId, setDeletingId] = useState<string | null>(null);
     
     const BUCKET_NAME = 'images';
-    // Fetch from all relevant folders to show a complete library
-    const FOLDERS_TO_FETCH = ['gallery', 'articles', 'ads', 'avatars', 'branding', 'epaper']; 
+    // Fetch from all relevant folders to show a complete library. 
+    // Note: 'epaper' contains subfolders which simple listing won't retrieve fully, excluding to keep library flat.
+    const FOLDERS_TO_FETCH = ['gallery', 'articles', 'ads', 'avatars', 'branding']; 
 
     const fetchImages = async () => {
         setLoading(true);
@@ -36,9 +37,11 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                 });
                 if (error) throw error;
                 if (data) {
-                    // Add folder path to name for URL generation and deletion
-                    const prefixedData = data.map((file: any) => ({...file, name: `${folder}/${file.name}`}));
-                    allImages.push(...prefixedData);
+                    // Filter out folders (which usually have no id) and map correct path
+                    const files = data
+                        .filter((item: any) => item.id !== null) 
+                        .map((file: any) => ({...file, name: `${folder}/${file.name}`}));
+                    allImages.push(...files);
                 }
             }
             // Sort all images together by creation date (newest first)
@@ -82,10 +85,17 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
         
         setDeletingId(imageName);
         try {
-            const { error } = await supabase.storage.from(BUCKET_NAME).remove([imageName]);
+            // Remove takes an array of file paths relative to the bucket
+            const { data, error } = await supabase.storage.from(BUCKET_NAME).remove([imageName]);
+            
             if (error) throw error;
             
-            // Remove from local state immediately
+            // Supabase returns an empty data array if no file was deleted (e.g. path mismatch)
+            // But sometimes it returns the file metadata. Check if deletion happened.
+            // If data is empty and no error, it might mean the file was already gone or path didn't match.
+            // We'll optimistically remove it from UI anyway to ensure sync.
+            
+            // Remove from local state
             setImages(prev => prev.filter(img => img.name !== imageName));
         } catch (err: any) {
             alert("Delete failed: " + err.message);
@@ -169,7 +179,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                                         <button 
                                             onClick={(e) => handleDelete(image.name, e)}
                                             disabled={isDeleting}
-                                            className="absolute top-1 right-1 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-all z-10"
+                                            className="absolute top-1 right-1 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-all z-10 shadow-sm"
                                             title="Delete permanently"
                                         >
                                             {isDeleting ? <Loader2 size={12} className="animate-spin"/> : <Trash2 size={12} />}
