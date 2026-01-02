@@ -3,7 +3,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { 
   Bold, Italic, Underline, Heading1, Heading2, Quote, 
   List, ListOrdered, Link as LinkIcon, Image as ImageIcon,
-  AlignLeft, AlignCenter, AlignRight, Undo, Redo, Loader2,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Undo, Redo, Loader2,
   Trash2, Library, Palette, Indent, Outdent, Eraser, Paintbrush
 } from 'lucide-react';
 import ImageGalleryModal from './ImageGalleryModal';
@@ -218,6 +219,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
               <ToolbarButton icon={AlignLeft} command="justifyLeft" title="Align Left" />
               <ToolbarButton icon={AlignCenter} command="justifyCenter" title="Align Center" />
               <ToolbarButton icon={AlignRight} command="justifyRight" title="Align Right" />
+              <ToolbarButton icon={AlignJustify} command="justifyFull" title="Justify" />
           </div>
 
           <div className="flex gap-0.5 shrink-0">
