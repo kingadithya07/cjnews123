@@ -82,8 +82,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const handleContentImageUpload = async (file: File): Promise<string> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${generateId()}.${fileExt}`;
-    // Store content images in gallery too so they are reusable
-    const filePath = `gallery/${fileName}`;
+    // Store content images in dedicated 'articles' folder
+    const filePath = `articles/${fileName}`;
     const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
     if (uploadError) throw uploadError;
     const { data } = supabase.storage.from('images').getPublicUrl(filePath);
@@ -182,6 +182,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
         isOpen={showImageGallery}
         onClose={() => setShowImageGallery(false)}
         onSelectImage={handleSelectFromGallery}
+        uploadFolder="articles"
     />
     <CategorySelector 
         isOpen={showCategorySelector}

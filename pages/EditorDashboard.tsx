@@ -163,7 +163,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
   const handleContentImageUpload = async (file: File): Promise<string> => {
       const fileExt = file.name.split('.').pop();
-      const fileName = `content/${generateId()}.${fileExt}`;
+      const fileName = `articles/${generateId()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
       if (uploadError) throw uploadError;
       const { data } = supabase.storage.from('images').getPublicUrl(fileName);
@@ -276,6 +276,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         isOpen={showImageGallery}
         onClose={() => setShowImageGallery(false)}
         onSelectImage={(url) => { setModalImageUrl(url); setShowImageGallery(false); }}
+        uploadFolder="articles"
       />
       <CategorySelector 
         isOpen={showCategorySelector}
@@ -678,7 +679,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                             <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
                                                 {isAvatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
                                                 <span>Upload</span>
-                                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setProfileAvatar, setIsAvatarUploading)} disabled={isAvatarUploading} />
+                                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setProfileAvatar, setIsAvatarUploading, 'avatars')} disabled={isAvatarUploading} />
                                             </label>
                                         </div>
                                     </div>
@@ -712,7 +713,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                               <input type="text" value={watermarkLogo} onChange={e => setWatermarkLogo(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black text-xs" />
                                               <label className="bg-gray-100 border border-gray-300 text-gray-700 px-3 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-200">
                                                   {isLogoUploading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
-                                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setWatermarkLogo, setIsLogoUploading)} />
+                                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setWatermarkLogo, setIsLogoUploading, 'branding')} />
                                               </label>
                                           </div>
                                       </div>
@@ -834,129 +835,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         </div>
       )}
       
-      {/* AD CAMPAIGN MODAL (same as before) ... */}
-
-      {/* NEW CLASSIFIED MODAL */}
-      {showClassifiedModal && (
-          <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-               <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl flex flex-col max-h-[90vh]">
-                   <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                       <h3 className="font-bold text-gray-900">New Classified Ad</h3>
-                       <button onClick={() => setShowClassifiedModal(false)}><X size={20}/></button>
-                   </div>
-                   <div className="p-6 space-y-4 overflow-y-auto">
-                       <div>
-                           <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Title</label>
-                           <input type="text" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="Ad Headline"/>
-                       </div>
-                       <div className="grid grid-cols-2 gap-4">
-                           <div>
-                               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Category</label>
-                               <select value={newClassified.category || ''} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black bg-white">
-                                   <option value="">Select...</option>
-                                   {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                               </select>
-                           </div>
-                           <div>
-                               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Price (Optional)</label>
-                               <input type="text" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="$0.00"/>
-                           </div>
-                       </div>
-                       <div>
-                           <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Description</label>
-                           <textarea value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black min-h-[100px]" placeholder="Details about the listing..."></textarea>
-                       </div>
-                       <div className="grid grid-cols-2 gap-4">
-                           <div>
-                               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Contact Info</label>
-                               <input type="text" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="Phone or Email"/>
-                           </div>
-                           <div>
-                               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Location</label>
-                               <input type="text" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="City, State"/>
-                           </div>
-                       </div>
-                   </div>
-                   <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 mt-auto">
-                       <button onClick={() => setShowClassifiedModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500">Cancel</button>
-                       <button onClick={() => {
-                           if(newClassified.title && newClassified.category && newClassified.content && newClassified.contactInfo) {
-                               onAddClassified({
-                                   id: generateId(),
-                                   title: newClassified.title,
-                                   category: newClassified.category,
-                                   content: newClassified.content,
-                                   contactInfo: newClassified.contactInfo,
-                                   price: newClassified.price,
-                                   location: newClassified.location,
-                                   postedAt: new Date().toISOString()
-                               } as ClassifiedAd);
-                               setShowClassifiedModal(false);
-                               setNewClassified({});
-                           } else {
-                               alert("Please fill in all required fields.");
-                           }
-                       }} className="px-6 py-2 bg-news-black text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-gray-800">
-                           Post Listing
-                       </button>
-                   </div>
-               </div>
-          </div>
-      )}
-
-      {/* E-PAPER UPLOAD MODAL */}
-      {showAddPageModal && (
-        <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl flex flex-col">
-                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-900">Upload E-Paper Page</h3>
-                    <button onClick={() => setShowAddPageModal(false)}><X size={20}/></button>
-                </div>
-                <div className="p-6 space-y-5">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Edition Date</label>
-                            <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black"/>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Page Number</label>
-                            <input type="number" min="1" value={newPageNumber} onChange={e => setNewPageNumber(Number(e.target.value))} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black"/>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Page Scan (Image)</label>
-                        <div className="flex items-center gap-4">
-                            <div className="w-24 h-32 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                {newPageImage ? <img src={newPageImage} className="w-full h-full object-cover" /> : <Newspaper className="text-gray-300" />}
-                                {isPageUploading && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="animate-spin text-white"/></div>}
-                            </div>
-                            <div className="flex-1">
-                                <label className="block w-full cursor-pointer bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg text-center text-xs transition-colors mb-2 flex items-center justify-center gap-2">
-                                    <Upload size={14} /> Upload Page Scan
-                                    {/* Upload to date-specific folder within epaper */}
-                                    <input 
-                                        type="file" 
-                                        className="hidden" 
-                                        accept="image/*" 
-                                        onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, `epaper/${newPageDate}`)} 
-                                    />
-                                </label>
-                                <p className="text-[10px] text-gray-400 leading-tight">High resolution JPG/PNG preferred. Will be stored in 'epaper/{newPageDate}' directory.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
-                    <button onClick={() => setShowAddPageModal(false)} className="px-5 py-2.5 text-xs font-bold text-gray-500 hover:text-black">Cancel</button>
-                    <button onClick={handleAddPageInternal} disabled={isPageUploading || !newPageImage} className="px-6 py-2.5 bg-news-black text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all flex items-center gap-2 disabled:opacity-50">
-                        <Check size={14} /> Save Page
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
-
+      {/* AD CAMPAIGN MODAL */}
       {showAdModal && (
         <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl max-h-[90vh] flex flex-col">
@@ -975,7 +854,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                             <div className="flex-1">
                                 <label className="block w-full cursor-pointer bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg text-center text-xs transition-colors mb-2">
                                     Upload Image
-                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, (url) => setNewAd({...newAd, imageUrl: url}), setIsLogoUploading)} />
+                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, (url) => setNewAd({...newAd, imageUrl: url}), setIsLogoUploading, 'ads')} />
                                 </label>
                                 <p className="text-[10px] text-gray-400 leading-tight">Supported: JPG, PNG, GIF. Ensure correct aspect ratio for selected size.</p>
                             </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { X, Loader2, ImageIcon, AlertCircle, Upload } from 'lucide-react';
+import { X, Loader2, ImageIcon, AlertCircle, Upload, Trash2 } from 'lucide-react';
 import { FileObject } from 'https://esm.sh/@supabase/storage-js@2.5.5';
 import { generateId } from '../utils';
 
@@ -9,17 +9,19 @@ interface ImageGalleryModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSelectImage: (url: string) => void;
+    uploadFolder?: string;
 }
 
-const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, onSelectImage }) => {
+const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, onSelectImage, uploadFolder = 'gallery' }) => {
     const [images, setImages] = useState<FileObject[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     
     const BUCKET_NAME = 'images';
-    // Fetch from both dedicated gallery and article header images
-    const FOLDERS_TO_FETCH = ['gallery', 'articles']; 
+    // Fetch from all relevant folders to show a complete library
+    const FOLDERS_TO_FETCH = ['gallery', 'articles', 'ads', 'avatars', 'branding', 'epaper']; 
 
     const fetchImages = async () => {
         setLoading(true);
@@ -34,12 +36,12 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                 });
                 if (error) throw error;
                 if (data) {
-                    // Add folder path to name for URL generation
+                    // Add folder path to name for URL generation and deletion
                     const prefixedData = data.map((file: any) => ({...file, name: `${folder}/${file.name}`}));
                     allImages.push(...prefixedData);
                 }
             }
-            // Sort all images together by creation date
+            // Sort all images together by creation date (newest first)
             allImages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
             setImages(allImages);
         } catch (err: any) {
@@ -57,7 +59,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
         try {
             const uploads = Array.from(files).map(async (file: File) => {
                 const fileExt = file.name.split('.').pop();
-                const fileName = `gallery/${generateId()}.${fileExt}`;
+                const fileName = `${uploadFolder}/${generateId()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(fileName, file);
                 if (uploadError) throw uploadError;
                 return fileName;
@@ -71,6 +73,24 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
             setUploading(false);
             // Reset input
             e.target.value = '';
+        }
+    };
+
+    const handleDelete = async (imageName: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm("Are you sure you want to permanently delete this image?")) return;
+        
+        setDeletingId(imageName);
+        try {
+            const { error } = await supabase.storage.from(BUCKET_NAME).remove([imageName]);
+            if (error) throw error;
+            
+            // Remove from local state immediately
+            setImages(prev => prev.filter(img => img.name !== imageName));
+        } catch (err: any) {
+            alert("Delete failed: " + err.message);
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -95,7 +115,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                         <h3 className="font-bold text-gray-800">Media Library</h3>
                         <label className="flex items-center gap-2 bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase cursor-pointer hover:bg-gray-800 transition-colors">
                             {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                            <span>{uploading ? 'Uploading...' : 'Upload Files'}</span>
+                            <span>{uploading ? 'Uploading...' : `Upload to ${uploadFolder}`}</span>
                             <input 
                                 type="file" 
                                 className="hidden" 
@@ -125,24 +145,41 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                             <div>
                                 <ImageIcon size={48} className="mx-auto mb-2 opacity-20"/>
                                 <p>No images found in your library.</p>
-                                <p className="text-xs mt-2">Click "Upload Files" to add images.</p>
+                                <p className="text-xs mt-2">Click "Upload" to add images to <b>{uploadFolder}</b>.</p>
                             </div>
                         </div>
                     ) : (
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
                             {images.map(image => {
                                 const publicUrl = getPublicUrl(image.name);
+                                const isDeleting = deletingId === image.name;
                                 return (
-                                    <button 
-                                        key={image.id} 
-                                        onClick={() => onSelectImage(publicUrl)}
-                                        className="group relative aspect-square bg-gray-100 rounded-md overflow-hidden border-2 border-transparent hover:border-news-accent focus:border-news-accent focus:outline-none transition-all"
-                                    >
+                                    <div key={image.id} className="group relative aspect-square bg-gray-100 rounded-md overflow-hidden border-2 border-transparent hover:border-news-accent transition-all">
                                         <img src={publicUrl} alt={image.name} className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 group-focus:opacity-100 flex items-center justify-center transition-opacity">
-                                            <span className="text-white text-xs font-bold uppercase">Select</span>
+                                        
+                                        {/* Select Overlay */}
+                                        <div 
+                                            onClick={() => !isDeleting && onSelectImage(publicUrl)}
+                                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer flex items-center justify-center transition-opacity"
+                                        >
+                                            <span className="text-white text-xs font-bold uppercase tracking-wider">Select</span>
                                         </div>
-                                    </button>
+
+                                        {/* Delete Button */}
+                                        <button 
+                                            onClick={(e) => handleDelete(image.name, e)}
+                                            disabled={isDeleting}
+                                            className="absolute top-1 right-1 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-700 transition-all z-10"
+                                            title="Delete permanently"
+                                        >
+                                            {isDeleting ? <Loader2 size={12} className="animate-spin"/> : <Trash2 size={12} />}
+                                        </button>
+                                        
+                                        {/* Folder Badge */}
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-[2px] text-[8px] text-white px-2 py-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                            {image.name.split('/')[0]}
+                                        </div>
+                                    </div>
                                 );
                             })}
                         </div>
