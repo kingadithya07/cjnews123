@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
+import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement } from '../types';
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
@@ -75,7 +75,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
   const [modalIsFeatured, setModalIsFeatured] = useState(false);
-  const [modalIsEditorsChoice, setModalIsEditorsChoice] = useState(false);
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   
@@ -168,11 +167,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setEditArticleId(null); setModalTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setModalIsEditorsChoice(false); setShowArticleModal(true);
+      setEditArticleId(null); setModalTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setShowArticleModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setEditArticleId(article.id); setModalTitle(article.title); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setModalIsEditorsChoice(article.isEditorsChoice || false); setShowArticleModal(true);
+      setEditArticleId(article.id); setModalTitle(article.title); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setShowArticleModal(true);
   };
 
   const handleSaveArticleInternal = () => {
@@ -189,7 +188,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           publishedAt: new Date().toISOString(),
           status: modalStatus,
           isFeatured: modalIsFeatured,
-          isEditorsChoice: modalIsEditorsChoice,
+          isEditorsChoice: false, // Force false since removed from UI
           authorAvatar: userAvatar || undefined
       };
       onSaveArticle(article);
@@ -215,6 +214,58 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       } finally {
           setIsPageUploading(false);
       }
+  };
+
+  const handleSaveTaxonomyInternal = async () => {
+      setIsSavingTaxonomy(true);
+      try {
+          await onSaveTaxonomy();
+          alert("Taxonomy saved successfully.");
+      } catch(e) {
+          alert("Error saving taxonomy.");
+      } finally {
+          setIsSavingTaxonomy(false);
+      }
+  };
+
+  const handleAddAd = () => {
+      if (!newAd.title || !newAd.imageUrl) {
+          alert("Title and Image are required.");
+          return;
+      }
+      onAddAdvertisement({
+          id: generateId(),
+          title: newAd.title,
+          imageUrl: newAd.imageUrl,
+          linkUrl: newAd.linkUrl,
+          size: newAd.size as AdSize,
+          customWidth: isCustomSize ? newAd.customWidth : undefined,
+          customHeight: isCustomSize ? newAd.customHeight : undefined,
+          placement: newAd.placement as AdPlacement,
+          targetCategory: newAd.targetCategory,
+          isActive: true
+      });
+      setShowAdModal(false);
+      setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true });
+  };
+
+  const handleAddClassified = () => {
+      if (!newClassified.title || !newClassified.content || !newClassified.category) {
+          alert("Title, Content and Category are required.");
+          return;
+      }
+      onAddClassified({
+          id: generateId(),
+          title: newClassified.title,
+          category: newClassified.category,
+          content: newClassified.content,
+          price: newClassified.price,
+          location: newClassified.location,
+          contactInfo: newClassified.contactInfo || '',
+          postedAt: new Date().toISOString()
+      });
+      setShowClassifiedModal(false);
+      setNewClassified({});
   };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
@@ -269,7 +320,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col md:ml-72 h-full overflow-hidden bg-[#f8f9fa]">
-           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40">
+           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40 shadow-sm">
                 <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
                 <h1 className="font-serif text-lg font-bold text-gray-900">Editor Dashboard</h1>
                 <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
@@ -286,7 +337,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                 <Plus size={16} /> New Article
                            </button>
                       </div>
-                      <div className="bg-white rounded border overflow-hidden shadow-sm">
+
+                      {/* Desktop Table */}
+                      <div className="hidden md:block bg-white rounded border overflow-hidden shadow-sm">
                           <table className="w-full text-left">
                                 <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
                                     <tr>
@@ -300,7 +353,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                         <tr key={article.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-start gap-4">
-                                                    <div className="w-16 h-12 bg-gray-100 rounded overflow-hidden shrink-0">
+                                                    <div className="w-16 h-12 bg-gray-100 rounded overflow-hidden shrink-0 border border-gray-200">
                                                         <img src={article.imageUrl} className="w-full h-full object-cover" />
                                                     </div>
                                                     <div>
@@ -328,6 +381,51 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     {articles.length === 0 && <tr><td colSpan={3} className="text-center py-12 text-gray-400">No articles found.</td></tr>}
                                 </tbody>
                           </table>
+                      </div>
+
+                      {/* Mobile Cards (Optimized) */}
+                      <div className="md:hidden grid grid-cols-1 gap-4">
+                          {articles.map((article) => (
+                              <div key={article.id} className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+                                  <div className="flex p-3 gap-3">
+                                      <div className="w-24 h-24 bg-gray-100 rounded-md shrink-0 overflow-hidden relative">
+                                          <img src={article.imageUrl} className="w-full h-full object-cover" />
+                                          {article.isFeatured && (
+                                              <div className="absolute top-0 left-0 bg-news-accent text-white p-1 rounded-br-md shadow-sm">
+                                                  <Star size={10} fill="currentColor" />
+                                              </div>
+                                          )}
+                                      </div>
+                                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                          <div>
+                                              <div className="flex items-center gap-2 mb-1.5">
+                                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : article.status === ArticleStatus.PENDING ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                      {article.status}
+                                                  </span>
+                                                  <span className="text-[10px] text-gray-400 font-bold uppercase truncate">{article.categories[0]}</span>
+                                              </div>
+                                              <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">{article.title}</h3>
+                                          </div>
+                                          <div className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
+                                              <UserIcon size={10} /> {article.author}
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div className="flex border-t border-gray-100 divide-x divide-gray-100">
+                                      <button onClick={() => openEditArticle(article)} className="flex-1 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2">
+                                          <PenSquare size={14}/> Edit
+                                      </button>
+                                      <button onClick={() => onDeleteArticle(article.id)} className="flex-1 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 flex items-center justify-center gap-2">
+                                          <Trash2 size={14}/> Delete
+                                      </button>
+                                  </div>
+                              </div>
+                          ))}
+                          {articles.length === 0 && (
+                              <div className="py-12 text-center text-gray-400 bg-white rounded-lg border-2 border-dashed border-gray-200">
+                                  No articles found.
+                              </div>
+                          )}
                       </div>
                   </div>
               )}
@@ -375,7 +473,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       <div className="space-y-6">
                           <div className="flex justify-between items-center">
                               <h2 className="font-serif text-xl font-bold">Banner Ads</h2>
-                              <button onClick={() => setShowAdModal(true)} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Banner</button>
+                              <button onClick={() => { setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true, title: '', linkUrl: '' }); setIsCustomSize(false); setShowAdModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Banner</button>
                           </div>
                           <div className="bg-white rounded border divide-y">
                               {advertisements.map(ad => (
@@ -402,7 +500,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       <div className="space-y-6">
                           <div className="flex justify-between items-center">
                               <h2 className="font-serif text-xl font-bold">Classifieds</h2>
-                              <button onClick={() => setShowClassifiedModal(true)} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Listing</button>
+                              <button onClick={() => { setNewClassified({category: adCategories[0] || 'General'}); setShowClassifiedModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Listing</button>
                           </div>
                           <div className="bg-white rounded border divide-y">
                               {classifieds.map(ad => (
@@ -418,6 +516,69 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   </div>
                               ))}
                               {classifieds.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No classifieds posted.</div>}
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'taxonomy' && (
+                  <div className="max-w-6xl mx-auto space-y-8">
+                      <div className="flex justify-between items-center">
+                          <h2 className="font-serif text-2xl font-bold">Taxonomy</h2>
+                          <button onClick={handleSaveTaxonomyInternal} disabled={isSavingTaxonomy} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2">
+                              {isSavingTaxonomy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes
+                          </button>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                          {/* Article Categories */}
+                          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Categories</h3>
+                              <div className="flex gap-2 mb-4">
+                                  <input type="text" placeholder="New Category" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                  <button onClick={() => { if(newCategory) { onAddCategory(newCategory); setNewCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                  {categories.map(cat => (
+                                      <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                          {cat} <button onClick={() => onDeleteCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                      </span>
+                                  ))}
+                              </div>
+                          </div>
+
+                          {/* Article Tags */}
+                          {tags && onAddTag && onDeleteTag && (
+                              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Tag size={18}/> Article Tags</h3>
+                                  <div className="flex gap-2 mb-4">
+                                      <input type="text" placeholder="New Tag" value={newTag} onChange={e => setNewTag(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                      <button onClick={() => { if(newTag) { onAddTag(newTag); setNewTag(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                      {tags.map(tag => (
+                                          <span key={tag} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                              #{tag} <button onClick={() => onDeleteTag(tag)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                          </span>
+                                      ))}
+                                  </div>
+                              </div>
+                          )}
+
+                          {/* Ad/Classified Categories */}
+                          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Megaphone size={18}/> Ad Categories</h3>
+                              <div className="flex gap-2 mb-4">
+                                  <input type="text" placeholder="New Section" value={newAdCategory} onChange={e => setNewAdCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                  <button onClick={() => { if(newAdCategory) { onAddAdCategory(newAdCategory); setNewAdCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                  {adCategories.map(cat => (
+                                      <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                          {cat} <button onClick={() => onDeleteAdCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                      </span>
+                                  ))}
+                              </div>
                           </div>
                       </div>
                   </div>
@@ -612,15 +773,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     </div>
                                 </label>
                             </div>
-                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
-                                <label className="flex items-center gap-2 cursor-pointer w-full">
-                                    <input type="checkbox" checked={modalIsEditorsChoice} onChange={e => setModalIsEditorsChoice(e.target.checked)} className="w-4 h-4 accent-news-gold" />
-                                    <div className="flex items-center gap-2">
-                                        <Award size={12} className={modalIsEditorsChoice ? "text-news-gold fill-news-gold" : "text-gray-400"} />
-                                        <span className="text-xs font-bold uppercase">Editor's Pick</span>
-                                    </div>
-                                </label>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -669,8 +821,198 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           </div>
       )}
 
-      {/* Ad & Classified Modals would go here similar to Article Modal */}
-      {/* Omitted for brevity, but would follow same pattern */}
+      {/* AD CAMPAIGN MODAL */}
+      {showAdModal && (
+        <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl max-h-[90vh] flex flex-col">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-gray-900">New Ad Campaign</h3>
+                    <button onClick={() => setShowAdModal(false)}><X size={20}/></button>
+                </div>
+                <div className="p-6 space-y-5 overflow-y-auto">
+                    {/* Image Upload */}
+                    <div className="space-y-2">
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Creative Banner</label>
+                        <div className="flex items-center gap-4">
+                            <div className="w-24 h-24 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
+                                {newAd.imageUrl ? <img src={newAd.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-gray-300" />}
+                            </div>
+                            <div className="flex-1">
+                                <label className="block w-full cursor-pointer bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg text-center text-xs transition-colors mb-2">
+                                    Upload Image
+                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, (url) => setNewAd({...newAd, imageUrl: url}), setIsLogoUploading, 'ads')} />
+                                </label>
+                                <p className="text-[10px] text-gray-400 leading-tight">Supported: JPG, PNG, GIF. Ensure correct aspect ratio.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Target Ad Slot</label>
+                            <select 
+                                value={newAd.size === 'CUSTOM' ? 'RECTANGLE' : newAd.size} 
+                                onChange={(e) => setNewAd({...newAd, size: e.target.value as any})}
+                                className="w-full p-2.5 border rounded-lg text-xs font-bold bg-white focus:border-news-black outline-none"
+                            >
+                                <optgroup label="Mobile Layouts (Strictly Mobile)">
+                                    <option value="MOBILE_BANNER">Standard Banner (320x50)</option>
+                                    <option value="LARGE_MOBILE_BANNER">Large Banner (320x100)</option>
+                                </optgroup>
+                                <optgroup label="Desktop Layouts (Strictly Desktop)">
+                                    <option value="BILLBOARD">Billboard (970x250)</option>
+                                    <option value="LARGE_LEADERBOARD">Large Leaderboard (970x90)</option>
+                                    <option value="LEADERBOARD">Leaderboard (728x90)</option>
+                                    <option value="SKYSCRAPER">Skyscraper (160x600)</option>
+                                    <option value="HALF_PAGE">Half Page (300x600)</option>
+                                    <option value="LARGE_RECTANGLE">Large Rectangle (336x280)</option>
+                                </optgroup>
+                                <optgroup label="Universal Layouts (Cross-Device)">
+                                    <option value="RECTANGLE">Medium Rectangle (300x250)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        
+                        {/* Custom Dimensions UI */}
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                             <div className="flex justify-between items-center mb-3">
+                                 <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Dimensions Strategy</label>
+                                 <div className="flex bg-white rounded border border-gray-200 p-0.5">
+                                     <button 
+                                        onClick={() => setIsCustomSize(false)}
+                                        className={`px-3 py-1 text-[10px] font-bold uppercase rounded-sm transition-colors ${!isCustomSize ? 'bg-news-black text-white' : 'text-gray-500 hover:text-black'}`}
+                                     >
+                                         Standard
+                                     </button>
+                                     <button 
+                                        onClick={() => setIsCustomSize(true)}
+                                        className={`px-3 py-1 text-[10px] font-bold uppercase rounded-sm transition-colors ${isCustomSize ? 'bg-news-black text-white' : 'text-gray-500 hover:text-black'}`}
+                                     >
+                                         Custom
+                                     </button>
+                                 </div>
+                             </div>
+                             
+                             {isCustomSize && (
+                                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 mb-1">Width (px)</label>
+                                        <input type="number" value={newAd.customWidth || ''} onChange={(e) => setNewAd({...newAd, customWidth: Number(e.target.value)})} className="w-full p-2 border rounded-md text-sm outline-none focus:border-news-black" placeholder="e.g. 980" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 mb-1">Height (px)</label>
+                                        <input type="number" value={newAd.customHeight || ''} onChange={(e) => setNewAd({...newAd, customHeight: Number(e.target.value)})} className="w-full p-2 border rounded-md text-sm outline-none focus:border-news-black" placeholder="e.g. 300" />
+                                    </div>
+                                </div>
+                             )}
+                        </div>
+
+                        {/* Placement Scope */}
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Placement Scope</label>
+                            <select 
+                                value={newAd.placement} 
+                                onChange={(e) => setNewAd({...newAd, placement: e.target.value as any})}
+                                className="w-full p-2.5 border rounded-lg text-xs font-bold bg-white focus:border-news-black outline-none"
+                            >
+                                <option value="GLOBAL">Run Everywhere</option>
+                                <option value="HOME">Home Page Only</option>
+                                <option value="ARTICLE">Article Pages Only</option>
+                                <option value="EPAPER">E-Paper Section</option>
+                                <option value="CLASSIFIEDS">Classifieds Section</option>
+                                <option value="CATEGORY">Specific Category</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {newAd.placement === 'CATEGORY' && (
+                        <div className="space-y-2">
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Select Category</label>
+                            <select 
+                                value={newAd.targetCategory || ''} 
+                                onChange={(e) => setNewAd({...newAd, targetCategory: e.target.value})}
+                                className="w-full p-2.5 border rounded-lg text-xs font-bold bg-white focus:border-news-black outline-none"
+                            >
+                                <option value="">-- Choose Category --</option>
+                                {categories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    <div className="space-y-2">
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Campaign Title</label>
+                        <input type="text" value={newAd.title || ''} onChange={(e) => setNewAd({...newAd, title: e.target.value})} className="w-full p-3 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="e.g. Summer Sale 2024" />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Destination URL (Optional)</label>
+                        <input type="url" value={newAd.linkUrl || ''} onChange={(e) => setNewAd({...newAd, linkUrl: e.target.value})} className="w-full p-3 border rounded-lg text-sm outline-none focus:border-news-black" placeholder="https://... (Leave empty for offline/display-only)" />
+                    </div>
+                </div>
+                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 mt-auto">
+                    <button onClick={() => setShowAdModal(false)} className="px-5 py-2.5 text-xs font-bold text-gray-500 hover:text-black">Cancel</button>
+                    <button 
+                        onClick={handleAddAd}
+                        className="px-6 py-2.5 bg-news-black text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all flex items-center gap-2"
+                    >
+                        <Upload size={14} /> Launch Campaign
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* CLASSIFIED AD MODAL */}
+      {showClassifiedModal && (
+          <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl max-h-[90vh] flex flex-col">
+                  <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                      <h3 className="font-bold text-gray-900">New Classified Listing</h3>
+                      <button onClick={() => setShowClassifiedModal(false)}><X size={20}/></button>
+                  </div>
+                  <div className="p-6 space-y-4 overflow-y-auto">
+                      <div>
+                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Listing Title</label>
+                          <input type="text" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="e.g. Senior Graphic Designer" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Category</label>
+                              <select value={newClassified.category} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="w-full p-3 border rounded-lg text-sm bg-white">
+                                  {adCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                              </select>
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Price / Salary</label>
+                              <input type="text" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="e.g. $50k or Negotiable" />
+                          </div>
+                      </div>
+                      <div>
+                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Description</label>
+                          <textarea value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-3 border rounded-lg text-sm min-h-[100px]" placeholder="Detailed description..."></textarea>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Location</label>
+                              <input type="text" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="City, State" />
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Contact Info</label>
+                              <input type="text" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="Phone or Email" />
+                          </div>
+                      </div>
+                  </div>
+                  <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 mt-auto">
+                      <button onClick={() => setShowClassifiedModal(false)} className="px-5 py-2.5 text-xs font-bold text-gray-500 hover:text-black">Cancel</button>
+                      <button onClick={handleAddClassified} className="px-6 py-2.5 bg-news-black text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all">
+                          Post Listing
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
 
     </div>
     </>

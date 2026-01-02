@@ -40,7 +40,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
   const [isFeatured, setIsFeatured] = useState(false);
-  const [isEditorsChoice, setIsEditorsChoice] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [showImageGallery, setShowImageGallery] = useState(false);
 
@@ -113,7 +112,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
       publishedAt: new Date().toISOString(),
       status: status,
       isFeatured: isFeatured,
-      isEditorsChoice: isEditorsChoice,
+      isEditorsChoice: false, // Removed from UI, default false
       authorAvatar: profileAvatar || undefined 
     };
     onSave(newArticle);
@@ -127,11 +126,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setIsEditorsChoice(false); setSelectedCategories(['General']); setShowEditorModal(true);
+      setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setShowEditorModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setIsEditorsChoice(article.isEditorsChoice || false); setShowEditorModal(true);
+      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setShowEditorModal(true);
   };
 
   const handleSelectFromGallery = (url: string) => {
@@ -223,7 +222,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
 
       <div className="flex-1 flex flex-col md:ml-72 h-full overflow-hidden bg-[#f8f9fa]">
            {/* Mobile Header */}
-           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40">
+           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40 shadow-sm">
                 <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
                 <h1 className="font-serif text-lg font-bold text-gray-900">Writer Dashboard</h1>
                 <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
@@ -236,42 +235,51 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                   <div className="max-w-6xl mx-auto">
                       <div className="flex justify-between items-center mb-6">
                            <h1 className="font-serif text-2xl md:text-3xl font-bold text-gray-900 hidden md:block">My Articles</h1>
-                           <h1 className="font-serif text-xl font-bold text-gray-900 md:hidden">Articles</h1>
+                           <h1 className="font-serif text-xl font-bold text-gray-900 md:hidden">My Articles</h1>
                            <button onClick={openNewArticle} className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2">
                                 <Plus size={16} /> <span className="hidden md:inline">Add New</span><span className="md:hidden">New</span>
                            </button>
                       </div>
 
-                      {/* Mobile Card View */}
+                      {/* Mobile Card View (Optimized) */}
                       <div className="grid grid-cols-1 gap-4 md:hidden">
                            {myArticles.map(article => (
-                               <div key={article.id} className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-3">
-                                   <div className="flex justify-between items-start">
-                                       <div className="flex-1 mr-2">
-                                           <div className="flex flex-wrap gap-1 mb-1">
-                                             {article.categories.map(cat => (
-                                                <span key={cat} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-50 px-1.5 rounded">{cat}</span>
-                                             ))}
+                               <div key={article.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                                   <div className="flex p-3 gap-3">
+                                       {/* Thumbnail */}
+                                       <div className="w-20 h-20 bg-gray-100 rounded-md shrink-0 overflow-hidden relative">
+                                           <img src={article.imageUrl} className="w-full h-full object-cover" alt={article.title} />
+                                           {article.isFeatured && (
+                                              <div className="absolute top-0 right-0 bg-news-accent text-white p-0.5 rounded-bl-md shadow-sm">
+                                                  <Star size={10} fill="currentColor" />
+                                              </div>
+                                           )}
+                                       </div>
+                                       
+                                       {/* Content */}
+                                       <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                           <div>
+                                               <div className="flex items-center gap-2 mb-1">
+                                                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                       {article.status}
+                                                   </span>
+                                                   <span className="text-[10px] text-gray-400 font-bold uppercase truncate">{article.categories[0]}</span>
+                                               </div>
+                                               <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{article.title}</h3>
                                            </div>
-                                           <h3 className="font-bold text-gray-900 text-base leading-tight line-clamp-2">{article.title}</h3>
+                                           <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+                                               <Clock size={10} /> {new Date(article.publishedAt).toLocaleDateString()}
+                                           </div>
                                        </div>
-                                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase shrink-0 ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                           {article.status}
-                                       </span>
                                    </div>
-                                   
-                                   {article.isFeatured && (
-                                       <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-news-accent">
-                                           <Star size={12} fill="currentColor"/> Featured Article
-                                       </div>
-                                   )}
 
-                                   <div className="pt-3 border-t border-gray-100 mt-1 flex justify-end gap-3">
-                                       <button onClick={() => openEditArticle(article)} className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase px-3 py-1.5 rounded hover:bg-blue-50 transition-colors">
+                                   {/* Actions */}
+                                   <div className="grid grid-cols-2 border-t border-gray-100 divide-x divide-gray-100">
+                                       <button onClick={() => openEditArticle(article)} className="py-2.5 text-center text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2">
                                            <PenSquare size={14}/> Edit
                                        </button>
                                        {onDelete && (
-                                           <button onClick={() => handleDelete(article.id)} className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase px-3 py-1.5 rounded hover:bg-red-50 transition-colors">
+                                           <button onClick={() => handleDelete(article.id)} className="py-2.5 text-center text-xs font-bold text-red-500 hover:bg-red-50 flex items-center justify-center gap-2">
                                                <Trash2 size={14}/> Delete
                                            </button>
                                        )}
@@ -513,15 +521,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                     <div className="flex items-center gap-2">
                                         <Star size={12} className={isFeatured ? "text-news-accent fill-news-accent" : "text-gray-400"} />
                                         <span className="text-xs font-bold uppercase">Featured</span>
-                                    </div>
-                                </label>
-                            </div>
-                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
-                                <label className="flex items-center gap-2 cursor-pointer w-full">
-                                    <input type="checkbox" checked={isEditorsChoice} onChange={e => setIsEditorsChoice(e.target.checked)} className="w-4 h-4 accent-news-gold" />
-                                    <div className="flex items-center gap-2">
-                                        <Award size={12} className={isEditorsChoice ? "text-news-gold fill-news-gold" : "text-gray-400"} />
-                                        <span className="text-xs font-bold uppercase">Editor's Pick</span>
                                     </div>
                                 </label>
                             </div>
