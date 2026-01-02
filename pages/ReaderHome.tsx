@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, EPaperPage, Advertisement } from '../types';
-import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, Award, ArrowLeft } from 'lucide-react';
+import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, ArrowLeft } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
@@ -24,11 +24,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
   };
 
   // If a category is selected, filter everything
-  // Special handling for "Editorial" pseudo-category
   const displayArticles = selectedCategory 
-    ? (selectedCategory === 'Editorial' 
-        ? articles.filter(a => a.isEditorsChoice)
-        : articles.filter(a => a.categories.includes(selectedCategory)))
+    ? articles.filter(a => a.categories.includes(selectedCategory))
     : articles;
 
   // --- LOGIC FOR HOME VIEW ---
@@ -40,27 +37,22 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
   const sliderIds = new Set(sliderArticles.map(a => a.id));
 
-  // 2. Editor's Choice (Prioritize isEditorsChoice, exclude slider)
-  // Renaming UI to "Editorial" but logic uses isEditorsChoice property
-  const editorsChoiceCandidates = displayArticles.filter(a => a.isEditorsChoice && !sliderIds.has(a.id));
-  const editorsChoiceArticles = editorsChoiceCandidates.slice(0, 4);
-  const editorsChoiceIds = new Set(editorsChoiceArticles.map(a => a.id));
-
-  // 3. Trending / Latest Sidebar (Exclude slider and editor's choice)
+  // 2. Trending / Latest Sidebar (Exclude slider)
   const trendingArticles = displayArticles
-    .filter(a => !sliderIds.has(a.id) && !editorsChoiceIds.has(a.id))
+    .filter(a => !sliderIds.has(a.id))
     .slice(0, 6);
+  
+  const trendingIds = new Set(trendingArticles.map(a => a.id));
 
-  // 4. Main Feed (The rest)
+  // 3. Main Feed (The rest)
   const mainFeedArticles = displayArticles
-    .filter(a => !sliderIds.has(a.id) && !editorsChoiceIds.has(a.id) && !trendingArticles.find(t => t.id === a.id))
+    .filter(a => !sliderIds.has(a.id) && !trendingIds.has(a.id))
     .slice(0, 14);
 
-  // 5. Category Sections (Only on Homepage when no category selected)
+  // 4. Category Sections (Only on Homepage when no category selected)
   // Take top 4 categories from the list, filtering out 'General' if preferred or just take first 4.
   const homeCategorySections = !selectedCategory ? categories.filter(c => c !== 'General').slice(0, 4) : [];
 
-  
   const [mobileTab, setMobileTab] = useState<'latest' | 'trending'>('latest');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -87,8 +79,6 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
   // --- CATEGORY VIEW RENDER ---
   if (selectedCategory) {
-      const placementContext = selectedCategory === 'Editorial' ? 'EDITORIAL' : 'CATEGORY';
-      
       return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-12 max-w-7xl mx-auto px-4 md:px-0">
             {/* Back Button */}
@@ -100,21 +90,21 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
             <div className="bg-news-black text-white py-12 px-6 rounded-lg mb-8 shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-                    {selectedCategory === 'Editorial' ? <Award size={200} /> : <Star size={200} />}
+                    <Star size={200} />
                 </div>
                 <h1 className="font-serif text-4xl md:text-5xl font-bold uppercase tracking-tight text-center relative z-10">
-                    {selectedCategory === 'Editorial' ? 'Editorial Picks' : selectedCategory}
+                    {selectedCategory}
                 </h1>
                 <p className="text-center text-news-gold text-xs font-bold uppercase tracking-[0.3em] mt-4 relative z-10">
-                    {selectedCategory === 'Editorial' ? 'Curated Journalism' : 'Category Archive'}
+                    Category Archive
                 </p>
             </div>
 
             <AdvertisementBanner 
                 ads={advertisements} 
                 size="LEADERBOARD" 
-                placement={placementContext}
-                currentCategory={selectedCategory !== 'Editorial' ? selectedCategory : undefined}
+                placement="CATEGORY"
+                currentCategory={selectedCategory}
                 globalAdsEnabled={globalAdsEnabled}
             />
 
@@ -130,7 +120,6 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                     <span className="bg-white/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 uppercase tracking-widest rounded-sm w-fit shadow-sm flex items-center gap-1">
                                         <Star size={8} fill="currentColor" /> {article.categories[0]}
                                     </span>
-                                    {article.isEditorsChoice && <span className="bg-news-gold text-black text-[8px] font-black px-2 py-1 uppercase rounded-sm flex items-center gap-1"><Award size={8} fill="currentColor"/> Editorial</span>}
                                 </div>
                             </div>
                             <div className="p-5">
@@ -292,7 +281,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 px-4 md:px-0 max-w-7xl mx-auto">
         
-        {/* LEFT COLUMN */}
+        {/* LEFT COLUMN (Main Feed) */}
         <div className="lg:col-span-8 space-y-8">
             <div className="md:hidden">
                {/* Mobile Tabs */}
@@ -312,7 +301,6 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                             <span className="bg-white/90 backdrop-blur text-black text-[9px] font-black px-2 py-1 uppercase tracking-wider rounded-sm w-fit shadow-sm flex items-center gap-1">
                                                 <Star size={8} fill="currentColor" /> {article.categories[0]}
                                             </span>
-                                            {article.isEditorsChoice && <span className="bg-news-gold text-black text-[9px] font-black px-2 py-1 uppercase tracking-wider rounded-sm w-fit flex items-center gap-1 shadow-sm"><Award size={10} fill="currentColor"/> Editorial</span>}
                                        </div>
                                    </div>
                                    <div>
@@ -350,10 +338,9 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                            <div className="overflow-hidden mb-4 relative shadow-sm rounded-lg">
                                 <img src={article.imageUrl} alt={article.title} className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700 aspect-video object-cover"/>
                                 <div className="absolute top-2 left-2 flex flex-col gap-1">
-                                    <span className="bg-white/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 uppercase tracking-widest rounded-sm w-fit shadow-sm flex items-center gap-1">
+                                    <span className="bg-white/90 backdrop-blur text-black text-[9px] font-black px-2 py-1 uppercase tracking-widest rounded-sm w-fit shadow-sm flex items-center gap-1">
                                         <Star size={8} fill="currentColor" /> {article.categories[0]}
                                     </span>
-                                    {article.isEditorsChoice && <span className="bg-news-gold text-black text-[8px] font-black px-2 py-1 uppercase rounded-sm flex items-center gap-1 shadow-sm"><Award size={8} fill="currentColor"/> Editorial</span>}
                                 </div>
                            </div>
                            <h3 className="text-base font-serif font-bold text-gray-900 mb-3 leading-tight group-hover:text-news-accent transition-colors">{article.title}</h3>
@@ -365,31 +352,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
             </div>
         </div>
 
-        {/* RIGHT COLUMN */}
+        {/* RIGHT COLUMN (Ads only now) */}
         <div className="lg:col-span-4 space-y-10">
-             {/* EDITORIAL SECTION (Renamed from Editor's Choice) */}
-             {editorsChoiceArticles.length > 0 && (
-                 <div className="bg-news-black p-6 rounded-xl text-white shadow-2xl relative overflow-hidden">
-                     <div className="absolute top-0 right-0 p-4 opacity-10"><Award size={120} /></div>
-                     <h3 className="text-[10px] font-black text-news-gold uppercase tracking-[0.3em] mb-6 relative z-10 flex items-center gap-2 border-b border-white/10 pb-3">
-                         <Award size={14}/> Editorial
-                     </h3>
-                     <div className="space-y-6 relative z-10">
-                         {editorsChoiceArticles.map(article => (
-                             <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="flex gap-4 group">
-                                 <div className="w-16 h-16 bg-gray-800 rounded-md overflow-hidden shrink-0 border border-white/20">
-                                     <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                                 </div>
-                                 <div className="flex-1">
-                                     <span className="text-[8px] font-bold text-news-gold uppercase tracking-wider block mb-1">{article.categories[0]}</span>
-                                     <h4 className="font-serif font-bold text-sm text-gray-200 leading-tight group-hover:text-white group-hover:underline decoration-news-gold decoration-2 underline-offset-2 transition-all">{article.title}</h4>
-                                 </div>
-                             </Link>
-                         ))}
-                     </div>
-                 </div>
-             )}
-
              <AdvertisementBanner ads={advertisements} size="HALF_PAGE" placement="HOME" globalAdsEnabled={globalAdsEnabled} className="!my-0"/>
              <AdvertisementBanner ads={advertisements} size="RECTANGLE" placement="HOME" globalAdsEnabled={globalAdsEnabled} className="!my-0"/>
         </div>

@@ -156,6 +156,7 @@ function App() {
       if (artData) {
         setArticles(artData.map(a => ({
           id: a.id,
+          userId: a.user_id, // Map database column to type
           title: a.title,
           subline: a.subline,
           author: a.author,
@@ -202,7 +203,7 @@ function App() {
           linkUrl: ad.linkUrl || ad.link_url,
           title: ad.title,
           size: ad.size,
-          customWidth: ad.customWidth, // Ensure these are mapped
+          customWidth: ad.customWidth, 
           customHeight: ad.customHeight,
           placement: ad.placement,
           targetCategory: ad.targetCategory,
@@ -548,22 +549,27 @@ function App() {
         onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
         onNavigate={navigate} 
         userAvatar={userAvatar} 
+        userName={userName}
         devices={devices.filter(d => d.userId === userId)} 
         onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} 
         onRejectDevice={(id) => handleRevokeDevice(id)} 
-        onRevokeDevice={handleRevokeDevice} 
+        onRevokeDevice={handleRevokeDevice}
+        // Pass userId to EditorDashboard for isolated gallery handling
+        userId={userId} 
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard 
         onSave={handleSaveArticle}
-        onDelete={handleDeleteArticle} // Passed delete handler
+        onDelete={handleDeleteArticle} 
         existingArticles={articles} 
         currentUserRole={userRole} 
         categories={categories} 
         onNavigate={navigate} 
         userAvatar={userAvatar} 
+        userName={userName}
         devices={devices.filter(d => d.userId === userId)}
         onRevokeDevice={handleRevokeDevice}
+        userId={userId} // Pass userId for isolation
     />;
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;

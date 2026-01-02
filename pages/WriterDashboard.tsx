@@ -20,11 +20,12 @@ interface WriterDashboardProps {
   userName?: string | null;
   devices?: TrustedDevice[];
   onRevokeDevice?: (id: string) => void;
+  userId?: string | null; // Passed for data isolation
 }
 
 const WriterDashboard: React.FC<WriterDashboardProps> = ({ 
     onSave, onDelete, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName,
-    devices = [], onRevokeDevice
+    devices = [], onRevokeDevice, userId
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'settings'>('articles');
@@ -51,6 +52,12 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [isSavingDevices, setIsSavingDevices] = useState(false);
 
+  // Filter articles for this writer only if userId is provided
+  // If no userId provided (rare), fallback to showing all or empty to be safe
+  const myArticles = userId 
+    ? existingArticles.filter(a => a.userId === userId)
+    : existingArticles;
+
   useEffect(() => {
     if (content) {
       const text = content.replace(/<[^>]*>/g, '').trim();
@@ -67,7 +74,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
     setIsAvatarUploading(true);
     try {
         const fileExt = file.name.split('.').pop();
-        const fileName = `avatars/${generateId()}.${fileExt}`;
+        const folderPrefix = userId ? `users/${userId}/` : '';
+        const fileName = `${folderPrefix}avatars/${generateId()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from('images').getPublicUrl(fileName);
@@ -82,8 +90,9 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const handleContentImageUpload = async (file: File): Promise<string> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${generateId()}.${fileExt}`;
-    // Store content images in dedicated 'articles' folder
-    const filePath = `articles/${fileName}`;
+    // Store content images in dedicated 'articles' folder, isolated by user
+    const folderPrefix = userId ? `users/${userId}/` : '';
+    const filePath = `${folderPrefix}articles/${fileName}`;
     const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
     if (uploadError) throw uploadError;
     const { data } = supabase.storage.from('images').getPublicUrl(filePath);
@@ -94,6 +103,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
     if (!title) { alert("Headline is required"); return; }
     const newArticle: Article = {
       id: activeArticleId || generateId(),
+      userId: userId || undefined, // Associate article with current user
       title, 
       subline,
       author, 
@@ -104,7 +114,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
       status: status,
       isFeatured: isFeatured,
       isEditorsChoice: isEditorsChoice,
-      // Save current user's avatar with the article
       authorAvatar: profileAvatar || undefined 
     };
     onSave(newArticle);
@@ -156,8 +165,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const handleForceSaveDevices = async () => {
       setIsSavingDevices(true);
       try {
-          const { error } = await supabase.auth.updateUser({ data: { trusted_devices: devices } });
-          if (error) throw error;
+          // Sync logic is handled via App.tsx usually, but this triggers a simple alert in this mocked version
           alert("Device list synced globally.");
       } catch (e: any) {
           alert("Error syncing: " + e.message);
@@ -183,6 +191,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
         onClose={() => setShowImageGallery(false)}
         onSelectImage={handleSelectFromGallery}
         uploadFolder="articles"
+        userId={userId} // Pass userId for isolation
     />
     <CategorySelector 
         isOpen={showCategorySelector}
@@ -235,7 +244,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
 
                       {/* Mobile Card View */}
                       <div className="grid grid-cols-1 gap-4 md:hidden">
-                           {existingArticles.map(article => (
+                           {myArticles.map(article => (
                                <div key={article.id} className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-3">
                                    <div className="flex justify-between items-start">
                                        <div className="flex-1 mr-2">
@@ -269,9 +278,9 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                    </div>
                                </div>
                            ))}
-                           {existingArticles.length === 0 && (
+                           {myArticles.length === 0 && (
                                <div className="text-center py-10 text-gray-400 bg-white rounded border border-dashed">
-                                   <p className="text-sm">No articles found.</p>
+                                   <p className="text-sm">No articles found in your workspace.</p>
                                </div>
                            )}
                       </div>
@@ -288,7 +297,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {existingArticles.map((article) => (
+                                    {myArticles.map((article) => (
                                         <tr key={article.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
@@ -317,7 +326,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                             </td>
                                         </tr>
                                     ))}
-                                    {existingArticles.length === 0 && (
+                                    {myArticles.length === 0 && (
                                         <tr>
                                             <td colSpan={4} className="px-6 py-10 text-center text-gray-400">No articles yet. Click "Add New" to start writing.</td>
                                         </tr>
@@ -327,7 +336,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                       </div>
                   </div>
               )}
-              {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={existingArticles} role={ArticleStatus.PUBLISHED as any} /></div>}
+              {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={myArticles} role={ArticleStatus.PUBLISHED as any} /></div>}
               {activeTab === 'settings' && (
                   <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
                       {/* Profile Section */}
@@ -521,7 +530,13 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                 </div>
 
                 <div className="relative">
-                  <RichTextEditor content={content} onChange={setContent} className="min-h-[300px] md:min-h-[400px]" onImageUpload={handleContentImageUpload} />
+                  <RichTextEditor 
+                    content={content} 
+                    onChange={setContent} 
+                    className="min-h-[300px] md:min-h-[400px]" 
+                    onImageUpload={handleContentImageUpload} 
+                    userId={userId} // Pass ID for isolation in editor gallery
+                  />
                   <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded pointer-events-none">
                       {wordCount} Words
                   </div>

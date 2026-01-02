@@ -15,9 +15,10 @@ interface RichTextEditorProps {
   onImageUpload: (file: File) => Promise<string>;
   placeholder?: string;
   className?: string;
+  userId?: string | null; // Pass userId for isolated gallery
 }
 
-const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onImageUpload, placeholder, className }) => {
+const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onImageUpload, placeholder, className, userId }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
@@ -177,6 +178,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           isOpen={showGallery}
           onClose={() => setShowGallery(false)}
           onSelectImage={handleGallerySelect}
+          userId={userId} // Pass down ID for isolation
       />
       <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg bg-white ${className}`}>
         

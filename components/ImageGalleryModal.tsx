@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { X, Loader2, ImageIcon, AlertCircle, Upload, Trash2 } from 'lucide-react';
+import { X, Loader2, ImageIcon, AlertCircle, Upload, Trash2, FolderLock } from 'lucide-react';
 import { FileObject } from 'https://esm.sh/@supabase/storage-js@2.5.5';
 import { generateId } from '../utils';
 
@@ -10,9 +10,10 @@ interface ImageGalleryModalProps {
     onClose: () => void;
     onSelectImage: (url: string) => void;
     uploadFolder?: string;
+    userId?: string | null; // For isolation
 }
 
-const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, onSelectImage, uploadFolder = 'gallery' }) => {
+const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, onSelectImage, uploadFolder = 'gallery', userId }) => {
     const [images, setImages] = useState<FileObject[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -20,24 +21,36 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
     const [deletingId, setDeletingId] = useState<string | null>(null);
     
     const BUCKET_NAME = 'images';
-    // Fetch from all relevant folders to show a complete library. 
-    // Note: 'epaper' contains subfolders which simple listing won't retrieve fully, excluding to keep library flat.
-    const FOLDERS_TO_FETCH = ['gallery', 'articles', 'ads', 'avatars', 'branding']; 
+
+    // Dynamic folder structure based on User ID for isolation
+    // If userId is present, we prefix all operations with 'users/{userId}/'
+    const getFoldersToFetch = () => {
+        const baseFolders = ['gallery', 'articles', 'ads', 'branding']; // standard folders
+        if (userId) {
+            return baseFolders.map(f => `users/${userId}/${f}`);
+        }
+        return [...baseFolders, 'avatars']; // Admins/Global see shared + avatars
+    };
 
     const fetchImages = async () => {
         setLoading(true);
         setError(null);
         try {
             const allImages: FileObject[] = [];
-            for (const folder of FOLDERS_TO_FETCH) {
+            const folders = getFoldersToFetch();
+
+            for (const folder of folders) {
                 const { data, error } = await supabase.storage.from(BUCKET_NAME).list(folder, {
                     limit: 100,
                     offset: 0,
                     sortBy: { column: 'created_at', order: 'desc' },
                 });
-                if (error) throw error;
+                if (error) {
+                    // Ignore 404s for folders that don't exist yet (new users)
+                    continue;
+                }
                 if (data) {
-                    // Filter out folders (which usually have no id) and map correct path
+                    // Filter out empty folder placeholders and map full path
                     const files = data
                         .filter((item: any) => item.id !== null) 
                         .map((file: any) => ({...file, name: `${folder}/${file.name}`}));
@@ -48,7 +61,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
             allImages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
             setImages(allImages);
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch images from one or more sources.');
+            setError(err.message || 'Failed to fetch images.');
         } finally {
             setLoading(false);
         }
@@ -62,7 +75,10 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
         try {
             const uploads = Array.from(files).map(async (file: File) => {
                 const fileExt = file.name.split('.').pop();
-                const fileName = `${uploadFolder}/${generateId()}.${fileExt}`;
+                // Determine target path
+                const prefix = userId ? `users/${userId}/` : '';
+                const fileName = `${prefix}${uploadFolder}/${generateId()}.${fileExt}`;
+                
                 const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(fileName, file);
                 if (uploadError) throw uploadError;
                 return fileName;
@@ -74,7 +90,6 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
             alert('Error uploading images: ' + err.message);
         } finally {
             setUploading(false);
-            // Reset input
             e.target.value = '';
         }
     };
@@ -85,17 +100,8 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
         
         setDeletingId(imageName);
         try {
-            // Remove takes an array of file paths relative to the bucket
-            const { data, error } = await supabase.storage.from(BUCKET_NAME).remove([imageName]);
-            
+            const { error } = await supabase.storage.from(BUCKET_NAME).remove([imageName]);
             if (error) throw error;
-            
-            // Supabase returns an empty data array if no file was deleted (e.g. path mismatch)
-            // But sometimes it returns the file metadata. Check if deletion happened.
-            // If data is empty and no error, it might mean the file was already gone or path didn't match.
-            // We'll optimistically remove it from UI anyway to ensure sync.
-            
-            // Remove from local state
             setImages(prev => prev.filter(img => img.name !== imageName));
         } catch (err: any) {
             alert("Delete failed: " + err.message);
@@ -108,7 +114,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
         if (isOpen) {
             fetchImages();
         }
-    }, [isOpen]);
+    }, [isOpen, userId]); // Re-fetch if userId changes
 
     const getPublicUrl = (imagePath: string): string => {
         const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(imagePath);
@@ -122,7 +128,13 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
             <div className="bg-white rounded-lg w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
                 <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
                     <div className="flex items-center gap-4">
-                        <h3 className="font-bold text-gray-800">Media Library</h3>
+                        <div className="flex flex-col">
+                            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                {userId ? <FolderLock size={18} className="text-news-gold"/> : <ImageIcon size={18}/>}
+                                Media Library
+                            </h3>
+                            {userId && <span className="text-[10px] text-gray-400 font-mono uppercase">Private Workspace</span>}
+                        </div>
                         <label className="flex items-center gap-2 bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase cursor-pointer hover:bg-gray-800 transition-colors">
                             {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
                             <span>{uploading ? 'Uploading...' : `Upload to ${uploadFolder}`}</span>
@@ -154,7 +166,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                         <div className="flex items-center justify-center h-full text-gray-400 text-center">
                             <div>
                                 <ImageIcon size={48} className="mx-auto mb-2 opacity-20"/>
-                                <p>No images found in your library.</p>
+                                <p>No images found in your {userId ? 'private' : 'shared'} library.</p>
                                 <p className="text-xs mt-2">Click "Upload" to add images to <b>{uploadFolder}</b>.</p>
                             </div>
                         </div>
@@ -163,11 +175,14 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                             {images.map(image => {
                                 const publicUrl = getPublicUrl(image.name);
                                 const isDeleting = deletingId === image.name;
+                                // Parse folder name for display
+                                const pathParts = image.name.split('/');
+                                const displayFolder = pathParts.length > 2 ? pathParts[pathParts.length - 2] : pathParts[0];
+
                                 return (
                                     <div key={image.id} className="group relative aspect-square bg-gray-100 rounded-md overflow-hidden border-2 border-transparent hover:border-news-accent transition-all">
                                         <img src={publicUrl} alt={image.name} className="w-full h-full object-cover" />
                                         
-                                        {/* Select Overlay */}
                                         <div 
                                             onClick={() => !isDeleting && onSelectImage(publicUrl)}
                                             className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer flex items-center justify-center transition-opacity"
@@ -175,7 +190,6 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                                             <span className="text-white text-xs font-bold uppercase tracking-wider">Select</span>
                                         </div>
 
-                                        {/* Delete Button */}
                                         <button 
                                             onClick={(e) => handleDelete(image.name, e)}
                                             disabled={isDeleting}
@@ -185,9 +199,8 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                                             {isDeleting ? <Loader2 size={12} className="animate-spin"/> : <Trash2 size={12} />}
                                         </button>
                                         
-                                        {/* Folder Badge */}
                                         <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-[2px] text-[8px] text-white px-2 py-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                            {image.name.split('/')[0]}
+                                            {displayFolder}
                                         </div>
                                     </div>
                                 );

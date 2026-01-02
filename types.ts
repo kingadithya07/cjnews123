@@ -27,6 +27,7 @@ export interface TrustedDevice {
 
 export interface Article {
   id: string;
+  userId?: string; // Owner ID for isolation
   title: string;
   subline?: string;
   author: string;
