@@ -78,13 +78,16 @@ export interface ClassifiedAd {
 }
 
 export type AdSize = 
-  | 'BILLBOARD'       // 970x250 (Top of page)
-  | 'LEADERBOARD'     // 728x90 (Content breaks)
-  | 'RECTANGLE'       // 300x250 (Sidebar/Content)
-  | 'HALF_PAGE'       // 300x600 (Sidebar Large)
-  | 'SKYSCRAPER'      // 160x600 (Sidebar Slim)
-  | 'MOBILE_BANNER'   // 320x50 (Mobile Only)
-  | 'CUSTOM';         // User defined
+  | 'BILLBOARD'           // 970x250 (Desktop)
+  | 'LEADERBOARD'         // 728x90 (Desktop)
+  | 'LARGE_LEADERBOARD'   // 970x90 (Desktop)
+  | 'RECTANGLE'           // 300x250 (Universal)
+  | 'LARGE_RECTANGLE'     // 336x280 (Desktop/Tablet)
+  | 'HALF_PAGE'           // 300x600 (Desktop)
+  | 'SKYSCRAPER'          // 160x600 (Desktop)
+  | 'MOBILE_BANNER'       // 320x50 (Mobile)
+  | 'LARGE_MOBILE_BANNER' // 320x100 (Mobile)
+  | 'CUSTOM';             // User defined
 
 export type AdPlacement = 'GLOBAL' | 'HOME' | 'ARTICLE' | 'EPAPER' | 'EDITORIAL' | 'CLASSIFIEDS' | 'CATEGORY';
 

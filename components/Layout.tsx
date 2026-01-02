@@ -242,8 +242,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          <div className="max-w-7xl mx-auto px-6 h-12 flex justify-center items-center gap-6 overflow-visible">
              <NavItem to="/" label="HOME" isActive={isActive('/')} onNavigate={onNavigate} />
              <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} isActive={isActive('/epaper')} onNavigate={onNavigate} />
-             <NavItem to="/editorial" label="EDITORIAL" icon={PenTool} isActive={isActive('/editorial')} onNavigate={onNavigate} />
-             <NavItem to="/classifieds" label="CLASSIFIEDS" isActive={isActive('/classifieds')} onNavigate={onNavigate} />
              
              {/* Dynamic Categories */}
              <div className="h-3 w-[1px] bg-gray-200 mx-2"></div>
@@ -283,8 +281,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                  {/* Dashboard Access removed from here as it is now in top bar */}
                  <NavItem to="/" label="HOME" onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/')} onNavigate={onNavigate} />
                  <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/epaper')} onNavigate={onNavigate} />
-                 <NavItem to="/editorial" label="EDITORIAL" icon={PenTool} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/editorial')} onNavigate={onNavigate} />
-                 <NavItem to="/classifieds" label="CLASSIFIEDS" onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/classifieds')} onNavigate={onNavigate} />
                  <div className="h-[1px] bg-gray-100 w-full my-1"></div>
                  {categories.map(cat => (
                      <NavItem key={cat} to={`/category/${cat}`} label={cat} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive(`/category/${cat}`)} onNavigate={onNavigate} />

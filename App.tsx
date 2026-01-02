@@ -575,10 +575,6 @@ function App() {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedCategory={cat} categories={categories} />;
   } else if (path === '/epaper') {
     content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} onSaveSettings={handleSaveGlobalConfig} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
-  } else if (path === '/editorial') {
-    content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedCategory="Editorial" categories={categories} />;
-  } else if (path === '/classifieds') {
-    content = <ClassifiedsHome classifieds={classifieds} adCategories={adCategories} />; // Note: Ideally pass ads here too if needed, but keeping changes minimal
   } else {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   }

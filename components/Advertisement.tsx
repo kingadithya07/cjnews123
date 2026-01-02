@@ -15,19 +15,42 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
   // 1. Check Global Switch
   if (!globalAdsEnabled) return null;
 
+  // Helper: Check if ad size is compatible with the slot size
+  const isSizeCompatible = (slotSize: AdSize, adSize: AdSize) => {
+      // Exact match
+      if (slotSize === adSize) return true;
+      
+      // --- Desktop Compatibility ---
+      // Allow LEADERBOARD (728x90) in BILLBOARD (970x250) or LARGE_LEADERBOARD (970x90)
+      if ((slotSize === 'BILLBOARD' || slotSize === 'LARGE_LEADERBOARD') && adSize === 'LEADERBOARD') return true;
+      
+      // Allow BILLBOARD in LARGE_LEADERBOARD? No, height issue.
+      // Allow LARGE_LEADERBOARD in BILLBOARD? Yes.
+      if (slotSize === 'BILLBOARD' && adSize === 'LARGE_LEADERBOARD') return true;
+
+      // Allow RECTANGLE (300x250) in LARGE_RECTANGLE (336x280)
+      if (slotSize === 'LARGE_RECTANGLE' && adSize === 'RECTANGLE') return true;
+
+      // --- Mobile Compatibility ---
+      // Allow MOBILE_BANNER (320x50) in LARGE_MOBILE_BANNER (320x100) or RECTANGLE (300x250)
+      if ((slotSize === 'LARGE_MOBILE_BANNER' || slotSize === 'RECTANGLE') && adSize === 'MOBILE_BANNER') return true;
+
+      // --- Cross-Device Fallbacks (for GLOBAL placement mostly) ---
+      // Allow BILLBOARD/LEADERBOARD in the other's slot (scaled)
+      if (slotSize === 'LEADERBOARD' && (adSize === 'BILLBOARD' || adSize === 'LARGE_LEADERBOARD')) return true;
+      
+      return false;
+  };
+
   // 2. Filter ads by size, active status, AND placement scope
   const availableAds = ads.filter(ad => {
     // Basic checks
     if (!ad.isActive) return false;
     
-    // Strict Size Match:
-    // The ad's declared slot type (ad.size) must match the current slot (size).
-    // Even "Custom" sized ads must optionally belong to a slot type (e.g. BILLBOARD) to render here.
-    // We treat 'CUSTOM' legacy type as a fallback that matches nothing specific unless forced, 
-    // but the new UI forces a slot selection.
-    if (ad.size !== size) return false;
+    // Check Size Compatibility
+    if (!isSizeCompatible(size, ad.size)) return false;
 
-    // Global ads run everywhere
+    // Global ads run everywhere (Short-circuit)
     if (ad.placement === 'GLOBAL') return true;
 
     // Specific placement match
@@ -48,7 +71,7 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
   // 4. Randomly select one ad to display (Rotation logic)
   const ad = availableAds[Math.floor(Math.random() * availableAds.length)];
 
-  // 5. Determine styles based on size
+  // 5. Determine styles based on the AD's size (not the slot size, to maintain aspect ratio)
   const getSizeStyles = (s: AdSize, customW?: number, customH?: number) => {
     // Priority: Custom Dimensions (if provided)
     if (customW && customH) {
@@ -62,33 +85,44 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
 
     // Default classes for standard sizes
     switch (s) {
+      // Desktop Sizes
       case 'BILLBOARD': return { maxWidth: '970px', aspectRatio: '97/25' };
+      case 'LARGE_LEADERBOARD': return { maxWidth: '970px', aspectRatio: '97/9' };
       case 'LEADERBOARD': return { maxWidth: '728px', aspectRatio: '728/90' };
       case 'HALF_PAGE': return { maxWidth: '300px', aspectRatio: '300/600' };
       case 'SKYSCRAPER': return { maxWidth: '160px', aspectRatio: '160/600' };
+      case 'LARGE_RECTANGLE': return { maxWidth: '336px', aspectRatio: '336/280' };
+      
+      // Mobile Sizes
       case 'MOBILE_BANNER': return { maxWidth: '320px', aspectRatio: '32/5' };
+      case 'LARGE_MOBILE_BANNER': return { maxWidth: '320px', aspectRatio: '32/10' };
+      
+      // Universal
       case 'RECTANGLE': default: return { maxWidth: '300px', aspectRatio: '300/250' };
     }
   };
 
   const styles = getSizeStyles(ad.size, ad.customWidth, ad.customHeight);
   
-  // Responsive Visibility Logic based on SLOT TYPE
+  // Responsive Visibility Logic based on SLOT TYPE (size prop)
   // This ensures Billboards don't crush mobile layouts, and Mobile Banners don't appear on desktop.
   let visibilityClasses = '';
   switch (size) {
       case 'MOBILE_BANNER':
-          visibilityClasses = 'block md:hidden'; // Only on mobile
+      case 'LARGE_MOBILE_BANNER':
+          visibilityClasses = 'block md:hidden'; // Strict Mobile
           break;
       case 'BILLBOARD':
       case 'LEADERBOARD':
+      case 'LARGE_LEADERBOARD':
       case 'SKYSCRAPER':
       case 'HALF_PAGE':
-          visibilityClasses = 'hidden md:flex'; // Only on desktop
+      case 'LARGE_RECTANGLE':
+          visibilityClasses = 'hidden md:flex'; // Strict Desktop
           break;
       case 'RECTANGLE':
       default:
-          visibilityClasses = 'flex'; // Visible everywhere (Sidebar/Content boxes)
+          visibilityClasses = 'flex'; // Universal (Sidebars / Content Boxes)
           break;
   }
 
