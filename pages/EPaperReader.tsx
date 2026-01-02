@@ -1,13 +1,12 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { EPaperPage, EPaperRegion, Article, WatermarkSettings, Advertisement } from '../types';
 import EPaperViewer from '../components/EPaperViewer';
 import Cropper from 'cropperjs';
 import { 
   ChevronLeft, ChevronRight, Calendar, ZoomIn, ZoomOut, 
-  X, Grid, ArrowLeft, Loader2, Scissors, Download, Check, LayoutGrid, Eye, Search, Share2, RotateCcw, RefreshCcw, Maximize, MousePointer2, MoveHorizontal, Hand, Image as ImageIcon, Upload, Save
+  X, Grid, ArrowLeft, Loader2, Scissors, Download, Check, LayoutGrid, Eye, Search, Share2, RotateCcw, RefreshCcw, Maximize, MousePointer2, MoveHorizontal, Hand, Image as ImageIcon, Upload, Save, Newspaper
 } from 'lucide-react';
-import { format, isValid } from 'date-fns';
+import { format, isValid, getDaysInMonth, startOfMonth, addMonths, subMonths, isSameDay } from 'date-fns';
 import { APP_NAME } from '../constants';
 import { generateId } from '../utils';
 import { supabase } from '../supabaseClient';
@@ -19,12 +18,13 @@ interface EPaperReaderProps {
   onNavigate: (path: string) => void;
   watermarkSettings: WatermarkSettings;
   onSaveSettings?: (settings: WatermarkSettings) => void;
-  advertisements?: Advertisement[]; // Make optional to not break existing calls if not updated yet
+  advertisements?: Advertisement[]; 
   globalAdsEnabled?: boolean;
 }
 
 const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermarkSettings, onSaveSettings, advertisements = [], globalAdsEnabled = true }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'reader'>('grid');
+  const [showCalendar, setShowCalendar] = useState(false);
   
   const uniqueDates = useMemo(() => {
     const dates = Array.from(new Set(pages.map(p => p.date).filter(Boolean)));
@@ -33,10 +33,14 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
   const [selectedDate, setSelectedDate] = useState(uniqueDates[0] || new Date().toISOString().split('T')[0]);
   
+  // Calendar Navigation State
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+
   useEffect(() => {
     if (uniqueDates.length > 0 && (!selectedDate || !uniqueDates.includes(selectedDate))) {
       setSelectedDate(uniqueDates[0]);
     }
+    setCalendarMonth(new Date(selectedDate));
   }, [uniqueDates, selectedDate]);
 
   const currentEditionPages = useMemo(() => {
@@ -50,6 +54,38 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (!dateValue) return 'N/A';
     const d = new Date(dateValue);
     return isValid(d) ? format(d, formatStr) : 'N/A';
+  };
+
+  // --- Calendar Helpers ---
+  const generateCalendarDays = (monthDate: Date) => {
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth();
+      const daysInMonth = getDaysInMonth(monthDate);
+      const startDay = startOfMonth(monthDate).getDay(); // 0 is Sunday
+      
+      const days = [];
+      // Fill empty slots before start of month
+      for (let i = 0; i < startDay; i++) {
+          days.push(null);
+      }
+      // Fill days
+      for (let i = 1; i <= daysInMonth; i++) {
+          days.push(new Date(year, month, i));
+      }
+      return days;
+  };
+
+  const hasEdition = (date: Date) => {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      return uniqueDates.includes(dateStr);
+  };
+
+  const handleDateSelect = (date: Date) => {
+      if (hasEdition(date)) {
+          setSelectedDate(format(date, 'yyyy-MM-dd'));
+          setShowCalendar(false);
+          setViewMode('grid');
+      }
   };
 
   const [scale, setScale] = useState(1);
@@ -336,10 +372,51 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
               <button onClick={() => onNavigate('/')} className="p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-news-black transition-all">
                   <ArrowLeft size={18} />
               </button>
-              <div className="flex items-center bg-gray-50 rounded-full px-1 border border-gray-200">
-                  <button disabled={selectedDate === uniqueDates[uniqueDates.length - 1]} onClick={() => setSelectedDate(uniqueDates[uniqueDates.indexOf(selectedDate) + 1])} className="p-1.5 hover:bg-white rounded-full disabled:opacity-20"><ChevronLeft size={16} /></button>
-                  <div className="px-3 text-[9px] font-black tracking-[0.2em] font-mono text-news-black uppercase">{safeFormat(selectedDate, 'dd MMM yyyy')}</div>
-                  <button disabled={selectedDate === uniqueDates[0]} onClick={() => setSelectedDate(uniqueDates[uniqueDates.indexOf(selectedDate) - 1])} className="p-1.5 hover:bg-white rounded-full disabled:opacity-20"><ChevronRight size={16} /></button>
+              <div className="relative">
+                  <button 
+                    onClick={() => setShowCalendar(!showCalendar)} 
+                    className="flex items-center bg-gray-50 rounded-full px-1 border border-gray-200 hover:border-news-gold hover:bg-white transition-all group"
+                  >
+                      <div className="p-1.5 bg-white rounded-full group-hover:bg-news-gold group-hover:text-white transition-colors text-gray-400"><Calendar size={16} /></div>
+                      <div className="px-3 text-[9px] font-black tracking-[0.2em] font-mono text-news-black uppercase">{safeFormat(selectedDate, 'dd MMM yyyy')}</div>
+                  </button>
+
+                  {/* CALENDAR POPUP */}
+                  {showCalendar && (
+                      <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-50 w-72 animate-in fade-in zoom-in-95">
+                          <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                              <button onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft size={16}/></button>
+                              <span className="text-xs font-bold uppercase tracking-widest text-news-black">{format(calendarMonth, 'MMMM yyyy')}</span>
+                              <button onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))} className="p-1 hover:bg-gray-100 rounded-full"><ChevronRight size={16}/></button>
+                          </div>
+                          <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                              {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => <span key={d} className="text-[9px] font-bold text-gray-400">{d}</span>)}
+                          </div>
+                          <div className="grid grid-cols-7 gap-1">
+                              {generateCalendarDays(calendarMonth).map((date, idx) => {
+                                  if (!date) return <div key={`empty-${idx}`}></div>;
+                                  const isAvailable = hasEdition(date);
+                                  const isSelected = format(date, 'yyyy-MM-dd') === selectedDate;
+                                  return (
+                                      <button 
+                                          key={date.toISOString()} 
+                                          disabled={!isAvailable}
+                                          onClick={() => handleDateSelect(date)}
+                                          className={`
+                                              h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium transition-all
+                                              ${isSelected ? 'bg-news-black text-white font-bold' : ''}
+                                              ${!isSelected && isAvailable ? 'bg-news-gold/10 text-news-black hover:bg-news-gold hover:text-white font-bold cursor-pointer' : ''}
+                                              ${!isSelected && !isAvailable ? 'text-gray-300 cursor-default' : ''}
+                                          `}
+                                      >
+                                          {date.getDate()}
+                                      </button>
+                                  );
+                              })}
+                          </div>
+                      </div>
+                  )}
+                  {showCalendar && <div className="fixed inset-0 z-40" onClick={() => setShowCalendar(false)}></div>}
               </div>
            </div>
            <div className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 hidden md:block">CJ NEWSHUB ARCHIVE</div>
@@ -388,6 +465,13 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                           </div>
                       ))}
                   </div>
+                  {currentEditionPages.length === 0 && (
+                      <div className="py-20 text-center text-gray-400 bg-white border-2 border-dashed border-gray-200 rounded-xl">
+                          <Newspaper size={48} className="mx-auto mb-4 opacity-20" />
+                          <p className="text-sm font-bold uppercase tracking-widest">No edition available for this date.</p>
+                          <button onClick={() => setShowCalendar(true)} className="mt-4 text-news-accent font-bold text-xs uppercase underline">Browse Archive</button>
+                      </div>
+                  )}
               </div>
           </div>
       )}

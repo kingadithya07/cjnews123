@@ -1,10 +1,10 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole } from '../types';
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -84,6 +84,27 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [newPageNumber, setNewPageNumber] = useState(1);
   const [newPageImage, setNewPageImage] = useState('');
   const [isPageUploading, setIsPageUploading] = useState(false);
+  
+  // E-Paper Dashboard Filter
+  // Default to today or the most recent date in the list
+  const availableEpaperDates = useMemo(() => {
+      const dates = Array.from(new Set(ePaperPages.map(p => p.date))).sort().reverse();
+      return dates;
+  }, [ePaperPages]);
+  
+  const [epaperFilterDate, setEpaperFilterDate] = useState<string>(availableEpaperDates[0] || new Date().toISOString().split('T')[0]);
+
+  // Update filter if pages change and current filter is invalid (unless it's just empty)
+  useEffect(() => {
+      if (availableEpaperDates.length > 0 && !availableEpaperDates.includes(epaperFilterDate)) {
+          setEpaperFilterDate(availableEpaperDates[0]);
+      }
+  }, [availableEpaperDates]);
+
+  const filteredPages = useMemo(() => {
+      return ePaperPages.filter(p => p.date === epaperFilterDate).sort((a, b) => a.pageNumber - b.pageNumber);
+  }, [ePaperPages, epaperFilterDate]);
+
 
   // Classifieds & Ads Forms
   const [showClassifiedModal, setShowClassifiedModal] = useState(false);
@@ -118,15 +139,17 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     setWatermarkFontSize(watermarkSettings.fontSize || 30);
   }, [watermarkSettings]);
 
-  // ... (keeping helper functions as they were) ...
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void, folder: string = 'gallery') => {
       const file = e.target.files?.[0];
       if (!file) return;
       loader(true);
       try {
           const fileExt = file.name.split('.').pop();
           const fileName = `${generateId()}.${fileExt}`;
-          const filePath = `gallery/${fileName}`;
+          // Ensure folder string ends with a clean path structure
+          const safeFolder = folder.replace(/\/$/, ''); 
+          const filePath = `${safeFolder}/${fileName}`; 
+          
           const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
           if (uploadError) throw uploadError;
           const { data } = supabase.storage.from('images').getPublicUrl(filePath);
@@ -182,6 +205,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       onAddPage(page);
       setShowAddPageModal(false);
       setNewPageImage('');
+      // Optionally switch filter to the new page date so user sees what they just added
+      setEpaperFilterDate(newPageDate);
   };
 
   const handleSaveProfile = async () => {
@@ -227,9 +252,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const handleForceSaveDevices = async () => {
       setIsSavingDevices(true);
       try {
-          // This call is now a no-op visually, but in real scenario it would force sync. 
-          // Since we use a table now, individual actions handle sync. 
-          // We can simulate a "Refresh" instead.
           alert("Devices are synced with backend table 'trusted_devices'.");
       } catch (e: any) {
           alert("Error: " + e.message);
@@ -299,7 +321,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               </div>
 
               <div className="md:p-8 overflow-y-auto flex-1 p-4">
-                  {/* ... (Previous tabs logic remains same, collapsing for brevity) ... */}
                   {activeTab === 'articles' && (
                       <div className="max-w-7xl mx-auto">
                           <div className="flex justify-between items-center mb-6">
@@ -424,12 +445,29 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
                   {activeTab === 'epaper' && (
                       <div className="max-w-7xl mx-auto">
-                           <div className="flex justify-between items-center mb-6">
+                           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                               <h2 className="text-2xl font-serif font-bold">E-Paper Pages</h2>
-                              <button onClick={() => setShowAddPageModal(true)} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2"><Plus size={16}/> Upload Page</button>
+                              <div className="flex gap-4 w-full md:w-auto">
+                                <div className="relative flex-1 md:w-auto">
+                                    <select 
+                                        value={epaperFilterDate} 
+                                        onChange={(e) => setEpaperFilterDate(e.target.value)}
+                                        className="appearance-none bg-white border border-gray-300 text-gray-700 py-2 pl-4 pr-10 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-news-black"
+                                    >
+                                        {availableEpaperDates.length > 0 ? (
+                                            availableEpaperDates.map(date => <option key={date} value={date}>{date}</option>)
+                                        ) : (
+                                            <option value="">No Editions</option>
+                                        )}
+                                    </select>
+                                    <ChevronDown size={14} className="absolute right-3 top-3 text-gray-500 pointer-events-none" />
+                                </div>
+                                <button onClick={() => { setShowAddPageModal(true); setNewPageDate(new Date().toISOString().split('T')[0]); }} className="bg-news-black text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 whitespace-nowrap"><Plus size={16}/> Upload Page</button>
+                              </div>
                           </div>
+                          
                           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                              {ePaperPages.map(page => (
+                              {filteredPages.map(page => (
                                   <div key={page.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden group shadow-sm">
                                       <div className="aspect-[1/1.4] relative bg-gray-100">
                                           <img src={page.imageUrl} className="w-full h-full object-cover" />
@@ -443,6 +481,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       </div>
                                   </div>
                               ))}
+                              {filteredPages.length === 0 && (
+                                  <div className="col-span-full py-16 text-center text-gray-400 bg-white rounded-lg border-2 border-dashed border-gray-200">
+                                      <Newspaper size={40} className="mx-auto mb-4 opacity-20"/>
+                                      <p className="text-sm font-bold">No pages found for {epaperFilterDate}.</p>
+                                      <p className="text-xs mt-1">Upload a page to start this edition.</p>
+                                  </div>
+                              )}
                           </div>
                       </div>
                   )}
@@ -857,6 +902,59 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                    </div>
                </div>
           </div>
+      )}
+
+      {/* E-PAPER UPLOAD MODAL */}
+      {showAddPageModal && (
+        <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl flex flex-col">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-gray-900">Upload E-Paper Page</h3>
+                    <button onClick={() => setShowAddPageModal(false)}><X size={20}/></button>
+                </div>
+                <div className="p-6 space-y-5">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Edition Date</label>
+                            <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black"/>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Page Number</label>
+                            <input type="number" min="1" value={newPageNumber} onChange={e => setNewPageNumber(Number(e.target.value))} className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-news-black"/>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Page Scan (Image)</label>
+                        <div className="flex items-center gap-4">
+                            <div className="w-24 h-32 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center overflow-hidden shrink-0 relative">
+                                {newPageImage ? <img src={newPageImage} className="w-full h-full object-cover" /> : <Newspaper className="text-gray-300" />}
+                                {isPageUploading && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="animate-spin text-white"/></div>}
+                            </div>
+                            <div className="flex-1">
+                                <label className="block w-full cursor-pointer bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg text-center text-xs transition-colors mb-2 flex items-center justify-center gap-2">
+                                    <Upload size={14} /> Upload Page Scan
+                                    {/* Upload to date-specific folder within epaper */}
+                                    <input 
+                                        type="file" 
+                                        className="hidden" 
+                                        accept="image/*" 
+                                        onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, `epaper/${newPageDate}`)} 
+                                    />
+                                </label>
+                                <p className="text-[10px] text-gray-400 leading-tight">High resolution JPG/PNG preferred. Will be stored in 'epaper/{newPageDate}' directory.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                    <button onClick={() => setShowAddPageModal(false)} className="px-5 py-2.5 text-xs font-bold text-gray-500 hover:text-black">Cancel</button>
+                    <button onClick={handleAddPageInternal} disabled={isPageUploading || !newPageImage} className="px-6 py-2.5 bg-news-black text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all flex items-center gap-2 disabled:opacity-50">
+                        <Check size={14} /> Save Page
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
 
       {showAdModal && (
