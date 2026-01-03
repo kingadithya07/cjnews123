@@ -42,6 +42,7 @@ interface EditorDashboardProps {
   onAddClassified: (ad: ClassifiedAd) => void;
   onDeleteClassified: (id: string) => void;
   onAddAdvertisement: (ad: Advertisement) => void;
+  onUpdateAdvertisement: (ad: Advertisement) => void;
   onDeleteAdvertisement: (id: string) => void;
   onNavigate: (path: string) => void;
   userAvatar?: string | null;
@@ -57,7 +58,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   articles, ePaperPages, categories, tags = [], adCategories, classifieds, advertisements,
   onAddPage, onDeletePage, onDeleteArticle, onSaveArticle, 
   onAddCategory, onDeleteCategory, onAddTag, onDeleteTag, onAddAdCategory, onDeleteAdCategory, onSaveTaxonomy,
-  onAddClassified, onDeleteClassified, onAddAdvertisement, onDeleteAdvertisement,
+  onAddClassified, onDeleteClassified, onAddAdvertisement, onUpdateAdvertisement, onDeleteAdvertisement,
   onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar,
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId
 }) => {
@@ -112,6 +113,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [isCustomSize, setIsCustomSize] = useState(false);
   const [showClassifiedModal, setShowClassifiedModal] = useState(false);
   const [newClassified, setNewClassified] = useState<Partial<ClassifiedAd>>({});
+  const [showAdImageGallery, setShowAdImageGallery] = useState(false);
+  const [editingAdId, setEditingAdId] = useState<string | null>(null);
 
   // Taxonomy State
   const [newCategory, setNewCategory] = useState('');
@@ -296,25 +299,44 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       }
   };
 
-  const handleAddAd = () => {
+  const handleSaveAd = () => {
       if (!newAd.title || !newAd.imageUrl) {
           alert("Title and Image are required.");
           return;
       }
-      onAddAdvertisement({
-          id: generateId(),
-          title: newAd.title,
-          imageUrl: newAd.imageUrl,
+      
+      const adPayload: Advertisement = {
+          id: editingAdId || generateId(),
+          title: newAd.title!,
+          imageUrl: newAd.imageUrl!,
           linkUrl: newAd.linkUrl,
           size: newAd.size as AdSize,
           customWidth: isCustomSize ? newAd.customWidth : undefined,
           customHeight: isCustomSize ? newAd.customHeight : undefined,
           placement: newAd.placement as AdPlacement,
           targetCategory: newAd.targetCategory,
-          isActive: true
-      });
+          isActive: newAd.isActive !== undefined ? newAd.isActive : true
+      };
+
+      if (editingAdId) {
+          onUpdateAdvertisement(adPayload);
+      } else {
+          onAddAdvertisement(adPayload);
+      }
+      
       setShowAdModal(false);
       setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true });
+      setEditingAdId(null);
+      setIsCustomSize(false);
+  };
+
+  const handleEditAd = (ad: Advertisement) => {
+      setNewAd({
+          ...ad
+      });
+      setEditingAdId(ad.id);
+      setIsCustomSize(!!(ad.customWidth || ad.customHeight));
+      setShowAdModal(true);
   };
 
   const handleAddClassified = () => {
@@ -353,6 +375,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         onClose={() => setShowImageGallery(false)}
         onSelectImage={(url) => { setModalImageUrl(url); setShowImageGallery(false); }}
         uploadFolder="articles"
+        userId={userId}
+    />
+    <ImageGalleryModal 
+        isOpen={showAdImageGallery}
+        onClose={() => setShowAdImageGallery(false)}
+        onSelectImage={(url) => { setNewAd({...newAd, imageUrl: url}); setShowAdImageGallery(false); }}
+        uploadFolder="ads"
         userId={userId}
     />
     <CategorySelector 
@@ -541,7 +570,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       <div className="space-y-6">
                           <div className="flex justify-between items-center">
                               <h2 className="font-serif text-xl font-bold">Banner Ads</h2>
-                              <button onClick={() => { setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true, title: '', linkUrl: '' }); setIsCustomSize(false); setShowAdModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Banner</button>
+                              <button onClick={() => { setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true, title: '', linkUrl: '' }); setIsCustomSize(false); setEditingAdId(null); setShowAdModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Banner</button>
                           </div>
                           <div className="bg-white rounded border divide-y">
                               {advertisements.map(ad => (
@@ -557,7 +586,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                               <span>{ad.placement}</span>
                                           </div>
                                       </div>
-                                      <button onClick={() => onDeleteAdvertisement(ad.id)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                                      <div className="flex gap-2">
+                                          <button onClick={() => handleEditAd(ad)} className="text-blue-600 p-2 hover:bg-blue-50 rounded"><PenSquare size={16}/></button>
+                                          <button onClick={() => onDeleteAdvertisement(ad.id)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                                      </div>
                                   </div>
                               ))}
                               {advertisements.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No active banners.</div>}
@@ -953,7 +985,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
         <div className="fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 shadow-2xl max-h-[90vh] flex flex-col">
                 <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-900">New Ad Campaign</h3>
+                    <h3 className="font-bold text-gray-900">{editingAdId ? 'Edit Ad Campaign' : 'New Ad Campaign'}</h3>
                     <button onClick={() => setShowAdModal(false)}><X size={20}/></button>
                 </div>
                 <div className="p-6 space-y-5 overflow-y-auto">
@@ -964,9 +996,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                             <div className="w-24 h-24 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
                                 {newAd.imageUrl ? <img src={newAd.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-gray-300" />}
                             </div>
-                            <div className="flex-1">
-                                <label className="block w-full cursor-pointer bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg text-center text-xs transition-colors mb-2">
-                                    Upload Image
+                            <div className="flex-1 space-y-2">
+                                <button type="button" onClick={() => setShowAdImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg text-center text-xs transition-colors flex items-center justify-center gap-2">
+                                    <Library size={14} /> Select from Library
+                                </button>
+                                <label className="block w-full cursor-pointer bg-news-black text-white hover:bg-gray-800 font-bold py-2 px-4 rounded-lg text-center text-xs transition-colors flex items-center justify-center gap-2">
+                                    <Upload size={14} /> Upload New
                                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, (url) => setNewAd({...newAd, imageUrl: url}), setIsLogoUploading, 'ads')} />
                                 </label>
                                 <p className="text-[10px] text-gray-400 leading-tight">Supported: JPG, PNG, GIF. Ensure correct aspect ratio.</p>
@@ -1081,10 +1116,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                 <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 mt-auto">
                     <button onClick={() => setShowAdModal(false)} className="px-5 py-2.5 text-xs font-bold text-gray-500 hover:text-black">Cancel</button>
                     <button 
-                        onClick={handleAddAd}
+                        onClick={handleSaveAd}
                         className="px-6 py-2.5 bg-news-black text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all flex items-center gap-2"
                     >
-                        <Upload size={14} /> Launch Campaign
+                        <Upload size={14} /> {editingAdId ? 'Update Campaign' : 'Launch Campaign'}
                     </button>
                 </div>
             </div>

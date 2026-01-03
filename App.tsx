@@ -556,6 +556,22 @@ function App() {
             if (error) alert("Error saving banner: " + error.message);
             else fetchData(true); 
         }} 
+        onUpdateAdvertisement={async (ad) => {
+            const dbAd = {
+                title: ad.title,
+                image_url: ad.imageUrl,
+                link_url: ad.linkUrl,
+                size: ad.size,
+                customWidth: ad.customWidth,
+                customHeight: ad.customHeight,
+                placement: ad.placement,
+                targetCategory: ad.targetCategory,
+                is_active: ad.isActive
+            };
+            const { error } = await supabase.from('advertisements').update(dbAd).eq('id', ad.id);
+            if (error) alert("Error updating banner: " + error.message);
+            else fetchData(true);
+        }}
         onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
         onNavigate={navigate} 
         userAvatar={userAvatar} 
