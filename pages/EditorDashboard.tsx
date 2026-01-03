@@ -428,7 +428,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     />
 
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      {/* Optimized Sidebar for Desktop (w-64 instead of w-72) */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
           <div className="flex justify-between items-center p-6 border-b border-gray-800">
               <h1 className="font-serif text-2xl font-bold text-white">Editor<span className="text-news-gold">.</span></h1>
               <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={24} /></button>
@@ -451,7 +452,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           </div>
       </div>
 
-      <div className="flex-1 flex flex-col md:ml-72 h-full overflow-hidden bg-[#f8f9fa]">
+      {/* Main Content Area - Optimized margins and padding */}
+      <div className="flex-1 flex flex-col md:ml-64 h-full overflow-hidden bg-[#f8f9fa]">
            <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40 shadow-sm">
                 <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
                 <h1 className="font-serif text-lg font-bold text-gray-900">Editor Dashboard</h1>
@@ -460,7 +462,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                 </div>
            </div>
 
-           <div className="md:p-8 overflow-y-auto flex-1 p-4">
+           <div className="md:p-6 overflow-y-auto flex-1 p-4">
               {activeTab === 'articles' && (
                   <div className="max-w-6xl mx-auto space-y-6">
                       <div className="flex justify-between items-center">
@@ -470,9 +472,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                            </button>
                       </div>
 
-                      {/* Desktop Table */}
-                      <div className="hidden md:block bg-white rounded border overflow-hidden shadow-sm">
-                          <table className="w-full text-left">
+                      {/* Desktop Table - Added overflow-x-auto to wrapper */}
+                      <div className="hidden md:block bg-white rounded border overflow-x-auto shadow-sm">
+                          <table className="w-full text-left min-w-[700px]">
                                 <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
                                     <tr>
                                         <th className="px-6 py-4">Article Details</th>
