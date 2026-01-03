@@ -582,9 +582,14 @@ function App() {
   } else if (path.startsWith('/article/')) {
     // Determine if it's an ID or a Slug
     const slugOrId = currentPath.split('/article/')[1];
-    // Find matching article either by ID or Slug
+    
+    // Find matching article either by ID or Slug OR by generated slug from title (robust fallback)
     let targetId = slugOrId;
-    const foundBySlug = articles.find(a => a.slug === slugOrId || a.id === slugOrId);
+    const foundBySlug = articles.find(a => 
+        a.slug === slugOrId || 
+        a.id === slugOrId || 
+        createSlug(a.title) === slugOrId
+    );
     if (foundBySlug) targetId = foundBySlug.id;
 
     content = <ArticleView articles={articles} articleId={targetId} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;

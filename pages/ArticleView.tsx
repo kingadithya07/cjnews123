@@ -5,6 +5,7 @@ import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link a
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
+import { createSlug } from '../utils';
 
 interface ArticleViewProps {
   articles: Article[];
@@ -69,7 +70,9 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
   const handleCopyLink = () => {
       if (!article) return;
-      const permalink = `${window.location.origin}/#/article/${article.slug || article.id}`;
+      // Force slug usage for cleaner URLs on desktop
+      const effectiveSlug = article.slug || createSlug(article.title);
+      const permalink = `${window.location.origin}/#/article/${effectiveSlug}`;
       navigator.clipboard.writeText(permalink).then(() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
@@ -78,7 +81,9 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
   const handleShare = () => {
       if (!article) return;
-      const permalink = `${window.location.origin}/#/article/${article.slug || article.id}`;
+      const effectiveSlug = article.slug || createSlug(article.title);
+      const permalink = `${window.location.origin}/#/article/${effectiveSlug}`;
+      
       if (navigator.share) {
           navigator.share({
               title: article.title,
@@ -134,12 +139,13 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     </div>
                 </div>
                 
-                <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-gray-900 mb-6 leading-tight">
+                {/* Decreased font size on desktop (md/lg) */}
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-gray-900 mb-6 leading-tight">
                     {article.title}
                 </h1>
 
                 {article.subline && (
-                    <h2 className="text-xl md:text-2xl font-serif text-gray-700 leading-snug mb-8 border-l-4 border-news-gold pl-4 italic">
+                    <h2 className="text-xl md:text-xl lg:text-2xl font-serif text-gray-700 leading-snug mb-8 border-l-4 border-news-gold pl-4 italic">
                         {article.subline}
                     </h2>
                 )}
