@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { EPaperPage, EPaperRegion, Article, WatermarkSettings, Advertisement } from '../types';
 import EPaperViewer from '../components/EPaperViewer';
@@ -114,6 +115,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   const cropperRef = useRef<Cropper | null>(null);
   const cropperImgRef = useRef<HTMLImageElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const isSharing = useRef(false);
 
   useEffect(() => {
     if (viewMode === 'reader') {
@@ -357,11 +359,30 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
   const handleShare = async () => {
       if (!cropPreview || !navigator.share) return;
+      if (isSharing.current) return;
+      
+      isSharing.current = true;
       try {
           const blob = await (await fetch(cropPreview)).blob();
           const file = new File([blob], `CJNEWSHUB_CLIP_${activePage?.date}.jpg`, { type: 'image/jpeg' });
-          await navigator.share({ files: [file], title: 'News Clipping', text: `Extracted from CJ NEWSHUB Global Edition` });
-      } catch (err) { console.error('Share failed', err); }
+          
+          const shareData = { files: [file], title: 'News Clipping', text: `Extracted from CJ NEWSHUB Global Edition` };
+          
+          // Helper for canShare check if available
+          if (navigator.canShare && navigator.canShare(shareData)) {
+             await navigator.share(shareData);
+          } else {
+             // Fallback to text share if files not supported or valid
+             await navigator.share({ title: 'News Clipping', text: `Extracted from CJ NEWSHUB Global Edition` });
+          }
+      } catch (err: any) { 
+          // Ignore abort errors (user cancellation)
+          if (err.name !== 'AbortError') {
+              console.error('Share failed', err); 
+          }
+      } finally {
+          isSharing.current = false;
+      }
   };
 
   return (

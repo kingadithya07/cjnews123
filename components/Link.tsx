@@ -15,6 +15,7 @@ export const Link: React.FC<LinkProps> = ({ to, children, className, onClick, on
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [justCopied, setJustCopied] = useState(false);
+  const isSharing = useRef(false);
 
   // Determine correct href for hash routing
   const href = to.startsWith('#') || to.startsWith('http') ? to : `#${to}`;
@@ -56,6 +57,23 @@ export const Link: React.FC<LinkProps> = ({ to, children, className, onClick, on
     setContextMenu(null);
   };
 
+  const handleShare = async () => {
+    if (!navigator.share) return;
+    if (isSharing.current) return;
+    
+    isSharing.current = true;
+    try {
+        await navigator.share({ title: 'Check this out', url: fullUrl });
+        setContextMenu(null);
+    } catch (err: any) {
+        if (err.name !== 'AbortError') {
+            console.error('Share failed', err);
+        }
+    } finally {
+        isSharing.current = false;
+    }
+  };
+
   return (
     <>
       <a 
@@ -93,10 +111,7 @@ export const Link: React.FC<LinkProps> = ({ to, children, className, onClick, on
                     <ExternalLink size={14} /> Open in New Tab
                 </button>
                 {navigator.share && (
-                    <button onClick={() => {
-                        navigator.share({ title: 'Check this out', url: fullUrl });
-                        setContextMenu(null);
-                    }} className="w-full text-left px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 hover:text-news-black flex items-center gap-2 transition-colors">
+                    <button onClick={handleShare} className="w-full text-left px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 hover:text-news-black flex items-center gap-2 transition-colors">
                         <Share2 size={14} /> Share via...
                     </button>
                 )}

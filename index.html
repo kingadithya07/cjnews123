@@ -24,9 +24,9 @@
               },
             },
             fontFamily: {
-              serif: ['"Noto Sans Telugu"', '"Playfair Display"', 'serif'],
-              sans: ['"Noto Sans Telugu"', 'Inter', 'sans-serif'],
-              display: ['"Noto Sans Telugu"', '"Playfair Display"', 'serif'],
+              serif: ['"Noto Sans Telugu"', 'sans-serif'],
+              sans: ['"Noto Sans Telugu"', 'sans-serif'],
+              display: ['"Noto Sans Telugu"', 'sans-serif'],
             },
             animation: {
               marquee: 'marquee 240s linear infinite',
@@ -45,14 +45,14 @@
                   lineHeight: '28px', // Enforce global line height preference
                   letterSpacing: 'normal',
                   fontStyle: 'normal',
-                  h1: { fontFamily: theme('fontFamily.serif'), fontWeight: '700', letterSpacing: 'normal', fontStyle: 'normal' },
-                  h2: { fontFamily: theme('fontFamily.serif'), fontWeight: '700', letterSpacing: 'normal', fontStyle: 'normal' },
-                  h3: { fontFamily: theme('fontFamily.serif'), fontWeight: '600', letterSpacing: 'normal', fontStyle: 'normal' },
+                  h1: { fontFamily: theme('fontFamily.sans'), fontWeight: '700', letterSpacing: 'normal', fontStyle: 'normal' },
+                  h2: { fontFamily: theme('fontFamily.sans'), fontWeight: '700', letterSpacing: 'normal', fontStyle: 'normal' },
+                  h3: { fontFamily: theme('fontFamily.sans'), fontWeight: '600', letterSpacing: 'normal', fontStyle: 'normal' },
                   blockquote: { borderLeftColor: theme('colors.news.gold'), fontStyle: 'italic' },
                   'ul > li::marker': { color: theme('colors.news.accent') },
                   'ol > li::marker': { color: theme('colors.news.black') },
-                  p: { lineHeight: '28px' },
-                  li: { lineHeight: '28px' },
+                  p: { lineHeight: '28px', fontFamily: theme('fontFamily.sans') },
+                  li: { lineHeight: '28px', fontFamily: theme('fontFamily.sans') },
                 },
               },
             }),
@@ -70,7 +70,7 @@
         font-size: 17px;
       }
       body {
-        font-family: 'Noto Sans Telugu', 'Inter', sans-serif;
+        font-family: 'Noto Sans Telugu', sans-serif;
         background-color: #fcfcf9;
         color: #1a1a1a;
         line-height: 28px;
@@ -78,12 +78,12 @@
         font-style: normal;
       }
       h1, h2, h3, h4, h5, h6 {
-        font-family: 'Noto Sans Telugu', 'Playfair Display', serif;
+        font-family: 'Noto Sans Telugu', sans-serif;
         letter-spacing: normal;
         font-style: normal;
       }
       .font-display {
-        font-family: 'Noto Sans Telugu', 'Playfair Display', serif;
+        font-family: 'Noto Sans Telugu', sans-serif;
         letter-spacing: normal;
         font-style: normal;
       }

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Article, Advertisement } from '../types';
 import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft, Check } from 'lucide-react';
 import { format, isValid } from 'date-fns';
@@ -22,6 +22,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
   const [wordCount, setWordCount] = useState(0);
   const [readTime, setReadTime] = useState(0);
   const [copied, setCopied] = useState(false);
+  const isSharing = useRef(false);
 
   // Helper for safe date formatting
   const safeFormat = (dateValue: any, formatStr: string) => {
@@ -100,16 +101,27 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
       });
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
       if (!article) return;
       const permalink = getPermalink();
       
       if (navigator.share) {
-          navigator.share({
-              title: article.title,
-              text: article.subline || article.title,
-              url: permalink
-          }).catch(console.error);
+          if (isSharing.current) return;
+          isSharing.current = true;
+          try {
+              await navigator.share({
+                  title: article.title,
+                  text: article.subline || article.title,
+                  url: permalink
+              });
+          } catch (error: any) {
+              // Ignore abort errors (user cancellation)
+              if (error.name !== 'AbortError') {
+                  console.error('Share failed:', error);
+              }
+          } finally {
+              isSharing.current = false;
+          }
       } else {
           handleCopyLink();
       }
