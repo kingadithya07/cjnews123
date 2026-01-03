@@ -68,11 +68,32 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
     }
   }, [articleId, articles]);
 
+  const getPermalink = () => {
+      if (!article) return '';
+      
+      // Robust Logic: Database Slug -> Generated Slug -> ID Fallback
+      let identifier = article.slug;
+      
+      // If no slug in DB or it's empty
+      if (!identifier || identifier.trim() === '') {
+          identifier = createSlug(article.title);
+      }
+      
+      // If title generated an empty slug (e.g. symbols only), fall back to ID
+      if (!identifier || identifier.trim() === '') {
+          identifier = article.id;
+      }
+      
+      // Final safety check to ensure we don't return ".../article/"
+      if (!identifier) return window.location.href;
+      
+      return `${window.location.origin}/#/article/${identifier}`;
+  };
+
   const handleCopyLink = () => {
-      if (!article) return;
-      // Force slug usage for cleaner URLs on desktop
-      const effectiveSlug = article.slug || createSlug(article.title);
-      const permalink = `${window.location.origin}/#/article/${effectiveSlug}`;
+      const permalink = getPermalink();
+      if (!permalink) return;
+
       navigator.clipboard.writeText(permalink).then(() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
@@ -81,8 +102,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
   const handleShare = () => {
       if (!article) return;
-      const effectiveSlug = article.slug || createSlug(article.title);
-      const permalink = `${window.location.origin}/#/article/${effectiveSlug}`;
+      const permalink = getPermalink();
       
       if (navigator.share) {
           navigator.share({
@@ -93,6 +113,20 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
       } else {
           handleCopyLink();
       }
+  };
+
+  const handleSocialShare = (platform: 'twitter' | 'facebook' | 'linkedin') => {
+      if (!article) return;
+      const permalink = getPermalink();
+      const text = encodeURIComponent(article.title);
+      const url = encodeURIComponent(permalink);
+      
+      let shareUrl = '';
+      if (platform === 'twitter') shareUrl = `https://twitter.com/intent/tweet?text=${text}&url=${url}`;
+      if (platform === 'facebook') shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+      if (platform === 'linkedin') shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
+      
+      window.open(shareUrl, '_blank', 'width=600,height=400');
   };
 
   if (!article) {
@@ -131,7 +165,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                             </span>
                         ))}
                     </div>
-                    {/* Share Button (Top Right) */}
+                    {/* Share Button (Top Right - Mobile/Universal) */}
                     <div className="flex gap-2">
                         <button onClick={handleShare} className="flex items-center gap-2 bg-gray-100 hover:bg-news-gold hover:text-white px-3 py-1.5 rounded-full text-xs font-bold uppercase transition-colors text-gray-600">
                             <Share2 size={14} /> <span className="hidden sm:inline">Share</span>
@@ -139,13 +173,13 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     </div>
                 </div>
                 
-                {/* Decreased font size on desktop (md/lg) */}
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-gray-900 mb-6 leading-tight">
+                {/* Desktop: Reduced font size to text-3xl (same as mobile base) which is smaller than previous 4xl */}
+                <h1 className="text-3xl md:text-3xl font-serif font-bold text-gray-900 mb-6 leading-tight">
                     {article.title}
                 </h1>
 
                 {article.subline && (
-                    <h2 className="text-xl md:text-xl lg:text-2xl font-serif text-gray-700 leading-snug mb-8 border-l-4 border-news-gold pl-4 italic">
+                    <h2 className="text-xl md:text-lg font-serif text-gray-700 leading-snug mb-8 border-l-4 border-news-gold pl-4 italic">
                         {article.subline}
                     </h2>
                 )}
@@ -222,14 +256,14 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 
                 {/* In This Section Box */}
                 <div className="bg-gray-50 border border-gray-200 p-6 mt-8">
-                    {/* Share moved here, Word Count moved back to header */}
+                    {/* Share moved here */}
                     <div className="mb-6 pb-6 border-b border-gray-200 space-y-4">
                         <div>
                              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Share Article</span>
                              <div className="flex gap-2">
-                                <button onClick={handleShare} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors flex justify-center"><Twitter size={16} /></button>
-                                <button onClick={handleShare} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-800 transition-colors flex justify-center"><Facebook size={16} /></button>
-                                <button onClick={handleShare} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-700 transition-colors flex justify-center"><Linkedin size={16} /></button>
+                                <button onClick={() => handleSocialShare('twitter')} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-400 transition-colors flex justify-center"><Twitter size={16} /></button>
+                                <button onClick={() => handleSocialShare('facebook')} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-800 transition-colors flex justify-center"><Facebook size={16} /></button>
+                                <button onClick={() => handleSocialShare('linkedin')} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-700 transition-colors flex justify-center"><Linkedin size={16} /></button>
                                 <button onClick={handleCopyLink} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors flex justify-center relative">
                                     {copied ? <Check size={16} className="text-green-600"/> : <LinkIcon size={16} />}
                                 </button>

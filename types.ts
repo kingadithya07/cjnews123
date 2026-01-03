@@ -31,6 +31,7 @@ export interface Article {
   userId?: string; // Owner ID for isolation
   slug?: string; // URL friendly permalink
   title: string;
+  englishTitle?: string; // SEO Optimized Title
   subline?: string;
   author: string;
   authorAvatar?: string; // New field for author profile picture

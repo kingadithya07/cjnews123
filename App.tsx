@@ -159,6 +159,7 @@ function App() {
           userId: a.user_id, // Map database column to type
           slug: a.slug, // Map slug
           title: a.title,
+          englishTitle: a.english_title || undefined, // Map English Title
           subline: a.subline,
           author: a.author,
           authorAvatar: a.authorAvatar || a.author_avatar,
@@ -392,8 +393,10 @@ function App() {
   };
 
   const handleSaveArticle = async (article: Article) => {
-    // Generate slug if not present
-    const articleSlug = article.slug || createSlug(article.title);
+    // Generate slug from English title if available (better for SEO), otherwise fallback to regular title
+    const slugBase = article.englishTitle || article.title;
+    const articleSlug = article.slug || createSlug(slugBase);
+    
     const articleWithSlug = { ...article, slug: articleSlug };
 
     setArticles(prev => {
@@ -404,6 +407,7 @@ function App() {
     const payload = {
         id: article.id,
         title: article.title,
+        english_title: article.englishTitle, // Save English title
         slug: articleSlug,
         subline: article.subline,
         author: article.author,
@@ -588,7 +592,7 @@ function App() {
     const foundBySlug = articles.find(a => 
         a.slug === slugOrId || 
         a.id === slugOrId || 
-        createSlug(a.title) === slugOrId
+        createSlug(a.englishTitle || a.title) === slugOrId
     );
     if (foundBySlug) targetId = foundBySlug.id;
 

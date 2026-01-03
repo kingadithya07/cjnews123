@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
 import CategorySelector from '../components/CategorySelector';
+import { GoogleGenAI } from "@google/genai";
 
 interface WriterDashboardProps {
   onSave: (article: Article) => void;
@@ -32,6 +33,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [showEditorModal, setShowEditorModal] = useState(false);
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
+  const [englishTitle, setEnglishTitle] = useState('');
   const [subline, setSubline] = useState('');
   const [content, setContent] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -42,6 +44,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [isFeatured, setIsFeatured] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [showImageGallery, setShowImageGallery] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // Settings State
   const [profileName, setProfileName] = useState(userName || '');
@@ -98,12 +101,36 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
     return data.publicUrl;
   };
 
+  const handleTranslateTitle = async () => {
+      if (!title) return;
+      if (!process.env.API_KEY) {
+          alert("API Key missing for translation service.");
+          return;
+      }
+      setIsTranslating(true);
+      try {
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash-latest',
+              contents: `Translate this news headline to concise English for SEO purposes. Return only the translated string, no quotes: "${title}"`,
+          });
+          const translated = response.text?.trim() || '';
+          setEnglishTitle(translated);
+      } catch (e) {
+          console.error("Translation failed", e);
+          alert("Auto-translation failed. Please enter manually.");
+      } finally {
+          setIsTranslating(false);
+      }
+  };
+
   const handleSave = () => {
     if (!title) { alert("Headline is required"); return; }
     const newArticle: Article = {
       id: activeArticleId || generateId(),
       userId: userId || undefined, // Associate article with current user
       title, 
+      englishTitle,
       subline,
       author, 
       content, 
@@ -126,11 +153,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setActiveArticleId(null); setTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setShowEditorModal(true);
+      setActiveArticleId(null); setTitle(''); setEnglishTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setShowEditorModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setActiveArticleId(article.id); setTitle(article.title); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setShowEditorModal(true);
+      setActiveArticleId(article.id); setTitle(article.title); setEnglishTitle(article.englishTitle || ''); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setShowEditorModal(true);
   };
 
   const handleSelectFromGallery = (url: string) => {
@@ -463,6 +490,26 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Article Headline"/>
+                        
+                        {/* SEO English Title Input */}
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="text" 
+                                value={englishTitle} 
+                                onChange={(e) => setEnglishTitle(e.target.value)} 
+                                className="w-full p-2 border rounded text-sm placeholder:text-gray-300" 
+                                placeholder="English Title (for SEO & URL)" 
+                            />
+                            <button 
+                                onClick={handleTranslateTitle} 
+                                disabled={isTranslating} 
+                                className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors" 
+                                title="Auto Translate to English"
+                            >
+                                {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                            </button>
+                        </div>
+                        
                         <textarea value={subline} onChange={(e) => setSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>

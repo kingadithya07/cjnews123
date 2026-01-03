@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -14,6 +14,7 @@ import { generateId } from '../utils';
 import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
 import CategorySelector from '../components/CategorySelector';
+import { GoogleGenAI } from "@google/genai";
 
 interface EditorDashboardProps {
   articles: Article[];
@@ -68,6 +69,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [showArticleModal, setShowArticleModal] = useState(false);
   const [editArticleId, setEditArticleId] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState('');
+  const [modalEnglishTitle, setModalEnglishTitle] = useState('');
   const [modalSubline, setModalSubline] = useState('');
   const [modalContent, setModalContent] = useState('');
   const [modalAuthor, setModalAuthor] = useState('Editor');
@@ -77,6 +79,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalIsFeatured, setModalIsFeatured] = useState(false);
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   
   // E-Paper State
   const [showAddPageModal, setShowAddPageModal] = useState(false);
@@ -167,11 +170,34 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setEditArticleId(null); setModalTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setShowArticleModal(true);
+      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setShowArticleModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setEditArticleId(article.id); setModalTitle(article.title); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setShowArticleModal(true);
+      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setShowArticleModal(true);
+  };
+
+  const handleTranslateTitle = async () => {
+      if (!modalTitle) return;
+      if (!process.env.API_KEY) {
+          alert("API Key missing for translation service.");
+          return;
+      }
+      setIsTranslating(true);
+      try {
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash-latest',
+              contents: `Translate this news headline to concise English for SEO purposes. Return only the translated string, no quotes: "${modalTitle}"`,
+          });
+          const translated = response.text?.trim() || '';
+          setModalEnglishTitle(translated);
+      } catch (e) {
+          console.error("Translation failed", e);
+          alert("Auto-translation failed. Please enter manually.");
+      } finally {
+          setIsTranslating(false);
+      }
   };
 
   const handleSaveArticleInternal = () => {
@@ -180,6 +206,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           id: editArticleId || generateId(),
           userId: userId || undefined,
           title: modalTitle,
+          englishTitle: modalEnglishTitle,
           subline: modalSubline,
           author: modalAuthor,
           content: modalContent,
@@ -712,6 +739,26 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">
                         <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Article Headline"/>
+                        
+                        {/* SEO English Title Input */}
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="text" 
+                                value={modalEnglishTitle} 
+                                onChange={(e) => setModalEnglishTitle(e.target.value)} 
+                                className="w-full p-2 border rounded text-sm placeholder:text-gray-300" 
+                                placeholder="English Title (for SEO & URL)" 
+                            />
+                            <button 
+                                onClick={handleTranslateTitle} 
+                                disabled={isTranslating} 
+                                className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors" 
+                                title="Auto Translate to English"
+                            >
+                                {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                            </button>
+                        </div>
+
                         <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
