@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { UserRole, Article } from '../types';
-import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard, ChevronDown, Handshake } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
@@ -314,20 +314,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
 
       <main className="flex-grow max-w-7xl mx-auto px-4 md:px-6 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            <div className="lg:col-span-9">
+            <div className="lg:col-span-12">
                 {children}
             </div>
             
-            <div className="lg:col-span-3 space-y-8">
-                {/* Weather widget removed from here as requested */}
-                
-                <div className="bg-[#f0f0ed] p-1 rounded-sm text-center">
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.4em]">PREMIUM GLOBAL PARTNERS</span>
-                </div>
-                
-                {/* Newsletter section removed as requested */}
-                
-            </div>
+            {/* Global Partners Section Removed as per request */}
         </div>
       </main>
 
