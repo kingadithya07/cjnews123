@@ -1,14 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles, Key } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
 import CategorySelector from '../components/CategorySelector';
-import { GoogleGenAI } from "@google/genai";
 
 interface WriterDashboardProps {
   onSave: (article: Article) => void;
@@ -53,6 +52,22 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [isSavingDevices, setIsSavingDevices] = useState(false);
+  
+  // Custom API State
+  const [customApiKey, setCustomApiKey] = useState('');
+  const [showKeyInput, setShowKeyInput] = useState(false);
+
+  // Load custom key on mount
+  useEffect(() => {
+      const storedKey = localStorage.getItem('newsroom_custom_api_key');
+      if (storedKey) setCustomApiKey(storedKey);
+  }, []);
+
+  const handleSaveApiKey = () => {
+      localStorage.setItem('newsroom_custom_api_key', customApiKey);
+      setShowKeyInput(false);
+      alert("API Key saved locally.");
+  };
 
   // Filter articles for this writer only if userId is provided
   // If no userId provided (rare), fallback to showing all or empty to be safe
@@ -103,22 +118,48 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
 
   const handleTranslateTitle = async () => {
       if (!title) return;
-      if (!process.env.API_KEY) {
-          alert("API Key missing for translation service.");
+      
+      const keyToUse = customApiKey;
+      
+      if (!keyToUse) {
+          const proceed = confirm("Translation requires a third-party API Key. Would you like to configure it now in Settings?");
+          if (proceed) {
+              setShowEditorModal(false);
+              setActiveTab('settings');
+          }
           return;
       }
+
       setIsTranslating(true);
       try {
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          const response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash-latest',
-              contents: `Translate this news headline to concise English for SEO purposes. Return only the translated string, no quotes: "${title}"`,
+          // Direct fetch to Gemini API to avoid SDK dependency
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keyToUse}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  contents: [{
+                      parts: [{
+                          text: `Translate this news headline to concise English for SEO purposes. Return only the translated string, no quotes: "${title}"`
+                      }]
+                  }]
+              })
           });
-          const translated = response.text?.trim() || '';
-          setEnglishTitle(translated);
-      } catch (e) {
+
+          const data = await response.json();
+          
+          if (data.error) {
+              throw new Error(data.error.message || "API Error");
+          }
+
+          const translated = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (translated) {
+              setEnglishTitle(translated);
+          } else {
+              throw new Error("No translation returned.");
+          }
+      } catch (e: any) {
           console.error("Translation failed", e);
-          alert("Auto-translation failed. Please enter manually.");
+          alert(`Auto-translation failed: ${e.message}. Please enter manually or check your API Key.`);
       } finally {
           setIsTranslating(false);
       }
@@ -374,6 +415,45 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
               {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={myArticles} role={ArticleStatus.PUBLISHED as any} /></div>}
               {activeTab === 'settings' && (
                   <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
+                      {/* Third-Party Integrations */}
+                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Key className="text-news-gold" /> Third-Party Integrations</h2>
+                          <div className="space-y-4">
+                              <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg">
+                                  <div className="flex justify-between items-start mb-2">
+                                      <div>
+                                          <h3 className="font-bold text-sm text-gray-900">Translation Service (Google Gemini)</h3>
+                                          <p className="text-xs text-gray-500 mt-1">Configure your own API key to enable auto-translation features in the editor.</p>
+                                      </div>
+                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${customApiKey ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                                          {customApiKey ? 'Connected' : 'Not Configured'}
+                                      </span>
+                                  </div>
+                                  <div className="mt-4">
+                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">API Key</label>
+                                      <div className="flex gap-2">
+                                          <input 
+                                            type={showKeyInput ? "text" : "password"} 
+                                            value={customApiKey} 
+                                            onChange={e => setCustomApiKey(e.target.value)} 
+                                            placeholder="Enter your Gemini API Key..."
+                                            className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black"
+                                          />
+                                          <button onClick={() => setShowKeyInput(!showKeyInput)} className="bg-gray-200 text-gray-600 px-3 rounded hover:bg-gray-300">
+                                              {showKeyInput ? <Eye size={16}/> : <Layout size={16}/>}
+                                          </button>
+                                          <button onClick={handleSaveApiKey} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800">
+                                              <Save size={14}/> Save
+                                          </button>
+                                      </div>
+                                      <p className="text-[10px] text-gray-400 mt-2">
+                                          Key is stored locally in your browser. Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a>.
+                                      </p>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+
                       {/* Profile Section */}
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
@@ -503,8 +583,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                             <button 
                                 onClick={handleTranslateTitle} 
                                 disabled={isTranslating} 
-                                className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors" 
-                                title="Auto Translate to English"
+                                className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors flex items-center gap-1" 
+                                title="Auto Translate (Requires API Key)"
                             >
                                 {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                             </button>
