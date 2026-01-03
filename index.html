@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -22,9 +23,9 @@
               },
             },
             fontFamily: {
-              serif: ['"Playfair Display"', 'serif'],
-              sans: ['Inter', 'sans-serif'],
-              display: ['"Playfair Display"', 'serif'],
+              serif: ['"Noto Sans Telugu"', '"Playfair Display"', 'serif'],
+              sans: ['"Noto Sans Telugu"', 'Inter', 'sans-serif'],
+              display: ['"Noto Sans Telugu"', '"Playfair Display"', 'serif'],
             },
             animation: {
               marquee: 'marquee 120s linear infinite',
@@ -40,12 +41,17 @@
                 css: {
                   color: theme('colors.gray.800'),
                   maxWidth: 'none',
-                  h1: { fontFamily: theme('fontFamily.serif'), fontWeight: '700' },
-                  h2: { fontFamily: theme('fontFamily.serif'), fontWeight: '700' },
-                  h3: { fontFamily: theme('fontFamily.serif'), fontWeight: '600' },
+                  lineHeight: '28px', // Enforce global line height preference
+                  letterSpacing: 'normal',
+                  fontStyle: 'normal',
+                  h1: { fontFamily: theme('fontFamily.serif'), fontWeight: '700', letterSpacing: 'normal', fontStyle: 'normal' },
+                  h2: { fontFamily: theme('fontFamily.serif'), fontWeight: '700', letterSpacing: 'normal', fontStyle: 'normal' },
+                  h3: { fontFamily: theme('fontFamily.serif'), fontWeight: '600', letterSpacing: 'normal', fontStyle: 'normal' },
                   blockquote: { borderLeftColor: theme('colors.news.gold'), fontStyle: 'italic' },
                   'ul > li::marker': { color: theme('colors.news.accent') },
                   'ol > li::marker': { color: theme('colors.news.black') },
+                  p: { lineHeight: '28px' },
+                  li: { lineHeight: '28px' },
                 },
               },
             }),
@@ -56,28 +62,31 @@
       window.global = window;
     </script>
     <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.0/dist/es-module-shims.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Noto+Sans+Telugu:wght@100..900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
     <style>
+      html {
+        font-size: 17px;
+      }
       body {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Noto Sans Telugu', 'Inter', sans-serif;
         background-color: #fcfcf9;
         color: #1a1a1a;
+        line-height: 28px;
+        letter-spacing: normal;
+        font-style: normal;
       }
       h1, h2, h3, h4, h5, h6 {
-        font-family: 'Playfair Display', serif;
+        font-family: 'Noto Sans Telugu', 'Playfair Display', serif;
+        letter-spacing: normal;
+        font-style: normal;
       }
       .font-display {
-        font-family: 'Playfair Display', serif;
+        font-family: 'Noto Sans Telugu', 'Playfair Display', serif;
+        letter-spacing: normal;
+        font-style: normal;
       }
       .cropper-view-box, .cropper-face { border-radius: 0; }
-
-      /* Increase base font size on larger screens (Desktop) */
-      @media (min-width: 1024px) {
-        html {
-          font-size: 16px; 
-        }
-      }
     </style>
   <script type="importmap">
 {

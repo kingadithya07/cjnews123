@@ -242,7 +242,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           spellCheck={false}
           autoCorrect="off"
           autoCapitalize="off"
-          className="flex-1 p-4 outline-none prose prose-lg max-w-none min-h-[300px] font-serif text-gray-800 selection:bg-news-gold/30 selection:text-black"
+          className="flex-1 p-4 outline-none prose prose-slate max-w-none min-h-[300px] font-serif text-gray-800 selection:bg-news-gold/30 selection:text-black"
           style={{ 
               whiteSpace: 'pre-wrap',
               userSelect: 'text',
