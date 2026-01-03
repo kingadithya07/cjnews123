@@ -218,8 +218,11 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 </figcaption>
             </figure>
 
-            {/* Article Content - Removed prose-lg, now using prose with 17px base font */}
-            <article className="prose prose-slate max-w-none font-serif text-gray-800 leading-loose mb-12" dangerouslySetInnerHTML={{ __html: article.content }} />
+            {/* Article Content - Enforcing 14px on mobile via prose modifiers, falling back to regular size on desktop */}
+            <article 
+              className="prose prose-slate max-w-none font-serif text-gray-800 leading-loose mb-12 prose-p:text-[14px] md:prose-p:text-[17px] prose-li:text-[14px] md:prose-li:text-[17px] prose-headings:font-serif" 
+              dangerouslySetInnerHTML={{ __html: article.content }} 
+            />
 
             {/* Tags */}
             <div className="mt-10 pt-6 border-t border-gray-100 mb-10">

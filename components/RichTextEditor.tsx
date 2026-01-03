@@ -5,7 +5,8 @@ import {
   List, ListOrdered, Link as LinkIcon, Image as ImageIcon,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo, Redo, Loader2,
-  Trash2, Library, Palette, Indent, Outdent, Eraser, Paintbrush
+  Trash2, Library, Palette, Indent, Outdent, Eraser, Paintbrush,
+  Type, ChevronDown
 } from 'lucide-react';
 import ImageGalleryModal from './ImageGalleryModal';
 
@@ -26,6 +27,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
   const [isFormatPainting, setIsFormatPainting] = useState(false);
   const [copiedStyle, setCopiedStyle] = useState<any>(null);
   
+  // Font Size Menu State
+  const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
+  
   // Ref to track the last time the context menu was triggered
   const lastContextMenuTime = useRef<number>(0);
 
@@ -43,6 +47,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
         if (target.closest('[data-image-delete-button]')) return;
         setSelectedImg(null);
       }
+      
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-fontsize-menu]')) {
+          setShowFontSizeMenu(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
@@ -56,6 +65,28 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
         onChange(editorRef.current.innerHTML);
     }
     editorRef.current?.focus();
+  };
+  
+  const changeFontSize = (size: number) => {
+      // Robust way to set specific pixel font size in contentEditable
+      // 1. Enable CSS styling mode
+      document.execCommand('styleWithCSS', false, 'true');
+      // 2. Set font size to 7 (largest) as a temporary marker
+      document.execCommand('fontSize', false, '7');
+      // 3. Disable CSS styling mode
+      document.execCommand('styleWithCSS', false, 'false');
+      
+      // 4. Find the elements we just created and apply specific pixel size
+      if (editorRef.current) {
+          // Selectors for elements created by execCommand('fontSize', '7')
+          const fontElements = editorRef.current.querySelectorAll('font[size="7"], span[style*="font-size: -webkit-xxx-large"], span[style*="font-size: xxx-large"]');
+          fontElements.forEach((el) => {
+              el.removeAttribute('size');
+              (el as HTMLElement).style.fontSize = `${size}px`;
+          });
+          onChange(editorRef.current.innerHTML);
+      }
+      setShowFontSizeMenu(false);
   };
 
   const handleInput = () => {
@@ -190,7 +221,33 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
               <ToolbarButton icon={Redo} command="redo" title="Redo" />
           </div>
 
-          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
+          <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0 relative" data-fontsize-menu>
+              {/* Font Size Dropdown Trigger */}
+              <button 
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); setShowFontSizeMenu(!showFontSizeMenu); }}
+                  className={`p-1.5 rounded transition-colors shrink-0 flex items-center gap-0.5 ${showFontSizeMenu ? 'bg-gray-200 text-black' : 'text-gray-500 hover:text-black hover:bg-gray-200'}`}
+                  title="Font Size"
+              >
+                  <Type size={16} />
+                  <ChevronDown size={10} />
+              </button>
+              
+              {/* Font Size Dropdown Menu */}
+              {showFontSizeMenu && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-xl z-50 flex flex-col w-20 py-1">
+                      {[12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32, 48].map(size => (
+                          <button
+                              key={size}
+                              onMouseDown={(e) => { e.preventDefault(); changeFontSize(size); }}
+                              className="px-3 py-1.5 text-left hover:bg-gray-100 text-xs font-bold text-gray-700"
+                          >
+                              {size}px
+                          </button>
+                      ))}
+                  </div>
+              )}
+
               <ToolbarButton icon={Bold} command="bold" title="Bold" />
               <ToolbarButton icon={Italic} command="italic" title="Italic" />
               <ToolbarButton icon={Underline} command="underline" title="Underline" />
