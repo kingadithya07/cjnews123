@@ -50,8 +50,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
     .slice(0, 14);
 
   // 4. Category Sections (Only on Homepage when no category selected)
-  // Take top 4 categories from the list, filtering out 'General' if preferred or just take first 4.
-  const homeCategorySections = !selectedCategory ? categories.filter(c => c !== 'General').slice(0, 4) : [];
+  // Display all categories except 'General' to avoid redundancy if used as default
+  const homeCategorySections = !selectedCategory ? categories.filter(c => c !== 'General') : [];
 
   const [mobileTab, setMobileTab] = useState<'latest' | 'trending'>('latest');
   const [currentSlide, setCurrentSlide] = useState(0);

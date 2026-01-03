@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { UserRole, Article } from '../types';
 import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard, ChevronDown, Handshake } from 'lucide-react';
 import { APP_NAME } from '../constants';
@@ -95,7 +95,19 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
     return () => clearInterval(timer);
   }, []);
 
-  const fetchWeatherData = async (query: string) => {
+  const getWeatherCondition = (code: number) => {
+      if (code === 0) return 'Clear';
+      if (code <= 3) return 'Partly Cloudy';
+      if (code <= 48) return 'Foggy';
+      if (code <= 55) return 'Drizzle';
+      if (code <= 65) return 'Rainy';
+      if (code <= 77) return 'Snowy';
+      if (code <= 86) return 'Showers';
+      if (code <= 99) return 'Thunderstorm';
+      return 'Cloudy';
+  };
+
+  const fetchWeatherData = useCallback(async (query: string) => {
     setIsWeatherLoading(true);
     setWeatherError(null);
     try {
@@ -112,7 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       const newState = {
         location: name,
         temp: Math.round(weatherData.current.temperature_2m),
-        condition: 'Sunny', 
+        condition: getWeatherCondition(weatherData.current.weather_code), 
         aqi: Math.round(aqiData.current.us_aqi),
         humidity: weatherData.current.relative_humidity_2m,
         lastUpdated: Date.now()
@@ -121,7 +133,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       localStorage.setItem('newsroom_full_weather', JSON.stringify(newState));
       setIsWeatherModalOpen(false);
     } catch (err: any) { setWeatherError(err.message); } finally { setIsWeatherLoading(false); }
-  };
+  }, []);
+
+  // Auto-refresh weather on mount if data is stale (older than 15 mins)
+  useEffect(() => {
+      if (Date.now() - weatherState.lastUpdated > 900000) {
+          fetchWeatherData(weatherState.location);
+      }
+  }, [fetchWeatherData, weatherState.lastUpdated, weatherState.location]);
 
   const isActive = (path: string) => currentPath === path;
   const isDashboard = currentPath.startsWith('/editor') || currentPath.startsWith('/writer');
@@ -177,16 +196,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
              </div>
 
              {/* CENTER: LOGO - Left on Mobile, Center on Desktop */}
-             <div className="flex-1 md:w-1/2 text-left md:text-center min-w-0 pr-2 md:pr-0 flex items-center">
-                 <Link to="/" onNavigate={onNavigate} className="inline-block">
+             <div className="flex-1 md:w-1/2 text-left md:text-center min-w-0 pr-2 md:pr-0 flex items-center justify-start md:justify-center">
+                 <Link to="/" onNavigate={onNavigate} className="inline-block group">
                     <h1 className="font-serif text-2xl md:text-5xl font-extrabold tracking-tighter text-news-blue leading-none uppercase whitespace-nowrap">
                         <span className="text-news-gold">CJ</span> NEWSHUB
                     </h1>
-                    {/* Subline - Hidden on mobile for cleaner look */}
-                    <div className="hidden md:flex items-center justify-center gap-4 mt-3">
-                        <span className="h-[1px] bg-gray-200 w-12"></span>
-                        <span className="text-[9px] uppercase tracking-[0.4em] text-gray-400 font-bold italic">Global Editorial Excellence</span>
-                        <span className="h-[1px] bg-gray-200 w-12"></span>
+                    {/* Subline - Visible on mobile now */}
+                    <div className="flex items-center md:justify-center justify-start gap-2 md:gap-4 mt-2 md:mt-3">
+                        <span className="hidden md:block h-[1px] bg-gray-200 w-12"></span>
+                        <span className="text-[7px] md:text-[9px] uppercase tracking-[0.4em] text-gray-400 font-bold italic">Global Editorial Excellence</span>
+                        <span className="hidden md:block h-[1px] bg-gray-200 w-12"></span>
                     </div>
                  </Link>
              </div>
@@ -203,12 +222,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                              <span className="text-xs font-black text-news-blue">{weatherState.temp}°</span>
                         </div>
                     </div>
-                    <Sun size={16} className="text-news-gold shrink-0" />
+                    {weatherState.condition.includes('Rain') ? <CloudRain size={16} className="text-news-blue shrink-0" /> : 
+                     weatherState.condition.includes('Cloud') ? <Cloud size={16} className="text-gray-400 shrink-0" /> :
+                     <Sun size={16} className="text-news-gold shrink-0" />}
                  </button>
 
                  {/* Desktop Weather (Full) */}
                  <button onClick={() => setIsWeatherModalOpen(true)} className="hidden md:flex items-center gap-3 text-left group">
-                    <Sun size={24} className="text-news-gold group-hover:scale-110 transition-transform" />
+                    {weatherState.condition.includes('Rain') ? <CloudRain size={24} className="text-news-blue group-hover:scale-110 transition-transform" /> : 
+                     weatherState.condition.includes('Cloud') ? <Cloud size={24} className="text-gray-400 group-hover:scale-110 transition-transform" /> :
+                     <Sun size={24} className="text-news-gold group-hover:scale-110 transition-transform" />}
                     <div className="flex flex-col leading-none">
                         <span className="text-lg font-black text-news-blue">{weatherState.temp}°</span>
                         <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">{weatherState.location}</span>
@@ -301,12 +324,17 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
           <div className="flex-1 whitespace-nowrap overflow-hidden flex items-center">
               <div className="animate-marquee inline-flex items-center">
                   {articles.length > 0 ? articles.map((a, i) => (
-                      <React.Fragment key={a.id}>
+                      <Link 
+                          key={a.id} 
+                          to={`/article/${a.slug || a.id}`} 
+                          onNavigate={onNavigate} 
+                          className="inline-flex items-center group hover:bg-white/5 transition-colors px-2 py-1 rounded"
+                      >
                           <span className={`mx-2 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${i % 3 === 0 ? 'bg-[#0b1f36] text-gray-300' : i % 3 === 1 ? 'bg-[#12314f] text-gray-300' : 'bg-[#0f2b46] text-gray-400'}`}>
                               {a.categories[0]}
                           </span>
-                          <span className="text-[11px] font-bold text-gray-200 mr-8 uppercase">{a.title} <span className="text-gray-500 ml-2">+++</span></span>
-                      </React.Fragment>
+                          <span className="text-[11px] font-bold text-gray-200 mr-8 uppercase group-hover:text-white group-hover:underline decoration-news-gold underline-offset-4">{a.title} <span className="text-gray-500 ml-2 no-underline">+++</span></span>
+                      </Link>
                   )) : <span className="mx-8 text-[11px] font-bold text-gray-400 uppercase">Awaiting dispatches from our global news bureaus...</span>}
               </div>
           </div>
@@ -324,10 +352,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
 
       <footer className="bg-news-lightyellow text-gray-900 py-16 border-t-4 border-news-gold">
         <div className="max-w-7xl mx-auto px-6 text-center">
-           <h2 className="font-serif text-3xl md:text-4xl font-extrabold text-news-blue mb-4 uppercase tracking-tighter">
+           <h2 className="font-serif text-3xl md:text-4xl font-extrabold text-news-blue mb-2 uppercase tracking-tighter">
                <span className="text-news-gold">CJ</span> NEWSHUB
            </h2>
-           <p className="text-[10px] tracking-[0.5em] uppercase text-gray-600 mt-12">© {new Date().getFullYear()} CJ NEWSHUB MEDIA GROUP. ALL RIGHTS RESERVED.</p>
+           <p className="text-[9px] md:text-[10px] font-serif font-bold tracking-[0.3em] text-news-gold uppercase mb-8">Global Editorial Excellence</p>
+           <p className="text-[10px] tracking-[0.5em] uppercase text-gray-600 mt-4">© {new Date().getFullYear()} CJ NEWSHUB MEDIA GROUP. ALL RIGHTS RESERVED.</p>
         </div>
       </footer>
 
@@ -341,6 +370,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                     <button type="submit" disabled={isWeatherLoading} className="w-full bg-news-blue text-white py-3 rounded-lg font-bold uppercase text-[10px] tracking-widest">
                         {isWeatherLoading ? 'Fetching...' : 'Update Weather'}
                     </button>
+                    {weatherError && <p className="text-red-500 text-xs">{weatherError}</p>}
                 </form>
             </div>
         </div>

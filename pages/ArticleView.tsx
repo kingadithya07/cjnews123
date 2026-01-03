@@ -345,24 +345,28 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                      <h3 className="font-serif font-bold text-2xl md:text-3xl text-gray-900 mb-8 pb-4 border-b border-gray-200">
                         Latest Headlines
                      </h3>
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                     {/* Changed from grid-cols-1 md:grid-cols-2 lg:grid-cols-4 to grid-cols-1 to make them one by one */}
+                     <div className="grid grid-cols-1 gap-6">
                         {moreArticles.map(more => (
-                             <Link to={`/article/${more.slug || more.id}`} onNavigate={onNavigate} key={more.id} className="group block">
-                                <div className="flex flex-row md:flex-col gap-4 items-start">
-                                    <div className="w-24 md:w-full flex-shrink-0 rounded-md overflow-hidden bg-gray-200">
+                             <Link to={`/article/${more.slug || more.id}`} onNavigate={onNavigate} key={more.id} className="group block bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                <div className="flex flex-row gap-6 items-start">
+                                    <div className="w-24 md:w-32 flex-shrink-0 rounded-md overflow-hidden bg-gray-200 aspect-video">
                                         <img 
                                             src={more.imageUrl} 
                                             alt={more.title}
-                                            className="w-full h-auto group-hover:opacity-90 transition-opacity"
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         />
                                     </div>
                                     <div>
                                         <div className="text-[10px] font-bold text-news-accent uppercase tracking-widest mb-1">
                                             {more.categories[0]}
                                         </div>
-                                        <h5 className="font-serif font-bold text-base text-gray-900 leading-snug group-hover:underline decoration-2 underline-offset-2">
+                                        <h5 className="font-serif font-bold text-lg text-gray-900 leading-snug group-hover:text-news-accent transition-colors mb-1">
                                             {more.title}
                                         </h5>
+                                        <p className="text-xs text-gray-500 line-clamp-2 hidden sm:block">
+                                            {more.subline || more.summary || more.content.replace(/<[^>]*>/g, '').slice(0, 100) + '...'}
+                                        </p>
                                     </div>
                                 </div>
                              </Link>
