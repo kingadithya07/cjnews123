@@ -113,7 +113,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                     <div className="col-span-full text-center py-20 text-gray-400">No articles found in this section.</div>
                 ) : (
                     displayArticles.map(article => (
-                        <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="group block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
+                        <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
                             <div className="aspect-video relative overflow-hidden">
                                 <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={article.title} />
                                 <div className="absolute top-2 left-2 flex flex-col gap-1">
@@ -199,7 +199,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                       </div>
                                   </div>
 
-                                  <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="block group/title max-w-xl md:max-w-2xl">
+                                  <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-xl md:max-w-2xl">
                                       <h2 className="text-base md:text-2xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg">
                                           {article.title}
                                       </h2>
@@ -209,7 +209,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                       {plainText}
                                   </p>
 
-                                  <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="flex items-center gap-2 text-white font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em] hover:text-news-gold transition-all group/btn pb-1 border-b border-white/20 hover:border-news-gold">
+                                  <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="flex items-center gap-2 text-white font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em] hover:text-news-gold transition-all group/btn pb-1 border-b border-white/20 hover:border-news-gold">
                                       Read Story <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform"/>
                                   </Link>
                               </div>
@@ -243,7 +243,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                <div className="flex-1 overflow-y-auto p-0 scrollbar-hide">
                    <div className="divide-y divide-gray-100">
                        {trendingArticles.map((article, idx) => (
-                           <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="block p-4 hover:bg-gray-50 transition-colors group">
+                           <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block p-4 hover:bg-gray-50 transition-colors group">
                                <div className="flex gap-4">
                                     <div className="flex flex-col items-center justify-start pt-1">
                                         <span className="text-news-gold font-display font-black text-lg leading-none">0{idx + 1}</span>
@@ -275,7 +275,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       <AdvertisementBanner 
         ads={advertisements} 
         size="BILLBOARD" 
-        placement="HOME"
+        placement="HOME" 
         globalAdsEnabled={globalAdsEnabled}
       />
 
@@ -294,7 +294,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                    {mobileTab === 'latest' && (
                        <div className="space-y-8">
                            {mainFeedArticles.map(article => (
-                               <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="block group bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                               <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                                    <div className="w-full aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4 relative">
                                        <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
                                        <div className="absolute top-2 left-2 flex flex-col gap-1">
@@ -317,7 +317,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                            {trendingArticles.map((article, idx) => (
                                <div key={article.id} className="flex gap-4 items-start group bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
                                    <span className="text-xl font-serif font-bold text-gray-200 group-hover:text-news-gold transition-colors w-8 text-center shrink-0 leading-none mt-1">0{idx+1}</span>
-                                   <Link to={`/article/${article.id}`} onNavigate={onNavigate} className="flex-1">
+                                   <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="flex-1">
                                        <span className="text-[9px] text-news-accent font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                                            <Star size={8} fill="currentColor" /> {article.categories[0]}
                                        </span>
@@ -334,7 +334,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                 <h3 className="text-[10px] font-black text-gray-900 mb-6 flex items-center uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Latest Dispatches</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
                    {mainFeedArticles.map(article => (
-                       <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="group block flex flex-col h-full">
+                       <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block flex flex-col h-full">
                            <div className="overflow-hidden mb-4 relative shadow-sm rounded-lg">
                                 <img src={article.imageUrl} alt={article.title} className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700 aspect-video object-cover"/>
                                 <div className="absolute top-2 left-2 flex flex-col gap-1">
@@ -385,7 +385,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                       {categoryArticles.map(article => (
-                          <Link key={article.id} to={`/article/${article.id}`} onNavigate={onNavigate} className="group block">
+                          <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block">
                               <div className="aspect-[3/2] overflow-hidden rounded-lg mb-3 relative bg-gray-100">
                                   <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                   <span className="absolute bottom-2 left-2 bg-black/60 backdrop-blur text-white text-[8px] font-bold px-2 py-1 rounded-sm uppercase tracking-widest flex items-center gap-1">

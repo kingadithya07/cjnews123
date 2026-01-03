@@ -12,7 +12,7 @@ import StaffLogin from './pages/StaffLogin';
 import ResetPassword from './pages/ResetPassword';
 import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice } from './types';
 import { MOCK_ARTICLES, MOCK_EPAPER, APP_NAME } from './constants';
-import { generateId, getDeviceId } from './utils';
+import { generateId, getDeviceId, createSlug } from './utils';
 import { supabase } from './supabaseClient';
 
 // Use a fixed UUID for global settings to ensure compatibility with UUID columns in Supabase
@@ -157,6 +157,7 @@ function App() {
         setArticles(artData.map(a => ({
           id: a.id,
           userId: a.user_id, // Map database column to type
+          slug: a.slug, // Map slug
           title: a.title,
           subline: a.subline,
           author: a.author,
@@ -391,14 +392,19 @@ function App() {
   };
 
   const handleSaveArticle = async (article: Article) => {
+    // Generate slug if not present
+    const articleSlug = article.slug || createSlug(article.title);
+    const articleWithSlug = { ...article, slug: articleSlug };
+
     setArticles(prev => {
         const exists = prev.find(a => a.id === article.id);
-        return exists ? prev.map(a => a.id === article.id ? article : a) : [article, ...prev];
+        return exists ? prev.map(a => a.id === article.id ? articleWithSlug : a) : [articleWithSlug, ...prev];
     });
 
     const payload = {
         id: article.id,
         title: article.title,
+        slug: articleSlug,
         subline: article.subline,
         author: article.author,
         author_avatar: article.authorAvatar,
@@ -574,8 +580,14 @@ function App() {
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   } else if (path.startsWith('/article/')) {
-    const id = currentPath.split('/article/')[1];
-    content = <ArticleView articles={articles} articleId={id} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
+    // Determine if it's an ID or a Slug
+    const slugOrId = currentPath.split('/article/')[1];
+    // Find matching article either by ID or Slug
+    let targetId = slugOrId;
+    const foundBySlug = articles.find(a => a.slug === slugOrId || a.id === slugOrId);
+    if (foundBySlug) targetId = foundBySlug.id;
+
+    content = <ArticleView articles={articles} articleId={targetId} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path.startsWith('/category/')) {
     const cat = decodeURIComponent(currentPath.split('/category/')[1]);
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedCategory={cat} categories={categories} />;

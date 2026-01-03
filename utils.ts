@@ -1,4 +1,5 @@
 
+
 /**
  * Generates a UUID v4 string.
  * Uses crypto.randomUUID if available, otherwise falls back to a random number generation method.
@@ -90,4 +91,16 @@ export const getDeviceMetadata = () => {
     type,
     browser: browser
   };
+};
+
+/**
+ * Creates a URL-friendly slug from a title string.
+ */
+export const createSlug = (title: string): string => {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove non-word chars (except spaces and dashes)
+    .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with dashes
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
 };

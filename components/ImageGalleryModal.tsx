@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { X, Loader2, ImageIcon, AlertCircle, Upload, Trash2, FolderLock, Crop, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Maximize, Smartphone, Monitor } from 'lucide-react';
+import { X, Loader2, ImageIcon, AlertCircle, Upload, Trash2, FolderLock, Crop, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Maximize, Smartphone, Monitor, RefreshCw } from 'lucide-react';
 import { FileObject } from 'https://esm.sh/@supabase/storage-js@2.5.5';
 import { generateId } from '../utils';
 import Cropper from 'cropperjs';
@@ -52,10 +52,19 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                     offset: 0,
                     sortBy: { column: 'created_at', order: 'desc' },
                 });
-                if (!error && data) {
+                if (error) {
+                    console.error(`Error fetching folder ${folder}:`, error);
+                    continue; 
+                }
+                if (data) {
+                    // Ensure we construct the full path correctly for the name property
                     const files = data
                         .filter((item: any) => item.id !== null) 
-                        .map((file: any) => ({...file, name: `${folder}/${file.name}`}));
+                        .map((file: any) => ({
+                            ...file, 
+                            name: `${folder}/${file.name}`, // Store full path as name for deletion/access
+                            shortName: file.name // Store distinct filename
+                        }));
                     allImages.push(...files);
                 }
             }
@@ -180,11 +189,26 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
         
         setDeletingId(imageName);
         try {
-            const { error } = await supabase.storage.from(BUCKET_NAME).remove([imageName]);
-            if (error) throw error;
+            // Delete from storage
+            const { data, error } = await supabase.storage.from(BUCKET_NAME).remove([imageName]);
+            
+            if (error) {
+                console.error('Delete error:', error);
+                throw error;
+            }
+
+            // Verify deletion - usually data contains the deleted files
+            // Even if data is empty, we should trust the success unless error thrown
+            // But we can double check by forcing UI update
+            
+            // Remove from local state immediately
             setImages(prev => prev.filter(img => img.name !== imageName));
+            
         } catch (err: any) {
-            alert("Delete failed: " + err.message);
+            console.error("Delete failed:", err);
+            alert("Delete failed: " + (err.message || "Unknown error"));
+            // If failure, refresh list to ensure consistency
+            fetchImages();
         } finally {
             setDeletingId(null);
         }
@@ -274,6 +298,9 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                     </div>
                     
                     <div className="flex items-center gap-3">
+                         <button onClick={fetchImages} className="p-2.5 text-gray-500 hover:text-news-black hover:bg-gray-100 rounded-lg transition-colors" title="Refresh Gallery">
+                             <RefreshCw size={16} className={`${loading ? 'animate-spin' : ''}`} />
+                         </button>
                          <label className="flex items-center gap-2 bg-news-black text-white px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer hover:bg-gray-800 transition-colors shadow-lg">
                             <Upload size={14} />
                             <span>Upload New</span>

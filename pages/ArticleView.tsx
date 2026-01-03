@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, Advertisement } from '../types';
-import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft, Check } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
@@ -20,6 +20,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
   const [moreArticles, setMoreArticles] = useState<Article[]>([]);
   const [wordCount, setWordCount] = useState(0);
   const [readTime, setReadTime] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   // Helper for safe date formatting
   const safeFormat = (dateValue: any, formatStr: string) => {
@@ -66,6 +67,29 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
     }
   }, [articleId, articles]);
 
+  const handleCopyLink = () => {
+      if (!article) return;
+      const permalink = `${window.location.origin}/#/article/${article.slug || article.id}`;
+      navigator.clipboard.writeText(permalink).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+      });
+  };
+
+  const handleShare = () => {
+      if (!article) return;
+      const permalink = `${window.location.origin}/#/article/${article.slug || article.id}`;
+      if (navigator.share) {
+          navigator.share({
+              title: article.title,
+              text: article.subline || article.title,
+              url: permalink
+          }).catch(console.error);
+      } else {
+          handleCopyLink();
+      }
+  };
+
   if (!article) {
     return <div className="text-center py-20 text-gray-500">Article not found.</div>;
   }
@@ -94,12 +118,20 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
             {/* Header Section */}
             <header className="mb-8">
-                <div className="flex flex-wrap gap-2 mb-6">
-                    {article.categories.map(cat => (
-                         <span key={cat} className="inline-block bg-news-secondary text-white text-xs font-bold px-3 py-1 uppercase tracking-widest rounded-sm">
-                             {cat}
-                         </span>
-                    ))}
+                <div className="flex justify-between items-start mb-6">
+                    <div className="flex flex-wrap gap-2">
+                        {article.categories.map(cat => (
+                            <span key={cat} className="inline-block bg-news-secondary text-white text-xs font-bold px-3 py-1 uppercase tracking-widest rounded-sm">
+                                {cat}
+                            </span>
+                        ))}
+                    </div>
+                    {/* Share Button (Top Right) */}
+                    <div className="flex gap-2">
+                        <button onClick={handleShare} className="flex items-center gap-2 bg-gray-100 hover:bg-news-gold hover:text-white px-3 py-1.5 rounded-full text-xs font-bold uppercase transition-colors text-gray-600">
+                            <Share2 size={14} /> <span className="hidden sm:inline">Share</span>
+                        </button>
+                    </div>
                 </div>
                 
                 <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-gray-900 mb-6 leading-tight">
@@ -189,10 +221,12 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                         <div>
                              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Share Article</span>
                              <div className="flex gap-2">
-                                <button className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors flex justify-center"><Twitter size={16} /></button>
-                                <button className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-800 transition-colors flex justify-center"><Facebook size={16} /></button>
-                                <button className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-700 transition-colors flex justify-center"><Linkedin size={16} /></button>
-                                <button className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors flex justify-center"><LinkIcon size={16} /></button>
+                                <button onClick={handleShare} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors flex justify-center"><Twitter size={16} /></button>
+                                <button onClick={handleShare} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-800 transition-colors flex justify-center"><Facebook size={16} /></button>
+                                <button onClick={handleShare} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-blue-50 text-gray-600 hover:text-blue-700 transition-colors flex justify-center"><Linkedin size={16} /></button>
+                                <button onClick={handleCopyLink} className="flex-1 py-2 rounded bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors flex justify-center relative">
+                                    {copied ? <Check size={16} className="text-green-600"/> : <LinkIcon size={16} />}
+                                </button>
                              </div>
                         </div>
                     </div>
@@ -200,7 +234,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     <h4 className="font-bold text-sm uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">In This Section</h4>
                     <div className="space-y-4">
                         {relatedArticles.map(rel => (
-                            <Link to={`/article/${rel.id}`} onNavigate={onNavigate} key={rel.id} className="block group">
+                            <Link to={`/article/${rel.slug || rel.id}`} onNavigate={onNavigate} key={rel.id} className="block group">
                                 <h5 className="font-serif font-bold text-sm text-gray-900 group-hover:text-news-accent transition-colors leading-snug mb-1">
                                     {rel.title}
                                 </h5>
@@ -237,7 +271,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
                     {relatedArticles.map(rel => (
-                        <Link to={`/article/${rel.id}`} onNavigate={onNavigate} key={rel.id} className="group block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+                        <Link to={`/article/${rel.slug || rel.id}`} onNavigate={onNavigate} key={rel.id} className="group block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
                             <div className="overflow-hidden relative">
                                 <img 
                                     src={rel.imageUrl} 
@@ -270,7 +304,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                      </h3>
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {moreArticles.map(more => (
-                             <Link to={`/article/${more.id}`} onNavigate={onNavigate} key={more.id} className="group block">
+                             <Link to={`/article/${more.slug || more.id}`} onNavigate={onNavigate} key={more.id} className="group block">
                                 <div className="flex flex-row md:flex-col gap-4 items-start">
                                     <div className="w-24 md:w-full flex-shrink-0 rounded-md overflow-hidden bg-gray-200">
                                         <img 

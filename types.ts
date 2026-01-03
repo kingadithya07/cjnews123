@@ -1,4 +1,5 @@
 
+
 export enum UserRole {
   READER = 'READER',
   WRITER = 'WRITER',
@@ -28,6 +29,7 @@ export interface TrustedDevice {
 export interface Article {
   id: string;
   userId?: string; // Owner ID for isolation
+  slug?: string; // URL friendly permalink
   title: string;
   subline?: string;
   author: string;
