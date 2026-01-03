@@ -1,5 +1,6 @@
 
 
+
 export enum UserRole {
   READER = 'READER',
   WRITER = 'WRITER',
@@ -44,6 +45,7 @@ export interface Article {
   isPremium?: boolean;
   isFeatured?: boolean;
   isEditorsChoice?: boolean;
+  views?: number; // Real-time view count
 }
 
 export interface EPaperRegion {

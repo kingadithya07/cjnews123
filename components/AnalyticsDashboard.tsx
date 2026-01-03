@@ -1,7 +1,8 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Article, UserRole, ArticleStatus } from '../types';
-import { BarChart3, FileText, CheckCircle, Clock, TrendingUp, PieChart as PieChartIcon, AlertCircle, Globe, Users, Eye, Activity, MapPin } from 'lucide-react';
+import { BarChart3, FileText, CheckCircle, Clock, PieChart as PieChartIcon, AlertCircle, Users, Activity, PenTool, Hash } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface AnalyticsDashboardProps {
   articles: Article[];
@@ -9,21 +10,14 @@ interface AnalyticsDashboardProps {
 }
 
 const COLORS = ['#0f2b46', '#c5a059', '#b91c1c', '#333333', '#64748b', '#94a3b8', '#cbd5e1'];
-const GEO_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
+const STATUS_COLORS = {
+    [ArticleStatus.PUBLISHED]: '#10b981', // Green
+    [ArticleStatus.PENDING]: '#f59e0b',   // Yellow
+    [ArticleStatus.DRAFT]: '#64748b'      // Gray
+};
 
 const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role }) => {
-  // Simulate live data updates
-  const [activeUsers, setActiveUsers] = useState(124);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-        // Randomly fluctuate active users to simulate real-time
-        setActiveUsers(prev => Math.max(50, prev + Math.floor(Math.random() * 10) - 5));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // --- Real-time Calculations ---
+  // --- Real Calculations based on Props ---
   const stats = useMemo(() => {
     const total = articles.length;
     const published = articles.filter(a => a.status === ArticleStatus.PUBLISHED).length;
@@ -32,10 +26,11 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role 
     
     // Category Distribution
     const catMap: Record<string, number> = {};
-    const tagMap: Record<string, number> = {};
+    // Author Distribution
+    const authorMap: Record<string, number> = {};
     
-    // Mock View Counts based on content length/random for demo
-    let totalViews = 0;
+    // Total Word Count Calculation
+    let totalWords = 0;
 
     articles.forEach(a => {
       // Categories
@@ -43,49 +38,40 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role 
         catMap[cat] = (catMap[cat] || 0) + 1;
       });
 
-      // Mock Tags & Trending based on content + random
-      // In a real app, 'tags' would be a property on Article. 
-      // Here we simulate trending topics from title keywords or categories
-      const keywords = a.title.split(' ').filter(w => w.length > 4);
-      const primaryKeyword = keywords[0] || a.categories[0];
-      
-      // Simulate views: Base + (Length * Random)
-      const mockArticleViews = Math.floor(a.content.length * (Math.random() * 0.5 + 0.1));
-      totalViews += mockArticleViews;
+      // Authors
+      if (a.author) {
+          authorMap[a.author] = (authorMap[a.author] || 0) + 1;
+      }
 
-      tagMap[primaryKeyword] = (tagMap[primaryKeyword] || 0) + mockArticleViews;
+      // Word Count
+      const text = a.content.replace(/<[^>]*>/g, ' ');
+      const words = text.trim().split(/\s+/).length;
+      totalWords += words;
     });
     
     const categories = Object.entries(catMap)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
-    // Trending Topics (Top 5 by calculated "views")
-    const trending = Object.entries(tagMap)
-      .map(([topic, views]) => ({ topic, views }))
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 5);
+    const authors = Object.keys(authorMap).length;
 
-    // Mock Geography Data (Deterministic based on total views for stability)
-    const geoDistribution = [
-        { name: 'United States', value: Math.floor(totalViews * 0.40) },
-        { name: 'India', value: Math.floor(totalViews * 0.25) },
-        { name: 'United Kingdom', value: Math.floor(totalViews * 0.15) },
-        { name: 'Germany', value: Math.floor(totalViews * 0.10) },
-        { name: 'Others', value: Math.floor(totalViews * 0.10) },
-    ];
+    // Status Distribution
+    const statusDist = [
+        { name: 'Published', value: published, color: STATUS_COLORS[ArticleStatus.PUBLISHED] },
+        { name: 'Pending', value: pending, color: STATUS_COLORS[ArticleStatus.PENDING] },
+        { name: 'Drafts', value: drafts, color: STATUS_COLORS[ArticleStatus.DRAFT] },
+    ].filter(d => d.value > 0);
 
-    // Estimated total words
-    const totalWords = articles.reduce((acc, curr) => {
-        const txt = curr.content.replace(/<[^>]*>/g, '');
-        return acc + txt.split(/\s+/).length;
-    }, 0);
+    // Recent Activity (Top 5 most recent)
+    const recent = [...articles]
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+        .slice(0, 5);
 
-    return { total, published, drafts, pending, categories, totalWords, totalViews, trending, geoDistribution };
+    return { total, published, drafts, pending, categories, totalWords, authors, statusDist, recent };
   }, [articles]);
 
   // --- SVG Pie Chart Component ---
-  const PieChart = ({ data, colors }: { data: { name: string; value: number }[], colors: string[] }) => {
+  const PieChart = ({ data, colors }: { data: { name: string; value: number; color?: string }[], colors: string[] }) => {
     const total = data.reduce((acc, cur) => acc + cur.value, 0);
     let currentAngle = 0;
 
@@ -104,7 +90,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role 
               
               const largeArc = sliceAngle > 180 ? 1 : 0;
               const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`;
-              const color = colors[index % colors.length];
+              const color = entry.color || colors[index % colors.length];
               
               currentAngle += sliceAngle;
 
@@ -135,10 +121,10 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role 
             {data.slice(0, 10).map((entry, index) => (
                 <div key={entry.name} className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors[index % colors.length] }}></span>
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color || colors[index % colors.length] }}></span>
                         <span className="font-bold text-gray-700">{entry.name}</span>
                     </div>
-                    <span className="font-mono text-gray-500 text-[10px]">{Math.round((entry.value/total)*100)}%</span>
+                    <span className="font-mono text-gray-500 text-[10px]">{Math.round((entry.value/total)*100)}% ({entry.value})</span>
                 </div>
             ))}
         </div>
@@ -165,81 +151,64 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role 
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex items-center justify-between">
           <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
-              <Activity className="text-news-accent" /> Real-Time Analytics
+              <Activity className="text-news-accent" /> Platform Analytics
           </h2>
-          <span className="text-[10px] font-bold uppercase tracking-widest bg-green-100 text-green-700 px-3 py-1 rounded-full flex items-center gap-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> Live Data
-          </span>
       </div>
 
-      {/* Top Row Stats - Expanded */}
+      {/* Top Row Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard 
-            icon={Eye} 
-            label="Total Views" 
-            value={stats.totalViews.toLocaleString()} 
-            subtext="+12% from last week"
-            colorClass="bg-blue-50 text-blue-600"
-        />
-        <StatCard 
-            icon={Users} 
-            label="Active Readers" 
-            value={activeUsers} 
-            subtext="Right now"
-            colorClass="bg-green-50 text-green-600"
-        />
         <StatCard 
             icon={FileText} 
             label="Total Articles" 
-            value={stats.total} 
-            subtext="Content Inventory"
-            colorClass="bg-gray-50 text-gray-600"
+            value={stats.total.toLocaleString()} 
+            subtext="All Time"
+            colorClass="bg-blue-50 text-blue-600"
         />
         <StatCard 
             icon={CheckCircle} 
             label="Published" 
             value={stats.published} 
-            subtext="Live on site"
-            colorClass="bg-indigo-50 text-indigo-600"
+            subtext="Live Content"
+            colorClass="bg-green-50 text-green-600"
         />
         <StatCard 
             icon={AlertCircle} 
-            label="Pending" 
+            label="Pending Review" 
             value={stats.pending} 
-            subtext="Needs Review"
+            subtext="Requires Action"
             colorClass="bg-yellow-50 text-yellow-600"
         />
         <StatCard 
-            icon={Clock} 
-            label="Avg. Read Time" 
-            value="4m 12s" 
-            subtext="Engagement Score"
+            icon={PenTool} 
+            label="Drafts" 
+            value={stats.drafts} 
+            subtext="In Progress"
+            colorClass="bg-gray-50 text-gray-600"
+        />
+        <StatCard 
+            icon={Hash} 
+            label="Total Words" 
+            value={(stats.totalWords / 1000).toFixed(1) + 'k'} 
+            subtext="Content Volume"
             colorClass="bg-purple-50 text-purple-600"
+        />
+        <StatCard 
+            icon={Users} 
+            label="Contributors" 
+            value={stats.authors} 
+            subtext="Active Writers"
+            colorClass="bg-indigo-50 text-indigo-600"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Visitor Geography Pie Chart */}
+        {/* Status Pie Chart */}
         <div className="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm">
           <h4 className="font-bold text-gray-800 mb-8 flex items-center gap-2 border-b border-gray-100 pb-4">
-            <Globe size={18} className="text-news-gold" /> Visitor Geography
+            <BarChart3 size={18} className="text-news-gold" /> Content Status
           </h4>
-          <PieChart data={stats.geoDistribution} colors={GEO_COLORS} />
-          <div className="mt-8 pt-4 border-t border-gray-100 grid grid-cols-3 gap-4 text-center">
-               <div>
-                   <span className="block text-xl font-bold text-gray-900">42%</span>
-                   <span className="text-[9px] uppercase tracking-widest text-gray-400">North America</span>
-               </div>
-               <div>
-                   <span className="block text-xl font-bold text-gray-900">35%</span>
-                   <span className="text-[9px] uppercase tracking-widest text-gray-400">Asia Pacific</span>
-               </div>
-               <div>
-                   <span className="block text-xl font-bold text-gray-900">23%</span>
-                   <span className="text-[9px] uppercase tracking-widest text-gray-400">Europe</span>
-               </div>
-          </div>
+          <PieChart data={stats.statusDist} colors={COLORS} />
         </div>
 
         {/* Category Pie Chart */}
@@ -248,43 +217,47 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role 
             <PieChartIcon size={18} className="text-news-gold" /> Category Distribution
           </h4>
           <PieChart data={stats.categories} colors={COLORS} />
-          <div className="mt-8 pt-4 border-t border-gray-100">
-             <div className="flex justify-between items-center text-xs text-gray-500">
-                 <span>Most Active Category</span>
-                 <span className="font-bold text-news-black uppercase">{stats.categories[0]?.name || 'N/A'}</span>
-             </div>
-          </div>
         </div>
 
       </div>
 
-      {/* Real-time Trending Topics */}
+      {/* Recent Activity List */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
            <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                 <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                    <TrendingUp size={18} className="text-news-accent" /> Trending Topics (Real-Time)
+                    <Clock size={18} className="text-news-accent" /> Recently Updated
                 </h4>
-                <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>
-                    <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Live</span>
-                </div>
            </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-               {stats.trending.map((topic, idx) => (
-                   <div key={topic.topic} className="p-6 flex flex-col gap-2 hover:bg-gray-50 transition-colors group">
-                       <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">0{idx + 1}</span>
-                       <h5 className="font-serif font-bold text-lg text-gray-900 group-hover:text-news-accent transition-colors truncate">
-                           #{topic.topic}
-                       </h5>
-                       <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
-                           <TrendingUp size={12} className="text-green-500" />
-                           {topic.views.toLocaleString()} reads
+           <div className="divide-y divide-gray-100">
+               {stats.recent.map((article, idx) => (
+                   <div key={article.id} className="p-4 md:p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                       <div className="flex items-center gap-4">
+                           <span className="text-xs font-mono text-gray-400 w-6">0{idx + 1}</span>
+                           <div>
+                               <h5 className="font-bold text-sm text-gray-900 line-clamp-1">{article.title}</h5>
+                               <div className="flex items-center gap-2 mt-1">
+                                   <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
+                                       article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' :
+                                       article.status === ArticleStatus.PENDING ? 'bg-yellow-100 text-yellow-700' :
+                                       'bg-gray-100 text-gray-600'
+                                   }`}>
+                                       {article.status}
+                                   </span>
+                                   <span className="text-[10px] text-gray-400">•</span>
+                                   <span className="text-[10px] text-gray-500">{article.author}</span>
+                                   <span className="text-[10px] text-gray-400">•</span>
+                                   <span className="text-[10px] text-gray-500">{format(new Date(article.publishedAt), 'MMM d, h:mm a')}</span>
+                               </div>
+                           </div>
+                       </div>
+                       <div className="text-right hidden md:block">
+                           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{article.categories[0]}</span>
                        </div>
                    </div>
                ))}
-               {stats.trending.length === 0 && (
-                   <div className="col-span-full p-8 text-center text-gray-400 italic text-sm">
-                       Not enough data to determine trends.
+               {stats.recent.length === 0 && (
+                   <div className="p-8 text-center text-gray-400 italic text-sm">
+                       No activity recorded yet.
                    </div>
                )}
            </div>

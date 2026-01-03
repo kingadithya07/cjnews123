@@ -27,6 +27,9 @@ function App() {
   const [isRecovering, setIsRecovering] = useState(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
   
+  // Real-time Analytics State
+  const [activeVisitors, setActiveVisitors] = useState<number>(1);
+
   // Persistence states
   const [articles, setArticles] = useState<Article[]>([]);
   const [ePaperPages, setEPaperPages] = useState<EPaperPage[]>([]);
@@ -46,6 +49,34 @@ function App() {
     backgroundColor: '#1a1a1a',
     textColor: '#bfa17b'
   });
+
+  // --- REAL-TIME VISITOR TRACKING (PRESENCE) ---
+  useEffect(() => {
+    // Unique channel name for the app
+    const channel = supabase.channel('cj_newsroom_visitors');
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const newState = channel.presenceState();
+        // Count distinct presence IDs (connected clients)
+        const count = Object.keys(newState).length;
+        setActiveVisitors(count > 0 ? count : 1);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          // Track this client
+          await channel.track({ 
+            online_at: new Date().toISOString(),
+            device_id: getDeviceId(),
+            role: userRole 
+          });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userRole]);
 
   // --- DEVICE MANAGEMENT (DB TABLE) ---
   const fetchDevices = async () => {
@@ -171,7 +202,8 @@ function App() {
           summary: a.summary,
           isPremium: a.isPremium || a.is_premium || false,
           isFeatured: a.isFeatured || a.is_featured || false,
-          isEditorsChoice: a.isEditorsChoice || a.is_editors_choice || false
+          isEditorsChoice: a.isEditorsChoice || a.is_editors_choice || false,
+          views: a.views || 0 // Map views from DB
         })) as Article[]);
       }
 
@@ -581,7 +613,9 @@ function App() {
         onRejectDevice={(id) => handleRevokeDevice(id)} 
         onRevokeDevice={handleRevokeDevice}
         // Pass userId to EditorDashboard for isolated gallery handling
-        userId={userId} 
+        userId={userId}
+        // Pass Active Visitors Prop
+        activeVisitors={activeVisitors}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard 

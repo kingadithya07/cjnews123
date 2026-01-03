@@ -6,6 +6,7 @@ import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
 import { createSlug } from '../utils';
+import { supabase } from '../supabaseClient';
 
 interface ArticleViewProps {
   articles: Article[];
@@ -67,6 +68,30 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
       
       setMoreArticles(remaining.slice(0, 4));
     }
+  }, [articleId, articles]);
+
+  // Track View Count
+  useEffect(() => {
+      const incrementView = async () => {
+          if (!articleId) return;
+          try {
+              // Attempt to increment view in DB
+              const { data } = await supabase.from('articles').select('views').eq('id', articleId).single();
+              // If data exists, update it. Note: 'views' column must exist in DB.
+              // If it doesn't exist, this will just fail silently in the background which is acceptable for a prototype.
+              if (data) {
+                  await supabase.from('articles').update({ views: (data.views || 0) + 1 }).eq('id', articleId);
+              }
+          } catch (e) {
+              // Ignore errors if views column missing or network issue
+              console.warn("Could not increment view count", e);
+          }
+      };
+      
+      // Only increment if we actually found the article object in props first
+      if (articles.find(a => a.id === articleId)) {
+          incrementView();
+      }
   }, [articleId, articles]);
 
   const getPermalink = () => {

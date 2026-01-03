@@ -19,6 +19,16 @@ interface RichTextEditorProps {
   userId?: string | null; // Pass userId for isolated gallery
 }
 
+const rgbToHex = (color: string) => {
+    if (!color) return '#000000';
+    if (color.startsWith('#')) return color;
+    const rgb = color.match(/\d+/g);
+    if (rgb && rgb.length >= 3) {
+        return "#" + ((1 << 24) + (parseInt(rgb[0]) << 16) + (parseInt(rgb[1]) << 8) + parseInt(rgb[2])).toString(16).slice(1);
+    }
+    return '#000000';
+};
+
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onImageUpload, placeholder, className, userId }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -26,6 +36,19 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
   const [showGallery, setShowGallery] = useState(false);
   const [isFormatPainting, setIsFormatPainting] = useState(false);
   const [copiedStyle, setCopiedStyle] = useState<any>(null);
+  
+  // Format State
+  const [activeFormats, setActiveFormats] = useState({
+      bold: false,
+      italic: false,
+      underline: false,
+      alignLeft: false,
+      alignCenter: false,
+      alignRight: false,
+      alignJustify: false,
+      color: '#000000',
+      fontSize: 16
+  });
   
   // Font Size Menu State
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
@@ -59,26 +82,64 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     };
   }, []);
 
+  const updateActiveFormats = () => {
+      if (!editorRef.current) return;
+      
+      // Basic Formatting
+      const bold = document.queryCommandState('bold');
+      const italic = document.queryCommandState('italic');
+      const underline = document.queryCommandState('underline');
+      const alignLeft = document.queryCommandState('justifyLeft');
+      const alignCenter = document.queryCommandState('justifyCenter');
+      const alignRight = document.queryCommandState('justifyRight');
+      const alignJustify = document.queryCommandState('justifyFull');
+      
+      // Color
+      const colorVal = document.queryCommandValue('foreColor');
+      const color = rgbToHex(colorVal);
+
+      // Font Size (Computed from Selection)
+      let fontSize = 16;
+      const selection = window.getSelection();
+      if (selection && selection.anchorNode) {
+          // If anchor is text node, look at parent. If element, look at it.
+          const node = selection.anchorNode.nodeType === 3 
+              ? selection.anchorNode.parentElement 
+              : selection.anchorNode as HTMLElement;
+          
+          if (node) {
+              // Ensure we are inside the editor
+              if (editorRef.current.contains(node) || editorRef.current === node) {
+                  const style = window.getComputedStyle(node);
+                  const sizePx = style.fontSize; // e.g., "16px"
+                  if (sizePx && sizePx.endsWith('px')) {
+                      fontSize = parseInt(sizePx, 10);
+                  }
+              }
+          }
+      }
+
+      setActiveFormats({
+          bold, italic, underline, alignLeft, alignCenter, alignRight, alignJustify, color, fontSize
+      });
+  };
+
   const exec = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
     if (editorRef.current) {
         onChange(editorRef.current.innerHTML);
     }
     editorRef.current?.focus();
+    updateActiveFormats();
   };
   
   const changeFontSize = (size: number) => {
       // Robust way to set specific pixel font size in contentEditable
-      // 1. Enable CSS styling mode
       document.execCommand('styleWithCSS', false, 'true');
-      // 2. Set font size to 7 (largest) as a temporary marker
-      document.execCommand('fontSize', false, '7');
-      // 3. Disable CSS styling mode
+      document.execCommand('fontSize', false, '7'); // Max size as marker
       document.execCommand('styleWithCSS', false, 'false');
       
-      // 4. Find the elements we just created and apply specific pixel size
       if (editorRef.current) {
-          // Selectors for elements created by execCommand('fontSize', '7')
           const fontElements = editorRef.current.querySelectorAll('font[size="7"], span[style*="font-size: -webkit-xxx-large"], span[style*="font-size: xxx-large"]');
           fontElements.forEach((el) => {
               el.removeAttribute('size');
@@ -87,12 +148,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           onChange(editorRef.current.innerHTML);
       }
       setShowFontSizeMenu(false);
+      updateActiveFormats();
   };
 
   const handleInput = () => {
     if (editorRef.current) {
       onChange(editorRef.current.innerHTML);
     }
+    updateActiveFormats();
   };
   
   const handleGallerySelect = (url: string) => {
@@ -112,7 +175,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     }
 
     if (isFormatPainting && copiedStyle) {
-        // Simple heuristic for format painting
         const selection = window.getSelection();
         if (selection && !selection.isCollapsed) {
              if (copiedStyle.bold) exec('bold');
@@ -123,6 +185,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
              setCopiedStyle(null);
         }
     }
+    updateActiveFormats();
+  };
+
+  const handleEditorKeyUp = () => {
+      updateActiveFormats();
   };
 
   const handleFormatPainterClick = () => {
@@ -166,19 +233,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     };
   };
 
-  /**
-   * Logic to allow "Double Long Press" for context menu.
-   * First long press (or right click) is blocked to prevent interference with selection handles.
-   * A second press within 2 seconds is allowed through.
-   */
   const handleContextMenu = (e: React.MouseEvent) => {
       const now = Date.now();
-      // Threshold of 2000ms (2 seconds) to consider it a "repeat" attempt
       if (now - lastContextMenuTime.current < 2000) {
-          // Allow the menu (User really wants it)
-          lastContextMenuTime.current = 0; // Reset
+          lastContextMenuTime.current = 0;
       } else {
-          // Block the menu (Assume user just wants to move selection handles)
           e.preventDefault();
           lastContextMenuTime.current = now;
       }
@@ -209,11 +268,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           isOpen={showGallery}
           onClose={() => setShowGallery(false)}
           onSelectImage={handleGallerySelect}
-          userId={userId} // Pass down ID for isolation
+          userId={userId} 
       />
       <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg bg-white ${className}`}>
         
-        {/* Toolbar - Wrapped for mobile responsiveness */}
+        {/* Toolbar */}
         <div className="sticky top-0 z-[20] flex flex-wrap items-center gap-x-1 gap-y-2 p-2 border-b border-gray-200 bg-gray-50 shadow-sm">
           
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
@@ -222,25 +281,25 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           </div>
 
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0 relative" data-fontsize-menu>
-              {/* Font Size Dropdown Trigger */}
+              {/* Font Size Dropdown Trigger - Displays current pixel size */}
               <button 
                   type="button"
                   onMouseDown={(e) => { e.preventDefault(); setShowFontSizeMenu(!showFontSizeMenu); }}
-                  className={`p-1.5 rounded transition-colors shrink-0 flex items-center gap-0.5 ${showFontSizeMenu ? 'bg-gray-200 text-black' : 'text-gray-500 hover:text-black hover:bg-gray-200'}`}
+                  className={`px-2 py-1.5 rounded transition-colors shrink-0 flex items-center gap-1.5 text-xs font-bold ${showFontSizeMenu ? 'bg-gray-200 text-black' : 'text-gray-600 hover:text-black hover:bg-gray-200 bg-white border border-gray-200'}`}
                   title="Font Size"
               >
-                  <Type size={16} />
+                  <span>{activeFormats.fontSize}px</span>
                   <ChevronDown size={10} />
               </button>
               
               {/* Font Size Dropdown Menu */}
               {showFontSizeMenu && (
-                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-xl z-50 flex flex-col w-20 py-1">
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-xl z-50 flex flex-col w-20 py-1 max-h-60 overflow-y-auto">
                       {[12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32, 48].map(size => (
                           <button
                               key={size}
                               onMouseDown={(e) => { e.preventDefault(); changeFontSize(size); }}
-                              className="px-3 py-1.5 text-left hover:bg-gray-100 text-xs font-bold text-gray-700"
+                              className={`px-3 py-1.5 text-left hover:bg-gray-100 text-xs font-bold ${activeFormats.fontSize === size ? 'bg-news-gold/10 text-news-gold' : 'text-gray-700'}`}
                           >
                               {size}px
                           </button>
@@ -248,13 +307,22 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
                   </div>
               )}
 
-              <ToolbarButton icon={Bold} command="bold" title="Bold" />
-              <ToolbarButton icon={Italic} command="italic" title="Italic" />
-              <ToolbarButton icon={Underline} command="underline" title="Underline" />
-              <div className="relative flex items-center justify-center w-7 h-7 overflow-hidden rounded hover:bg-gray-200 transition-colors shrink-0">
-                  <Palette size={16} className="text-gray-500 pointer-events-none absolute" />
-                  <input type="color" onChange={(e) => exec('foreColor', e.target.value)} className="opacity-0 w-full h-full cursor-pointer z-10" title="Text Color" />
+              <ToolbarButton icon={Bold} command="bold" title="Bold" active={activeFormats.bold} />
+              <ToolbarButton icon={Italic} command="italic" title="Italic" active={activeFormats.italic} />
+              <ToolbarButton icon={Underline} command="underline" title="Underline" active={activeFormats.underline} />
+              
+              {/* Color Picker with dynamic icon color */}
+              <div className="relative flex items-center justify-center w-7 h-7 overflow-hidden rounded hover:bg-gray-200 transition-colors shrink-0 group">
+                  <Palette size={16} style={{ color: activeFormats.color }} className="pointer-events-none absolute transition-colors" />
+                  <input 
+                    type="color" 
+                    value={activeFormats.color} 
+                    onChange={(e) => exec('foreColor', e.target.value)} 
+                    className="opacity-0 w-full h-full cursor-pointer z-10" 
+                    title="Text Color" 
+                  />
               </div>
+              
               <button type="button" onMouseDown={(e) => { e.preventDefault(); handleFormatPainterClick(); }} className={`p-1.5 rounded transition-colors shrink-0 ${isFormatPainting ? 'bg-news-accent text-white animate-pulse' : 'text-gray-500 hover:text-black hover:bg-gray-200'}`} title="Format Painter">
                   <Paintbrush size={16} />
               </button>
@@ -275,10 +343,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           </div>
 
           <div className="flex gap-0.5 border-r border-gray-300 pr-2 mr-1 shrink-0">
-              <ToolbarButton icon={AlignLeft} command="justifyLeft" title="Align Left" />
-              <ToolbarButton icon={AlignCenter} command="justifyCenter" title="Align Center" />
-              <ToolbarButton icon={AlignRight} command="justifyRight" title="Align Right" />
-              <ToolbarButton icon={AlignJustify} command="justifyFull" title="Justify" />
+              <ToolbarButton icon={AlignLeft} command="justifyLeft" title="Align Left" active={activeFormats.alignLeft} />
+              <ToolbarButton icon={AlignCenter} command="justifyCenter" title="Align Center" active={activeFormats.alignCenter} />
+              <ToolbarButton icon={AlignRight} command="justifyRight" title="Align Right" active={activeFormats.alignRight} />
+              <ToolbarButton icon={AlignJustify} command="justifyFull" title="Justify" active={activeFormats.alignJustify} />
           </div>
 
           <div className="flex gap-0.5 shrink-0">
@@ -294,6 +362,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           contentEditable
           onInput={handleInput}
           onClick={handleEditorClick}
+          onKeyUp={handleEditorKeyUp}
           onContextMenu={handleContextMenu}
           suppressContentEditableWarning
           spellCheck={false}

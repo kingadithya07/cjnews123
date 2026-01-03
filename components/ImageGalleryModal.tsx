@@ -32,11 +32,26 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
     const BUCKET_NAME = 'images';
 
     const getFoldersToFetch = () => {
-        const baseFolders = ['gallery', 'articles', 'ads', 'branding'];
-        if (userId) {
-            return baseFolders.map(f => `users/${userId}/${f}`);
+        // Determine folders based on context to ensure isolation (e.g., Ads shouldn't see Article images)
+        let targetFolders = [uploadFolder];
+
+        // Exception: Articles usually benefit from access to general 'gallery' assets too
+        if (uploadFolder === 'articles') {
+            targetFolders.push('gallery');
         }
-        return [...baseFolders, 'avatars'];
+        
+        // Exception: If looking at root 'gallery', maybe show 'branding' too
+        if (uploadFolder === 'gallery') {
+            targetFolders.push('branding');
+        }
+
+        // Apply User ID isolation prefix if present
+        if (userId) {
+            return targetFolders.map(f => `users/${userId}/${f}`);
+        }
+        
+        // Fallback for global/admin assets if no user ID
+        return targetFolders;
     };
 
     const fetchImages = async () => {
@@ -216,7 +231,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
 
     useEffect(() => {
         if (isOpen) fetchImages();
-    }, [isOpen, userId]);
+    }, [isOpen, userId, uploadFolder]);
 
     const getPublicUrl = (imagePath: string): string => {
         const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(imagePath);
