@@ -222,24 +222,36 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     </h2>
                 )}
 
-                {/* Profile Name, Date, Duration in Straight Line */}
-                <div className="flex items-center border-y border-gray-200 py-4 gap-4 flex-wrap">
-                    <div className="w-8 h-8 md:w-10 md:h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-400 shrink-0 overflow-hidden">
+                {/* Profile Name, Date, Duration, Word Count */}
+                <div className="flex items-start md:items-center border-y border-gray-200 py-4 gap-3 md:gap-4">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-400 shrink-0 overflow-hidden mt-0.5 md:mt-0">
                         {article.authorAvatar ? (
                             <img src={article.authorAvatar} alt={authorName} className="w-full h-full object-cover" />
                         ) : (
-                            <User size={18} />
+                            <User size={20} />
                         )}
                     </div>
                     
-                    <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-600 font-medium">
-                        <span className="font-bold text-gray-900 uppercase tracking-wide">{authorName}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="flex items-center whitespace-nowrap"><Calendar size={14} className="mr-1.5 text-news-gold"/> {safeFormat(article.publishedAt, 'MMM d, yyyy')}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="flex items-center whitespace-nowrap"><Clock size={14} className="mr-1.5 text-news-gold"/> {readTime} min read</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="flex items-center whitespace-nowrap"><AlignLeft size={14} className="mr-1.5 text-news-gold"/> {wordCount} words</span>
+                    <div className="flex flex-col md:flex-row md:items-center w-full">
+                        {/* Author */}
+                        <div className="flex items-center mb-1.5 md:mb-0">
+                            <span className="font-bold text-gray-900 uppercase tracking-wide text-xs md:text-sm">{authorName}</span>
+                            <span className="hidden md:inline text-gray-300 mx-4">|</span>
+                        </div>
+                        
+                        <div className="flex flex-col md:flex-row md:items-center md:gap-4">
+                            <div className="flex items-center gap-3 text-xs text-gray-600 font-medium flex-wrap leading-none">
+                                <span className="flex items-center whitespace-nowrap"><Calendar size={14} className="mr-1.5 text-news-gold"/> {safeFormat(article.publishedAt, 'MMM d, yyyy')}</span>
+                                <span className="text-gray-300 md:hidden">•</span>
+                                <span className="hidden md:inline text-gray-300">|</span>
+                                <span className="flex items-center whitespace-nowrap"><Clock size={14} className="mr-1.5 text-news-gold"/> {readTime} min read</span>
+                            </div>
+                            
+                            <div className="flex items-center mt-2 md:mt-0 text-xs text-gray-600 font-medium leading-none">
+                                <span className="hidden md:inline text-gray-300 mr-4">|</span>
+                                <span className="flex items-center whitespace-nowrap"><AlignLeft size={14} className="mr-1.5 text-news-gold"/> {wordCount} words</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -261,6 +273,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
               className="prose prose-slate max-w-none w-full font-serif text-gray-800 
               !leading-snug md:!leading-loose 
               !text-left 
+              hyphens-auto
               [&_*]:!text-left
               [&_p]:!mb-4 md:[&_p]:!mb-6 
               [&_p]:!mt-0
