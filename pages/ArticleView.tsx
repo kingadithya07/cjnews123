@@ -183,10 +183,10 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
         globalAdsEnabled={globalAdsEnabled}
       />
 
-      <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12 px-4 md:px-0">
+      <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12 px-4 md:px-0 w-full">
         
         {/* Main Content Column */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
             {/* Navigation */}
             <Link to="/" onNavigate={onNavigate} className="inline-flex items-center text-gray-500 hover:text-news-accent hover:underline my-8 transition-colors text-sm font-medium">
             <ArrowLeft size={16} className="mr-1" /> Back to Headlines
@@ -257,7 +257,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
             {/* Article Content - Enforcing 14px on mobile via prose modifiers, falling back to regular size on desktop */}
             <article 
-              className="prose prose-slate max-w-none font-serif text-gray-800 leading-loose mb-12 prose-p:text-[14px] md:prose-p:text-[17px] prose-li:text-[14px] md:prose-li:text-[17px] prose-headings:font-serif" 
+              className="prose prose-slate max-w-none w-full font-serif text-gray-800 leading-loose mb-12 prose-p:text-[14px] md:prose-p:text-[17px] prose-li:text-[14px] md:prose-li:text-[17px] prose-headings:font-serif break-words" 
               dangerouslySetInnerHTML={{ __html: article.content }} 
             />
 

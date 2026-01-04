@@ -147,7 +147,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   if (isDashboard) return <div className="min-h-screen bg-gray-50">{children}</div>;
 
   return (
-    <div className="min-h-screen flex flex-col bg-news-paper">
+    <div className="min-h-screen flex flex-col bg-news-paper overflow-x-hidden w-full">
       
       {/* TOP BAR: DATE & LOGIN */}
       <div className="bg-white border-b border-gray-100 py-2.5 px-4 md:px-6 flex justify-between items-center text-[10px] font-bold tracking-widest uppercase text-gray-400">
