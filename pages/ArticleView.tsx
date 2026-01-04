@@ -183,7 +183,8 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
         globalAdsEnabled={globalAdsEnabled}
       />
 
-      <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12 px-4 md:px-0 w-full">
+      {/* Main Container - Removed px-4 on mobile to prevent double padding with Layout */}
+      <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12 px-0 md:px-0 w-full">
         
         {/* Main Content Column */}
         <div className="flex-1 min-w-0">
@@ -258,16 +259,17 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
             {/* Article Content */}
             <article 
               className="prose prose-slate max-w-none w-full font-serif text-gray-800 
-              leading-normal md:leading-loose 
-              text-left 
-              [&_p]:text-left 
-              [&_p]:mb-3 md:[&_p]:mb-6 
-              [&_h1]:mt-4 md:[&_h1]:mt-8
-              [&_h2]:mt-4 md:[&_h2]:mt-8
-              [&_h3]:mt-3 md:[&_h3]:mt-6
-              [&_h4]:mt-3 md:[&_h4]:mt-6
-              prose-p:text-[16px] md:prose-p:text-[18px] 
-              prose-li:text-[16px] md:prose-li:text-[18px] 
+              !leading-snug md:!leading-loose 
+              !text-left 
+              [&_*]:!text-left
+              [&_p]:!mb-4 md:[&_p]:!mb-6 
+              [&_p]:!mt-0
+              [&_h1]:!mt-4 md:[&_h1]:!mt-8
+              [&_h2]:!mt-4 md:[&_h2]:!mt-8
+              [&_h3]:!mt-3 md:[&_h3]:!mt-6
+              [&_h4]:!mt-3 md:[&_h4]:!mt-6
+              prose-p:text-[17px] md:prose-p:text-[18px] 
+              prose-li:text-[17px] md:prose-li:text-[18px] 
               prose-headings:font-serif 
               break-words mb-8 md:mb-12" 
               dangerouslySetInnerHTML={{ __html: article.content }} 
