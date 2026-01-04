@@ -255,9 +255,21 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 </figcaption>
             </figure>
 
-            {/* Article Content - Enforcing 14px on mobile via prose modifiers, falling back to regular size on desktop */}
+            {/* Article Content */}
             <article 
-              className="prose prose-slate max-w-none w-full font-serif text-gray-800 leading-loose mb-12 prose-p:text-[14px] md:prose-p:text-[17px] prose-li:text-[14px] md:prose-li:text-[17px] prose-headings:font-serif break-words" 
+              className="prose prose-slate max-w-none w-full font-serif text-gray-800 
+              leading-normal md:leading-loose 
+              text-left 
+              [&_p]:text-left 
+              [&_p]:mb-3 md:[&_p]:mb-6 
+              [&_h1]:mt-4 md:[&_h1]:mt-8
+              [&_h2]:mt-4 md:[&_h2]:mt-8
+              [&_h3]:mt-3 md:[&_h3]:mt-6
+              [&_h4]:mt-3 md:[&_h4]:mt-6
+              prose-p:text-[16px] md:prose-p:text-[18px] 
+              prose-li:text-[16px] md:prose-li:text-[18px] 
+              prose-headings:font-serif 
+              break-words mb-8 md:mb-12" 
               dangerouslySetInnerHTML={{ __html: article.content }} 
             />
 
