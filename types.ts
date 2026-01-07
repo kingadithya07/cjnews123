@@ -42,6 +42,8 @@ export interface ReporterProfile {
   cardTemplate?: 'classic' | 'modern' | 'agency' | 'official'; // New field for ID card design preference
   emergencyContact?: string; // New field for official ID
   officeAddress?: string; // New field for official ID
+  signatureUrl?: string; // Uploaded authorized signature
+  stampUrl?: string; // Uploaded official stamp
 }
 
 export interface Article {

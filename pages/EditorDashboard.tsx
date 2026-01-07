@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, QrCode, CreditCard, Repeat
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, QrCode, CreditCard, Repeat, PenTool, Stamp
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -131,6 +131,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [showReporterModal, setShowReporterModal] = useState(false);
   const [activeReporter, setActiveReporter] = useState<Partial<ReporterProfile>>({});
   const [showProfileImageGallery, setShowProfileImageGallery] = useState(false);
+  const [imageSelectorTarget, setImageSelectorTarget] = useState<'photo' | 'signature' | 'stamp'>('photo');
   const [cardDisclaimer, setCardDisclaimer] = useState('This press ID is the property of the issuing organization. Unauthorized use of this ID is strictly prohibited. Holder of this ID must comply with journalistic ethics while reporting and is subject to company policies and procedures.');
   const [showCardBack, setShowCardBack] = useState(false);
 
@@ -389,7 +390,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               status: activeReporter.status || 'active',
               cardTemplate: activeReporter.cardTemplate || 'classic',
               emergencyContact: activeReporter.emergencyContact,
-              officeAddress: activeReporter.officeAddress
+              officeAddress: activeReporter.officeAddress,
+              signatureUrl: activeReporter.signatureUrl,
+              stampUrl: activeReporter.stampUrl
           };
           onSaveReporter(reporter);
           setShowReporterModal(false);
@@ -513,7 +516,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     <ImageGalleryModal 
         isOpen={showProfileImageGallery}
         onClose={() => setShowProfileImageGallery(false)}
-        onSelectImage={(url) => { setActiveReporter({...activeReporter, photoUrl: url}); setShowProfileImageGallery(false); }}
+        onSelectImage={(url) => { 
+            if (imageSelectorTarget === 'photo') setActiveReporter({...activeReporter, photoUrl: url});
+            else if (imageSelectorTarget === 'signature') setActiveReporter({...activeReporter, signatureUrl: url});
+            else if (imageSelectorTarget === 'stamp') setActiveReporter({...activeReporter, stampUrl: url});
+            setShowProfileImageGallery(false); 
+        }}
         uploadFolder="avatars"
         userId={userId}
     />
@@ -935,7 +943,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               <div className="w-20 h-20 rounded-full bg-gray-200 overflow-hidden border-2 border-gray-300 flex items-center justify-center shrink-0">
                                   {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="text-gray-400 w-10 h-10"/>}
                               </div>
-                              <button onClick={() => setShowProfileImageGallery(true)} className="px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center gap-2">
+                              <button onClick={() => { setImageSelectorTarget('photo'); setShowProfileImageGallery(true); }} className="px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center gap-2">
                                   <Camera size={14}/> Change Photo
                               </button>
                           </div>
@@ -948,6 +956,19 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   value={cardDisclaimer}
                                   onChange={(e) => setCardDisclaimer(e.target.value)}
                               ></textarea>
+                          </div>
+
+                          {/* Authorization Assets - Only relevant for Official/Backside */}
+                          <div className="pt-4 border-t border-gray-200">
+                              <h4 className="font-bold text-sm text-gray-800 mb-3">Authorization Assets</h4>
+                              <div className="flex gap-4">
+                                  <button onClick={() => { setImageSelectorTarget('signature'); setShowProfileImageGallery(true); }} className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center justify-center gap-2">
+                                      <PenTool size={14} /> {activeReporter.signatureUrl ? 'Update Signature' : 'Upload Signature'}
+                                  </button>
+                                  <button onClick={() => { setImageSelectorTarget('stamp'); setShowProfileImageGallery(true); }} className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center justify-center gap-2">
+                                      <Stamp size={14} /> {activeReporter.stampUrl ? 'Update Stamp' : 'Upload Stamp'}
+                                  </button>
+                              </div>
                           </div>
                       </div>
                   </div>
@@ -1236,21 +1257,26 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                   </div>
 
                                                   <div className="mt-auto flex justify-between items-end">
-                                                       {/* Stamp Placeholder */}
-                                                       <div className="w-20 h-20 border-2 border-red-200 rounded-full flex items-center justify-center transform -rotate-12 opacity-50">
-                                                           <span className="text-[8px] font-bold text-red-300 text-center uppercase">Official<br/>Stamp</span>
+                                                       {/* Stamp Placeholder or Image */}
+                                                       <div className="w-20 h-20 border-2 border-red-200 rounded-full flex items-center justify-center transform -rotate-12 overflow-hidden relative">
+                                                           {activeReporter.stampUrl ? (
+                                                               <img src={activeReporter.stampUrl} className="w-full h-full object-contain opacity-80" alt="Stamp" />
+                                                           ) : (
+                                                               <span className="text-[8px] font-bold text-red-300 text-center uppercase">Official<br/>Stamp</span>
+                                                           )}
                                                        </div>
 
                                                        <div className="text-right relative">
-                                                           {/* Signature Added Here */}
-                                                           <div className="absolute bottom-5 right-2 w-32 h-12 flex items-end justify-center pointer-events-none mix-blend-multiply">
-                                                               <img 
-                                                                   src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Signature_sample.svg/600px-Signature_sample.svg.png" 
-                                                                   className="w-full h-full object-contain opacity-90"
-                                                                   style={{ filter: 'brightness(0) saturate(100%) invert(18%) sepia(91%) saturate(2338%) hue-rotate(224deg) brightness(89%) contrast(93%)' }} // Simulates Blue Ink
-                                                                   alt="Authorized Signature" 
-                                                               />
-                                                           </div>
+                                                           {/* Signature if available */}
+                                                           {activeReporter.signatureUrl && (
+                                                               <div className="absolute bottom-5 right-0 w-32 h-12 flex items-end justify-end pointer-events-none mix-blend-multiply">
+                                                                   <img 
+                                                                       src={activeReporter.signatureUrl} 
+                                                                       className="max-w-full max-h-full object-contain"
+                                                                       alt="Authorized Signature" 
+                                                                   />
+                                                               </div>
+                                                           )}
                                                            <div className="w-48 border-b border-black mb-1"></div>
                                                            <h3 className="text-sm font-bold text-black uppercase">AUTHORIZED BY</h3>
                                                        </div>
