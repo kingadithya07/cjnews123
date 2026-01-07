@@ -44,6 +44,8 @@ export interface ReporterProfile {
   officeAddress?: string; // New field for official ID
   signatureUrl?: string; // Uploaded authorized signature
   stampUrl?: string; // Uploaded official stamp
+  logoUrl?: string; // Custom card logo
+  watermarkUrl?: string; // Custom card watermark
 }
 
 export interface Article {
