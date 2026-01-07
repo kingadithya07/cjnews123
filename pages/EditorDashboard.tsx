@@ -1,25 +1,26 @@
-
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement, ReporterProfile } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Article, EPaperPage, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, ReporterProfile, ArticleStatus, UserRole, AdSize, AdPlacement } from '../types';
 import { 
-  Trash2, Upload, Plus, FileText, Image as ImageIcon, 
-  Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, QrCode, CreditCard, Repeat, PenTool, Stamp
+  LayoutDashboard, FileText, Newspaper, Megaphone, Users, Settings, 
+  Plus, Search, Filter, Edit, Trash2, Save, X, Upload, 
+  User as UserIcon, CheckCircle, AlertCircle, Clock, Globe, LogOut, 
+  Menu, Shield, Check, Image as ImageIcon, Link as LinkIcon, 
+  Layout, Type, Palette, Printer, Repeat, Camera, PenTool, 
+  Stamp, Briefcase, DollarSign, MapPin, Tag, Eye, BarChart3,
+  Monitor, Smartphone, Tablet, ShieldCheck, Key, RefreshCcw
 } from 'lucide-react';
-import { format } from 'date-fns';
-import EPaperViewer from '../components/EPaperViewer';
-import RichTextEditor from '../components/RichTextEditor';
-import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import { generateId } from '../utils';
-import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
+import AnalyticsDashboard from '../components/AnalyticsDashboard';
+import { format } from 'date-fns';
+import { supabase } from '../supabaseClient';
 import CategorySelector from '../components/CategorySelector';
 
 interface EditorDashboardProps {
   articles: Article[];
   ePaperPages: EPaperPage[];
   categories: string[];
-  tags?: string[];
+  tags: string[];
   adCategories: string[];
   classifieds: ClassifiedAd[];
   advertisements: Advertisement[];
@@ -34,11 +35,11 @@ interface EditorDashboardProps {
   onSaveArticle: (article: Article) => void;
   onAddCategory: (category: string) => void;
   onDeleteCategory: (category: string) => void;
-  onAddTag?: (tag: string) => void;
-  onDeleteTag?: (tag: string) => void;
+  onAddTag: (tag: string) => void;
+  onDeleteTag: (tag: string) => void;
   onAddAdCategory: (category: string) => void;
   onDeleteAdCategory: (category: string) => void;
-  onSaveTaxonomy: () => Promise<void> | void;
+  onSaveTaxonomy: () => void;
   onAddClassified: (ad: ClassifiedAd) => void;
   onDeleteClassified: (id: string) => void;
   onAddAdvertisement: (ad: Advertisement) => void;
@@ -52,977 +53,582 @@ interface EditorDashboardProps {
   onRejectDevice: (id: string) => void;
   onRevokeDevice: (id: string) => void;
   userId?: string | null;
-  activeVisitors?: number; 
-  reporters?: ReporterProfile[];
-  onSaveReporter?: (reporter: ReporterProfile) => void;
-  onDeleteReporter?: (id: string) => void;
+  activeVisitors?: number;
+  reporters: ReporterProfile[];
+  onSaveReporter: (reporter: ReporterProfile) => void;
+  onDeleteReporter: (id: string) => void;
 }
 
 const EditorDashboard: React.FC<EditorDashboardProps> = ({ 
-  articles, ePaperPages, categories, tags = [], adCategories, classifieds, advertisements,
-  onAddPage, onDeletePage, onDeleteArticle, onSaveArticle, 
-  onAddCategory, onDeleteCategory, onAddTag, onDeleteTag, onAddAdCategory, onDeleteAdCategory, onSaveTaxonomy,
-  onAddClassified, onDeleteClassified, onAddAdvertisement, onUpdateAdvertisement, onDeleteAdvertisement,
-  onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar,
-  devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId, activeVisitors,
-  reporters = [], onSaveReporter, onDeleteReporter
+    articles, ePaperPages, categories, tags, adCategories, classifieds, advertisements, 
+    globalAdsEnabled, watermarkSettings, onToggleGlobalAds, onUpdateWatermarkSettings, 
+    onUpdatePage, onAddPage, onDeletePage, onDeleteArticle, onSaveArticle, 
+    onAddCategory, onDeleteCategory, onAddTag, onDeleteTag, onAddAdCategory, onDeleteAdCategory, 
+    onSaveTaxonomy, onAddClassified, onDeleteClassified, onAddAdvertisement, onUpdateAdvertisement, 
+    onDeleteAdvertisement, onNavigate, userAvatar, userName, devices, onApproveDevice, 
+    onRejectDevice, onRevokeDevice, userId, activeVisitors, reporters, onSaveReporter, onDeleteReporter 
 }) => {
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'ads' | 'taxonomy' | 'analytics' | 'settings' | 'idcards'>('articles');
+  
+  // Reporter State
+  const [showReporterModal, setShowReporterModal] = useState(false);
+  const [activeReporter, setActiveReporter] = useState<Partial<ReporterProfile>>({});
+  const [cardDisclaimer, setCardDisclaimer] = useState('This card is the property of CJ NEWSHUB. If found, please return to the nearest bureau.');
+  const [showCardBack, setShowCardBack] = useState(false);
+  const [showProfileImageGallery, setShowProfileImageGallery] = useState(false);
+  const [imageSelectorTarget, setImageSelectorTarget] = useState<'photo' | 'signature' | 'stamp'>('photo');
 
   // Article State
-  const [showArticleModal, setShowArticleModal] = useState(false);
-  const [editArticleId, setEditArticleId] = useState<string | null>(null);
-  const [modalTitle, setModalTitle] = useState('');
-  const [modalEnglishTitle, setModalEnglishTitle] = useState('');
-  const [modalSubline, setModalSubline] = useState('');
-  const [modalContent, setModalContent] = useState('');
-  const [modalAuthor, setModalAuthor] = useState('Editor');
-  const [modalCategories, setModalCategories] = useState<string[]>([]);
-  const [modalImageUrl, setModalImageUrl] = useState('');
-  const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
-  const [modalIsFeatured, setModalIsFeatured] = useState(false);
-  const [showImageGallery, setShowImageGallery] = useState(false);
-  const [showCategorySelector, setShowCategorySelector] = useState(false);
-  const [isTranslating, setIsTranslating] = useState(false);
-  
-  // E-Paper State
-  const [showAddPageModal, setShowAddPageModal] = useState(false);
-  const [newPageDate, setNewPageDate] = useState(new Date().toISOString().split('T')[0]);
-  const [newPageNumber, setNewPageNumber] = useState(1);
-  const [newPageImage, setNewPageImage] = useState('');
-  const [isPageUploading, setIsPageUploading] = useState(false);
-  
-  // E-Paper Dashboard Filter
-  const availableEpaperDates = useMemo(() => {
-      const dates = Array.from(new Set(ePaperPages.map(p => p.date))).sort().reverse();
-      return dates;
-  }, [ePaperPages]);
-  
-  const [epaperFilterDate, setEpaperFilterDate] = useState<string>(availableEpaperDates[0] || new Date().toISOString().split('T')[0]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
-  useEffect(() => {
-      if (availableEpaperDates.length > 0 && !availableEpaperDates.includes(epaperFilterDate)) {
-          setEpaperFilterDate(availableEpaperDates[0]);
-      }
-  }, [availableEpaperDates]);
-
-  const filteredPages = useMemo(() => {
-      return ePaperPages.filter(p => p.date === epaperFilterDate).sort((a, b) => a.pageNumber - b.pageNumber);
-  }, [ePaperPages, epaperFilterDate]);
-
-
-  // Classifieds & Ads Forms
-  const [showAdModal, setShowAdModal] = useState(false);
-  const [newAd, setNewAd] = useState<Partial<Advertisement>>({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true });
-  const [isCustomSize, setIsCustomSize] = useState(false);
-  const [showClassifiedModal, setShowClassifiedModal] = useState(false);
-  const [newClassified, setNewClassified] = useState<Partial<ClassifiedAd>>({});
-  const [showAdImageGallery, setShowAdImageGallery] = useState(false);
-  const [editingAdId, setEditingAdId] = useState<string | null>(null);
-
-  // Taxonomy State
+  // Settings State
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'watermark' | 'taxonomy' | 'security'>('watermark');
   const [newCategory, setNewCategory] = useState('');
   const [newTag, setNewTag] = useState('');
   const [newAdCategory, setNewAdCategory] = useState('');
-  const [isSavingTaxonomy, setIsSavingTaxonomy] = useState(false);
+  
+  // E-Paper State
+  const [showPageUpload, setShowPageUpload] = useState(false);
+  const [newPageDate, setNewPageDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newPageNumber, setNewPageNumber] = useState(1);
+  const [isUploadingPage, setIsUploadingPage] = useState(false);
 
-  // ID Cards State
-  const [showReporterModal, setShowReporterModal] = useState(false);
-  const [activeReporter, setActiveReporter] = useState<Partial<ReporterProfile>>({});
-  const [showProfileImageGallery, setShowProfileImageGallery] = useState(false);
-  const [imageSelectorTarget, setImageSelectorTarget] = useState<'photo' | 'signature' | 'stamp'>('photo');
-  const [cardDisclaimer, setCardDisclaimer] = useState('This press ID is the property of the issuing organization. Unauthorized use of this ID is strictly prohibited. Holder of this ID must comply with journalistic ethics while reporting and is subject to company policies and procedures.');
-  const [showCardBack, setShowCardBack] = useState(false);
-
-  // Settings State
-  const [profileName, setProfileName] = useState(userName || '');
-  const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
-  const [newPassword, setNewPassword] = useState('');
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [isSavingBranding, setIsSavingBranding] = useState(false);
-  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
-  const [isLogoUploading, setIsLogoUploading] = useState(false);
-  const [watermarkText, setWatermarkText] = useState(watermarkSettings.text);
-  const [watermarkLogo, setWatermarkLogo] = useState(watermarkSettings.logoUrl);
-  const [watermarkFontSize, setWatermarkFontSize] = useState(watermarkSettings.fontSize || 30);
-  const [isSavingDevices, setIsSavingDevices] = useState(false);
-
-  // Custom API State
-  const [customApiKey, setCustomApiKey] = useState('');
-  const [showKeyInput, setShowKeyInput] = useState(false);
-
-  // Load custom key on mount
-  useEffect(() => {
-      const storedKey = localStorage.getItem('newsroom_custom_api_key');
-      if (storedKey) setCustomApiKey(storedKey);
-  }, []);
-
-  const handleSaveApiKey = () => {
-      localStorage.setItem('newsroom_custom_api_key', customApiKey);
-      setShowKeyInput(false);
-      alert("API Key saved locally.");
-  };
-
-  useEffect(() => {
-    setWatermarkText(watermarkSettings.text);
-    setWatermarkLogo(watermarkSettings.logoUrl);
-    setWatermarkFontSize(watermarkSettings.fontSize || 30);
-  }, [watermarkSettings]);
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void, folder: string = 'gallery') => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      loader(true);
-      try {
-          const fileExt = file.name.split('.').pop();
-          const folderPrefix = userId ? `users/${userId}/` : '';
-          const fileName = `${folderPrefix}${folder}/${generateId()}.${fileExt}`;
-          
-          const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
-          if (uploadError) throw uploadError;
-          const { data } = supabase.storage.from('images').getPublicUrl(fileName);
-          setter(data.publicUrl);
-      } catch (error: any) {
-          alert("Upload failed: " + error.message);
-      } finally {
-          loader(false);
-      }
-  };
-
-  const handleContentImageUpload = async (file: File): Promise<string> => {
-      const fileExt = file.name.split('.').pop();
-      const folderPrefix = userId ? `users/${userId}/` : '';
-      const fileName = `${folderPrefix}articles/${generateId()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
-      if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from('images').getPublicUrl(fileName);
-      return data.publicUrl;
-  };
-
-  const openNewArticle = () => {
-      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setShowArticleModal(true);
-  };
-
-  const openEditArticle = (article: Article) => {
-      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setShowArticleModal(true);
-  };
-
-  const handleTranslateTitle = async () => {
-      if (!modalTitle) return;
-      
-      const keyToUse = customApiKey;
-      
-      if (!keyToUse) {
-          const proceed = confirm("Translation requires a third-party API Key. Would you like to configure it now in Settings?");
-          if (proceed) {
-              setShowArticleModal(false);
-              setActiveTab('settings');
-          }
-          return;
-      }
-
-      setIsTranslating(true);
-      try {
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keyToUse}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  contents: [{
-                      parts: [{
-                          text: `Translate this news headline to concise English for SEO purposes. Return only the translated string, no quotes: "${modalTitle}"`
-                      }]
-                  }]
-              })
-          });
-
-          const data = await response.json();
-          
-          if (data.error) {
-              throw new Error(data.error.message || "API Error");
-          }
-
-          const translated = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-          if (translated) {
-              setModalEnglishTitle(translated);
-          } else {
-              throw new Error("No translation returned.");
-          }
-      } catch (e: any) {
-          console.error("Translation failed", e);
-          alert(`Auto-translation failed: ${e.message}. Please enter manually or check your API Key.`);
-      } finally {
-          setIsTranslating(false);
-      }
-  };
-
-  const handleSaveArticleInternal = () => {
-      if (!modalTitle) { alert("Title required"); return; }
-      const article: Article = {
-          id: editArticleId || generateId(),
-          userId: userId || undefined,
-          title: modalTitle,
-          englishTitle: modalEnglishTitle,
-          subline: modalSubline,
-          author: modalAuthor,
-          content: modalContent,
-          categories: modalCategories.length > 0 ? modalCategories : ['General'],
-          imageUrl: modalImageUrl || 'https://picsum.photos/800/400',
-          publishedAt: new Date().toISOString(),
-          status: modalStatus,
-          isFeatured: modalIsFeatured,
-          isEditorsChoice: false,
-          authorAvatar: userAvatar || undefined
-      };
-      onSaveArticle(article);
-      setShowArticleModal(false);
-  };
-
-  const handleUploadPage = async () => {
-      if (!newPageImage) { alert("Please select an image"); return; }
-      setIsPageUploading(true);
-      try {
-          const page: EPaperPage = {
-              id: generateId(),
-              date: newPageDate,
-              pageNumber: newPageNumber,
-              imageUrl: newPageImage,
-              regions: []
-          };
-          onAddPage(page);
-          setShowAddPageModal(false);
-          setNewPageImage('');
-      } catch (e) {
-          alert("Error adding page");
-      } finally {
-          setIsPageUploading(false);
-      }
-  };
-
-  const handleSaveTaxonomyInternal = async () => {
-      setIsSavingTaxonomy(true);
-      try {
-          await onSaveTaxonomy();
-          alert("Taxonomy saved successfully.");
-      } catch(e) {
-          alert("Error saving taxonomy.");
-      } finally {
-          setIsSavingTaxonomy(false);
-      }
-  };
-
-  const handleSaveAd = () => {
-      if (!newAd.title || !newAd.imageUrl) {
-          alert("Title and Image are required.");
-          return;
-      }
-      
-      const adPayload: Advertisement = {
-          id: editingAdId || generateId(),
-          title: newAd.title!,
-          imageUrl: newAd.imageUrl!,
-          linkUrl: newAd.linkUrl,
-          size: newAd.size as AdSize,
-          customWidth: isCustomSize ? newAd.customWidth : undefined,
-          customHeight: isCustomSize ? newAd.customHeight : undefined,
-          placement: newAd.placement as AdPlacement,
-          targetCategory: newAd.targetCategory,
-          isActive: newAd.isActive !== undefined ? newAd.isActive : true
-      };
-
-      if (editingAdId) {
-          onUpdateAdvertisement(adPayload);
-      } else {
-          onAddAdvertisement(adPayload);
-      }
-      
-      setShowAdModal(false);
-      setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true });
-      setEditingAdId(null);
-      setIsCustomSize(false);
-  };
-
-  const handleEditAd = (ad: Advertisement) => {
-      setNewAd({ ...ad });
-      setEditingAdId(ad.id);
-      setIsCustomSize(!!(ad.customWidth || ad.customHeight));
-      setShowAdModal(true);
-  };
-
-  const handleAddClassified = () => {
-      if (!newClassified.title || !newClassified.content || !newClassified.category) {
-          alert("Title, Content and Category are required.");
-          return;
-      }
-      onAddClassified({
-          id: generateId(),
-          title: newClassified.title,
-          category: newClassified.category,
-          content: newClassified.content,
-          price: newClassified.price,
-          location: newClassified.location,
-          contactInfo: newClassified.contactInfo || '',
-          postedAt: new Date().toISOString()
-      });
-      setShowClassifiedModal(false);
-      setNewClassified({});
-  };
-
-  const handleSaveReporterInternal = () => {
-      if (!activeReporter.fullName || !activeReporter.role || !activeReporter.photoUrl) {
-          alert("Name, Role and Photo are required.");
-          return;
-      }
-      if (onSaveReporter) {
-          const reporter: ReporterProfile = {
-              id: activeReporter.id || generateId(),
-              fullName: activeReporter.fullName,
-              role: activeReporter.role,
-              department: activeReporter.department || 'General',
-              idNumber: activeReporter.idNumber || `CJ-${Math.floor(1000 + Math.random() * 9000)}`,
-              bloodGroup: activeReporter.bloodGroup,
-              phone: activeReporter.phone,
-              email: activeReporter.email || 'staff@cjnewshub.com',
-              photoUrl: activeReporter.photoUrl,
-              joinedAt: activeReporter.joinedAt || new Date().toISOString(),
-              validUntil: activeReporter.validUntil || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
-              location: activeReporter.location || 'Headquarters',
-              status: activeReporter.status || 'active',
-              cardTemplate: activeReporter.cardTemplate || 'classic',
-              emergencyContact: activeReporter.emergencyContact,
-              officeAddress: activeReporter.officeAddress,
-              signatureUrl: activeReporter.signatureUrl,
-              stampUrl: activeReporter.stampUrl
-          };
-          onSaveReporter(reporter);
-          setShowReporterModal(false);
-          setActiveReporter({});
-      }
-  };
-
-  const handleEditReporter = (rep: ReporterProfile) => {
-      setActiveReporter(rep);
-      setShowReporterModal(true);
-  };
+  // Filtered Articles
+  const filteredArticles = articles.filter(a => {
+      const matchesSearch = a.title.toLowerCase().includes(searchTerm.toLowerCase()) || a.author.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'ALL' || a.status === statusFilter;
+      return matchesSearch && matchesStatus;
+  });
 
   const handlePrintCard = () => {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-          const cardHtml = document.getElementById('id-card-preview')?.innerHTML || '';
-          // Note: Printing only captures the current side (front/back) visible in the DOM
-          printWindow.document.write(`
-              <html>
-                  <head>
-                      <title>Print ID Card</title>
-                      <link href="https://cdn.tailwindcss.com" rel="stylesheet">
-                      <style>
-                          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Playfair+Display:wght@700&display=swap');
-                          body { font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fff; }
-                          .print-container { transform: scale(1); }
-                          @media print {
-                              body { background: none; }
-                              .print-container { transform: scale(1); }
-                          }
-                      </style>
-                  </head>
-                  <body>
-                      <div class="print-container">${cardHtml}</div>
-                      <script>
-                          setTimeout(() => { window.print(); window.close(); }, 500);
-                      </script>
-                  </body>
-              </html>
+    const printContent = document.getElementById('id-card-preview');
+    if (printContent) {
+        const win = window.open('', '', 'height=700,width=1000');
+        if (win) {
+          win.document.write('<html><head><title>Print ID Card</title>');
+          // Inject basic styles for proper printing layout
+          win.document.write(`
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              @page { size: auto; margin: 0mm; }
+              body { margin: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: white; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            </style>
           `);
-          printWindow.document.close();
-      }
-  };
-
-  const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
-    try {
-      const updates: any = { 
-        data: { 
-          full_name: profileName,
-          avatar_url: profileAvatar
-        } 
-      };
-      if (newPassword) {
-        updates.password = newPassword;
-      }
-      const { error } = await supabase.auth.updateUser(updates);
-      if (error) throw error;
-      alert("Settings updated successfully!");
-      setNewPassword('');
-    } catch (err: any) {
-      alert("Error updating profile: " + err.message);
-    } finally {
-      setIsSavingSettings(false);
+          win.document.write('</head><body>');
+          win.document.write(printContent.outerHTML);
+          win.document.write('</body></html>');
+          win.document.close();
+          // Delay print to allow styles to load
+          setTimeout(() => {
+              win.print();
+              win.close();
+          }, 500);
+        }
     }
   };
 
-  const handleForceSaveDevices = async () => {
-      setIsSavingDevices(true);
+  const handleSelectImage = (url: string) => {
+      if (imageSelectorTarget === 'photo') setActiveReporter({ ...activeReporter, photoUrl: url });
+      if (imageSelectorTarget === 'signature') setActiveReporter({ ...activeReporter, signatureUrl: url });
+      if (imageSelectorTarget === 'stamp') setActiveReporter({ ...activeReporter, stampUrl: url });
+      setShowProfileImageGallery(false);
+  };
+
+  const handleSaveReporterProfile = () => {
+      if (!activeReporter.fullName || !activeReporter.email) {
+          alert("Name and Email are required.");
+          return;
+      }
+      const newProfile: ReporterProfile = {
+          id: activeReporter.id || generateId(),
+          fullName: activeReporter.fullName,
+          role: activeReporter.role || 'Correspondent',
+          department: activeReporter.department || 'General',
+          idNumber: activeReporter.idNumber || generateId().substring(0,6).toUpperCase(),
+          email: activeReporter.email,
+          phone: activeReporter.phone,
+          bloodGroup: activeReporter.bloodGroup,
+          photoUrl: activeReporter.photoUrl || '',
+          joinedAt: activeReporter.joinedAt || new Date().toISOString(),
+          validUntil: activeReporter.validUntil || new Date(Date.now() + 31536000000).toISOString(),
+          location: activeReporter.location || 'Headquarters',
+          status: activeReporter.status || 'active',
+          cardTemplate: activeReporter.cardTemplate || 'classic',
+          emergencyContact: activeReporter.emergencyContact,
+          officeAddress: activeReporter.officeAddress,
+          signatureUrl: activeReporter.signatureUrl,
+          stampUrl: activeReporter.stampUrl
+      };
+      onSaveReporter(newProfile);
+      setShowReporterModal(false);
+  };
+
+  const handlePageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setIsUploadingPage(true);
       try {
-          alert("Device list synced globally.");
-      } catch (e: any) {
-          alert("Error syncing: " + e.message);
+          const fileExt = file.name.split('.').pop();
+          const fileName = `epaper/${newPageDate}/${generateId()}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
+          if (uploadError) throw uploadError;
+          const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+          
+          onAddPage({
+              id: generateId(),
+              date: newPageDate,
+              pageNumber: newPageNumber,
+              imageUrl: data.publicUrl,
+              regions: []
+          });
+          setShowPageUpload(false);
+          setNewPageNumber(prev => prev + 1);
+      } catch (err: any) {
+          alert("Page upload failed: " + err.message);
       } finally {
-          setIsSavingDevices(false);
+          setIsUploadingPage(false);
       }
   };
 
-  const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
+  const SidebarItem = ({ id, label, icon: Icon }: { id: string, label: string, icon: any }) => (
     <button 
         onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
-        className={`w-full flex items-center gap-4 px-6 py-4 transition-colors ${activeTab === id ? 'text-white border-l-4 border-news-gold bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-4 border-transparent'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mb-1 ${activeTab === id ? 'bg-news-gold text-black font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
     >
         <Icon size={18} />
-        <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
+        <span className="text-sm">{label}</span>
     </button>
   );
 
   return (
     <>
     <ImageGalleryModal 
-        isOpen={showImageGallery}
-        onClose={() => setShowImageGallery(false)}
-        onSelectImage={(url) => { setModalImageUrl(url); setShowImageGallery(false); }}
-        uploadFolder="articles"
-        userId={userId}
-    />
-    <ImageGalleryModal 
-        isOpen={showAdImageGallery}
-        onClose={() => setShowAdImageGallery(false)}
-        onSelectImage={(url) => { setNewAd({...newAd, imageUrl: url}); setShowAdImageGallery(false); }}
-        uploadFolder="ads"
-        userId={userId}
-    />
-    <ImageGalleryModal 
         isOpen={showProfileImageGallery}
         onClose={() => setShowProfileImageGallery(false)}
-        onSelectImage={(url) => { 
-            if (imageSelectorTarget === 'photo') setActiveReporter({...activeReporter, photoUrl: url});
-            else if (imageSelectorTarget === 'signature') setActiveReporter({...activeReporter, signatureUrl: url});
-            else if (imageSelectorTarget === 'stamp') setActiveReporter({...activeReporter, stampUrl: url});
-            setShowProfileImageGallery(false); 
-        }}
-        uploadFolder="avatars"
+        onSelectImage={handleSelectImage}
+        uploadFolder="branding"
         userId={userId}
     />
-    <CategorySelector 
-        isOpen={showCategorySelector}
-        onClose={() => setShowCategorySelector(false)}
-        options={categories}
-        selected={modalCategories}
-        onChange={setModalCategories}
-    />
 
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      {/* Optimized Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-          <div className="flex justify-between items-center p-6 border-b border-gray-800">
-              <h1 className="font-serif text-2xl font-bold text-white">Editor<span className="text-news-gold">.</span></h1>
-              <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={24} /></button>
+    <div className="flex h-screen bg-[#111] overflow-hidden font-sans text-gray-100">
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#0a0a0a] border-r border-white/5 flex flex-col transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+          <div className="flex justify-between items-center p-6 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                 <ShieldCheck className="text-news-gold" size={24} />
+                 <h1 className="font-serif text-xl font-bold text-white tracking-wide">Editor</h1>
+              </div>
+              <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={20} /></button>
           </div>
-          <div className="flex-1 overflow-y-auto py-4">
-              <SidebarItem id="articles" label="Editorial Content" icon={FileText} />
-              <SidebarItem id="epaper" label="E-Paper Manager" icon={Newspaper} />
-              <SidebarItem id="ads" label="Ads & Classifieds" icon={Megaphone} />
-              <SidebarItem id="idcards" label="ID Cards" icon={Fingerprint} />
-              <SidebarItem id="taxonomy" label="Categories & Tags" icon={Tag} />
-              <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
-              <SidebarItem id="settings" label="System Settings" icon={Settings} />
+          
+          <div className="flex-1 overflow-y-auto p-4">
+              <div className="mb-6">
+                  <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2 px-4">Overview</p>
+                  <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} />
+                  <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
+              </div>
+              
+              <div className="mb-6">
+                  <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2 px-4">Editorial</p>
+                  <SidebarItem id="articles" label="Articles" icon={FileText} />
+                  <SidebarItem id="epaper" label="E-Paper" icon={Newspaper} />
+                  <SidebarItem id="reporters" label="Press Corps" icon={Users} />
+              </div>
+
+              <div className="mb-6">
+                  <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2 px-4">Commercial</p>
+                  <SidebarItem id="classifieds" label="Classifieds" icon={Layout} />
+                  <SidebarItem id="advertisements" label="Ad Manager" icon={Megaphone} />
+              </div>
+
+              <div>
+                  <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2 px-4">System</p>
+                  <SidebarItem id="settings" label="Configuration" icon={Settings} />
+              </div>
           </div>
-          <div className="p-6 border-t border-gray-800">
-              <button onClick={() => onNavigate('/')} className="flex items-center gap-3 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-widest w-full px-4 py-3 border border-gray-700 rounded transition-colors justify-center mb-2">
+
+          <div className="p-4 border-t border-white/5 bg-[#050505]">
+              <button onClick={() => onNavigate('/')} className="flex items-center gap-3 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-widest w-full px-4 py-3 rounded transition-colors mb-2 hover:bg-white/5">
                   <Globe size={16} /> Website
               </button>
-              <button onClick={() => { supabase.auth.signOut(); onNavigate('/login'); }} className="flex items-center gap-3 text-gray-400 hover:text-red-500 text-xs font-bold uppercase tracking-widest w-full px-4 py-3 border border-gray-700 rounded transition-colors justify-center">
-                  <Lock size={16} /> Logout
+              <button onClick={() => { supabase.auth.signOut(); onNavigate('/login'); }} className="flex items-center gap-3 text-gray-400 hover:text-red-500 text-xs font-bold uppercase tracking-widest w-full px-4 py-3 rounded transition-colors hover:bg-white/5">
+                  <LogOut size={16} /> Logout
               </button>
           </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:ml-64 h-full overflow-hidden bg-[#f8f9fa]">
-           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40 shadow-sm">
-                <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
-                <h1 className="font-serif text-lg font-bold text-gray-900">Editor Dashboard</h1>
-                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
-                     {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover"/> : <UserIcon className="p-1.5 text-gray-400 w-full h-full"/>}
-                </div>
-           </div>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col md:ml-64 h-full overflow-hidden bg-[#111]">
+          {/* Header */}
+          <div className="h-16 border-b border-white/5 bg-[#141414] flex justify-between items-center px-6 shrink-0">
+               <div className="flex items-center gap-4">
+                   <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-gray-400"><Menu size={24}/></button>
+                   <h2 className="font-bold text-white capitalize">{activeTab.replace('-', ' ')}</h2>
+               </div>
+               <div className="flex items-center gap-4">
+                   {userAvatar ? (
+                       <img src={userAvatar} className="w-8 h-8 rounded-full border border-gray-600" alt="Profile" />
+                   ) : (
+                       <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">
+                           <UserIcon size={16} />
+                       </div>
+                   )}
+                   <span className="text-sm font-bold text-gray-300 hidden sm:inline">{userName || 'Editor'}</span>
+               </div>
+          </div>
 
-           <div className="md:p-6 overflow-y-auto flex-1 p-4">
-              {activeTab === 'articles' && (
-                  /* Articles View */
-                  <div className="max-w-6xl mx-auto space-y-6">
-                      <div className="flex justify-between items-center">
-                           <h1 className="font-serif text-2xl font-bold text-gray-900">Article Manager</h1>
-                           <button onClick={openNewArticle} className="bg-news-black text-white text-xs font-bold uppercase px-4 py-3 rounded flex items-center gap-2 hover:bg-gray-800">
-                                <Plus size={16} /> New Article
-                           </button>
-                      </div>
-                      <div className="hidden md:block bg-white rounded border overflow-x-auto shadow-sm">
-                          <table className="w-full text-left min-w-[700px]">
-                                <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
-                                    <tr>
-                                        <th className="px-6 py-4">Article Details</th>
-                                        <th className="px-6 py-4">Status</th>
-                                        <th className="px-6 py-4 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {articles.map((article) => (
-                                        <tr key={article.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-start gap-4">
-                                                    <div className="w-16 h-12 bg-gray-100 rounded overflow-hidden shrink-0 border border-gray-200">
-                                                        <img src={article.imageUrl} className="w-full h-full object-cover" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-gray-900 text-sm line-clamp-1">{article.title}</p>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase">{article.categories[0]}</span>
-                                                            {article.isFeatured && <span className="text-[10px] text-news-accent font-bold uppercase flex items-center gap-1"><Star size={10} fill="currentColor"/> Featured</span>}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : article.status === ArticleStatus.PENDING ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
-                                                    {article.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button onClick={() => openEditArticle(article)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><PenSquare size={16}/></button>
-                                                    <button onClick={() => onDeleteArticle(article.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {articles.length === 0 && <tr><td colSpan={3} className="text-center py-12 text-gray-400">No articles found.</td></tr>}
-                                </tbody>
-                          </table>
-                      </div>
+          {/* Tab Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+              
+              {activeTab === 'dashboard' && (
+                  <div className="space-y-8">
+                       <AnalyticsDashboard articles={articles} role={UserRole.EDITOR} activeVisitors={activeVisitors} />
                   </div>
               )}
 
-              {activeTab === 'idcards' && (
-                  <div className="max-w-7xl mx-auto space-y-8">
-                      <div className="flex justify-between items-center">
-                          <h2 className="font-serif text-2xl font-bold text-gray-900 flex items-center gap-2">
-                              <Fingerprint className="text-news-gold" /> Identity Cards
-                          </h2>
-                          <button onClick={() => { setActiveReporter({ cardTemplate: 'official' }); setShowReporterModal(true); setShowCardBack(false); }} className="bg-news-black text-white text-xs font-bold uppercase px-4 py-3 rounded flex items-center gap-2 hover:bg-gray-800">
-                              <Plus size={16} /> Add Reporter
-                          </button>
+              {activeTab === 'articles' && (
+                  <div className="max-w-7xl mx-auto space-y-6">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                          <div className="flex items-center gap-2 bg-[#1a1a1a] p-1 rounded-lg border border-white/10">
+                              {['ALL', 'PUBLISHED', 'DRAFT', 'PENDING'].map(s => (
+                                  <button 
+                                    key={s} 
+                                    onClick={() => setStatusFilter(s)}
+                                    className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-md transition-colors ${statusFilter === s ? 'bg-news-gold text-black' : 'text-gray-400 hover:text-white'}`}
+                                  >
+                                      {s}
+                                  </button>
+                              ))}
+                          </div>
+                          <div className="relative w-full sm:w-64">
+                              <Search className="absolute left-3 top-2.5 text-gray-500" size={16}/>
+                              <input 
+                                type="text" 
+                                placeholder="Search articles..." 
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg py-2 pl-9 pr-4 text-sm text-white focus:border-news-gold outline-none"
+                              />
+                          </div>
                       </div>
 
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-                          <div className="p-4 bg-gray-50 border-b border-gray-100">
-                              <h3 className="font-bold text-sm text-gray-700 uppercase tracking-wide">Staff Directory</h3>
-                          </div>
-                          <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
-                              {reporters.map(rep => (
-                                  <div key={rep.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => { setActiveReporter(rep); setShowReporterModal(true); setShowCardBack(false); }}>
-                                      <div className="flex items-center gap-3">
-                                          <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-100">
-                                              {rep.photoUrl ? <img src={rep.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-2 text-gray-400 w-full h-full"/>}
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                              <h4 className="font-bold text-sm text-gray-900 truncate">{rep.fullName}</h4>
-                                              <p className="text-[10px] text-gray-500 uppercase tracking-wider truncate">{rep.role}</p>
-                                          </div>
-                                          <div className="opacity-0 group-hover:opacity-100 flex gap-2">
-                                              <button onClick={(e) => { e.stopPropagation(); handleEditReporter(rep); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><PenSquare size={14}/></button>
-                                              {onDeleteReporter && <button onClick={(e) => { e.stopPropagation(); onDeleteReporter(rep.id); }} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14}/></button>}
-                                          </div>
-                                      </div>
-                                  </div>
-                              ))}
-                              {reporters.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No reporters added.</div>}
-                          </div>
+                      <div className="bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden">
+                          <table className="w-full text-left">
+                              <thead className="bg-[#222] text-gray-400 text-[10px] font-black uppercase tracking-wider">
+                                  <tr>
+                                      <th className="px-6 py-4">Article</th>
+                                      <th className="px-6 py-4">Author</th>
+                                      <th className="px-6 py-4">Status</th>
+                                      <th className="px-6 py-4">Date</th>
+                                      <th className="px-6 py-4 text-right">Actions</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5">
+                                  {filteredArticles.map(article => (
+                                      <tr key={article.id} className="hover:bg-white/5 transition-colors">
+                                          <td className="px-6 py-4">
+                                              <p className="font-bold text-white text-sm line-clamp-1">{article.title}</p>
+                                              <div className="flex gap-2 mt-1">
+                                                  {article.categories.map(c => <span key={c} className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-gray-400">{c}</span>)}
+                                              </div>
+                                          </td>
+                                          <td className="px-6 py-4 text-sm text-gray-300">{article.author}</td>
+                                          <td className="px-6 py-4">
+                                              <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                                                  article.status === 'PUBLISHED' ? 'bg-green-900/30 text-green-400' :
+                                                  article.status === 'PENDING' ? 'bg-yellow-900/30 text-yellow-400' :
+                                                  'bg-gray-700 text-gray-300'
+                                              }`}>
+                                                  {article.status}
+                                              </span>
+                                          </td>
+                                          <td className="px-6 py-4 text-sm text-gray-500">{format(new Date(article.publishedAt), 'MMM d, yyyy')}</td>
+                                          <td className="px-6 py-4 text-right">
+                                              <div className="flex justify-end gap-2">
+                                                  {article.status !== 'PUBLISHED' && (
+                                                      <button onClick={() => onSaveArticle({ ...article, status: ArticleStatus.PUBLISHED })} className="p-2 bg-green-900/20 text-green-400 rounded hover:bg-green-900/40" title="Publish">
+                                                          <CheckCircle size={16}/>
+                                                      </button>
+                                                  )}
+                                                  <button onClick={() => onDeleteArticle(article.id)} className="p-2 bg-red-900/20 text-red-400 rounded hover:bg-red-900/40" title="Delete">
+                                                      <Trash2 size={16}/>
+                                                  </button>
+                                              </div>
+                                          </td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                          {filteredArticles.length === 0 && (
+                              <div className="p-8 text-center text-gray-500">No articles found matching your criteria.</div>
+                          )}
                       </div>
                   </div>
               )}
 
               {activeTab === 'epaper' && (
-                  /* EPaper Content */
-                  <div className="max-w-6xl mx-auto space-y-8">
-                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                           <h1 className="font-serif text-2xl font-bold text-gray-900">E-Paper Editions</h1>
-                           <div className="flex items-center gap-2 bg-white p-1 rounded border shadow-sm">
-                               <select value={epaperFilterDate} onChange={(e) => setEpaperFilterDate(e.target.value)} className="p-2 bg-transparent text-sm font-bold outline-none border-r pr-4">
-                                   {availableEpaperDates.map(d => <option key={d} value={d}>{format(new Date(d), 'MMM dd, yyyy')}</option>)}
-                               </select>
-                               <button onClick={() => setShowAddPageModal(true)} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800">
-                                   <Upload size={14}/> Upload Page
-                               </button>
-                           </div>
-                       </div>
-                       
-                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                           {filteredPages.map(page => (
-                               <div key={page.id} className="group relative bg-white rounded-lg shadow-sm border overflow-hidden">
-                                   <div className="aspect-[3/4] relative">
-                                       <img src={page.imageUrl} className="w-full h-full object-cover" />
-                                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                           <button onClick={() => onDeletePage(page.id)} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700"><Trash2 size={16}/></button>
-                                       </div>
-                                   </div>
-                                   <div className="p-3 text-center border-t">
-                                       <span className="text-xs font-bold text-gray-900">Page {page.pageNumber}</span>
-                                   </div>
-                               </div>
-                           ))}
-                           {filteredPages.length === 0 && (
-                               <div className="col-span-full py-12 text-center border-2 border-dashed border-gray-200 rounded-lg text-gray-400">
-                                   No pages uploaded for this date.
-                               </div>
-                           )}
-                       </div>
-                  </div>
-              )}
-
-              {activeTab === 'ads' && (
-                  /* Ads Content */
-                  <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Banners */}
-                      <div className="space-y-6">
-                          <div className="flex justify-between items-center">
-                              <h2 className="font-serif text-xl font-bold">Banner Ads</h2>
-                              <button onClick={() => { setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true, title: '', linkUrl: '' }); setIsCustomSize(false); setEditingAdId(null); setShowAdModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Banner</button>
-                          </div>
-                          <div className="bg-white rounded border divide-y">
-                              {advertisements.map(ad => (
-                                  <div key={ad.id} className="p-4 flex gap-4 items-center">
-                                      <div className="w-20 h-12 bg-gray-100 rounded shrink-0 overflow-hidden border">
-                                          <img src={ad.imageUrl} className="w-full h-full object-cover" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                          <p className="font-bold text-sm truncate">{ad.title}</p>
-                                          <div className="flex gap-2 text-[10px] text-gray-500 uppercase font-bold mt-1">
-                                              <span>{ad.size}</span>
-                                              <span>•</span>
-                                              <span>{ad.placement}</span>
-                                          </div>
-                                      </div>
-                                      <div className="flex gap-2">
-                                          <button onClick={() => handleEditAd(ad)} className="text-blue-600 p-2 hover:bg-blue-50 rounded"><PenSquare size={16}/></button>
-                                          <button onClick={() => onDeleteAdvertisement(ad.id)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
-                                      </div>
-                                  </div>
-                              ))}
-                              {advertisements.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No active banners.</div>}
-                          </div>
-                      </div>
-
-                      {/* Classifieds */}
-                      <div className="space-y-6">
-                          <div className="flex justify-between items-center">
-                              <h2 className="font-serif text-xl font-bold">Classifieds</h2>
-                              <button onClick={() => { setNewClassified({category: adCategories[0] || 'General'}); setShowClassifiedModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Listing</button>
-                          </div>
-                          <div className="bg-white rounded border divide-y">
-                              {classifieds.map(ad => (
-                                  <div key={ad.id} className="p-4">
-                                      <div className="flex justify-between items-start">
-                                          <div>
-                                              <p className="font-bold text-sm">{ad.title}</p>
-                                              <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold uppercase">{ad.category}</span>
-                                          </div>
-                                          <button onClick={() => onDeleteClassified(ad.id)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={14}/></button>
-                                      </div>
-                                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">{ad.content}</p>
-                                  </div>
-                              ))}
-                              {classifieds.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No classifieds posted.</div>}
-                          </div>
-                      </div>
-                  </div>
-              )}
-
-              {activeTab === 'taxonomy' && (
-                  /* Taxonomy Content */
-                  <div className="max-w-6xl mx-auto space-y-8">
-                      <div className="flex justify-between items-center">
-                          <h2 className="font-serif text-2xl font-bold">Taxonomy</h2>
-                          <button onClick={handleSaveTaxonomyInternal} disabled={isSavingTaxonomy} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2">
-                              {isSavingTaxonomy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes
+                  <div className="max-w-7xl mx-auto">
+                      <div className="flex justify-between items-center mb-6">
+                          <h3 className="text-xl font-bold text-white">E-Paper Editions</h3>
+                          <button onClick={() => setShowPageUpload(!showPageUpload)} className="bg-news-gold text-black px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-white transition-colors">
+                              {showPageUpload ? <X size={16}/> : <Plus size={16}/>} {showPageUpload ? 'Cancel' : 'Upload Page'}
                           </button>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                          {/* Categories */}
-                          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Categories</h3>
-                              <div className="flex gap-2 mb-4">
-                                  <input type="text" placeholder="New Category" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
-                                  <button onClick={() => { if(newCategory) { onAddCategory(newCategory); setNewCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                  {categories.map(cat => (
-                                      <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
-                                          {cat} <button onClick={() => onDeleteCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
-                                      </span>
-                                  ))}
+
+                      {showPageUpload && (
+                          <div className="bg-[#1a1a1a] p-6 rounded-xl border border-white/10 mb-8 animate-in slide-in-from-top-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Edition Date</label>
+                                      <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full bg-black border border-white/20 rounded-lg p-3 text-white focus:border-news-gold outline-none"/>
+                                  </div>
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Page Number</label>
+                                      <input type="number" value={newPageNumber} onChange={e => setNewPageNumber(parseInt(e.target.value))} className="w-full bg-black border border-white/20 rounded-lg p-3 text-white focus:border-news-gold outline-none"/>
+                                  </div>
+                                  <div>
+                                      <label className={`w-full flex items-center justify-center gap-2 bg-white/5 border border-dashed border-white/20 hover:border-news-gold hover:bg-white/10 text-gray-300 p-3 rounded-lg cursor-pointer transition-all ${isUploadingPage ? 'opacity-50 pointer-events-none' : ''}`}>
+                                          {isUploadingPage ? <RefreshCcw className="animate-spin" size={20}/> : <Upload size={20}/>}
+                                          <span className="text-sm font-bold uppercase">{isUploadingPage ? 'Uploading...' : 'Select Image'}</span>
+                                          <input type="file" accept="image/*" className="hidden" onChange={handlePageUpload} disabled={isUploadingPage} />
+                                      </label>
+                                  </div>
                               </div>
                           </div>
-                          {/* Tags, Ad Cats... */}
-                          {tags && onAddTag && onDeleteTag && (
-                              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Tag size={18}/> Article Tags</h3>
+                      )}
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                          {ePaperPages.map(page => (
+                              <div key={page.id} className="group relative bg-[#1a1a1a] rounded-lg border border-white/10 overflow-hidden">
+                                  <div className="aspect-[3/4] relative">
+                                      <img src={page.imageUrl} className="w-full h-full object-cover" />
+                                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                          <button onClick={() => onDeletePage(page.id)} className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700">
+                                              <Trash2 size={16}/>
+                                          </button>
+                                      </div>
+                                  </div>
+                                  <div className="p-3 text-center">
+                                      <p className="text-xs font-bold text-white uppercase">{page.date}</p>
+                                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Page {page.pageNumber}</p>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'reporters' && (
+                  <div className="max-w-7xl mx-auto">
+                      <div className="flex justify-between items-center mb-8">
+                          <div>
+                              <h3 className="text-2xl font-bold text-white mb-1">Press Corps Manager</h3>
+                              <p className="text-sm text-gray-500">Manage ID cards, profiles, and assignments.</p>
+                          </div>
+                          <button onClick={() => { setActiveReporter({}); setShowReporterModal(true); }} className="bg-news-gold text-black px-5 py-2.5 rounded-lg text-sm font-black uppercase tracking-wider flex items-center gap-2 hover:bg-white transition-colors">
+                              <Plus size={18}/> Add Reporter
+                          </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {reporters.map(reporter => (
+                              <div key={reporter.id} className="bg-[#1a1a1a] rounded-xl border border-white/10 p-6 flex flex-col gap-4 hover:border-white/20 transition-colors">
+                                  <div className="flex items-start gap-4">
+                                      <div className="w-16 h-16 rounded-full bg-black border border-white/20 overflow-hidden shrink-0">
+                                          {reporter.photoUrl ? <img src={reporter.photoUrl} className="w-full h-full object-cover"/> : <UserIcon className="p-3 text-gray-600 w-full h-full"/>}
+                                      </div>
+                                      <div className="min-w-0">
+                                          <h4 className="text-lg font-bold text-white truncate">{reporter.fullName}</h4>
+                                          <p className="text-news-gold text-xs uppercase font-bold tracking-wider">{reporter.role}</p>
+                                          <p className="text-gray-500 text-xs mt-1">{reporter.department} • {reporter.location}</p>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-400 border-t border-white/5 pt-4">
+                                      <div>ID: <span className="text-white font-mono">{reporter.idNumber}</span></div>
+                                      <div>Status: <span className={`uppercase font-bold ${reporter.status === 'active' ? 'text-green-500' : 'text-red-500'}`}>{reporter.status}</span></div>
+                                      <div>Expires: <span className="text-white">{format(new Date(reporter.validUntil), 'MMM yyyy')}</span></div>
+                                      <div>Type: <span className="text-white capitalize">{reporter.cardTemplate || 'Classic'}</span></div>
+                                  </div>
+
+                                  <div className="flex gap-2 mt-auto pt-2">
+                                      <button onClick={() => { setActiveReporter(reporter); setShowReporterModal(true); }} className="flex-1 bg-white/5 hover:bg-white/10 text-white py-2 rounded text-xs font-bold uppercase transition-colors">Edit Profile</button>
+                                      <button onClick={() => onDeleteReporter(reporter.id)} className="p-2 bg-red-900/20 text-red-500 hover:bg-red-900/40 rounded transition-colors"><Trash2 size={16}/></button>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'settings' && (
+                  <div className="max-w-4xl mx-auto space-y-10">
+                      
+                      {/* Sub-tabs */}
+                      <div className="flex border-b border-white/10 mb-8">
+                          <button onClick={() => setActiveSettingsTab('watermark')} className={`px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeSettingsTab === 'watermark' ? 'border-news-gold text-news-gold' : 'border-transparent text-gray-500 hover:text-white'}`}>Brand & Watermark</button>
+                          <button onClick={() => setActiveSettingsTab('taxonomy')} className={`px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeSettingsTab === 'taxonomy' ? 'border-news-gold text-news-gold' : 'border-transparent text-gray-500 hover:text-white'}`}>Taxonomy</button>
+                          <button onClick={() => setActiveSettingsTab('security')} className={`px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeSettingsTab === 'security' ? 'border-news-gold text-news-gold' : 'border-transparent text-gray-500 hover:text-white'}`}>Security & Devices</button>
+                      </div>
+
+                      {activeSettingsTab === 'watermark' && (
+                          <div className="bg-[#1a1a1a] rounded-xl border border-white/10 p-8 space-y-6">
+                              <h3 className="text-lg font-bold text-white mb-4">E-Paper Watermark Config</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                  <div className="space-y-4">
+                                      <div>
+                                          <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Brand Text</label>
+                                          <input type="text" value={watermarkSettings.text} onChange={(e) => onUpdateWatermarkSettings({ ...watermarkSettings, text: e.target.value })} className="w-full bg-black border border-white/20 p-3 rounded text-white focus:border-news-gold outline-none"/>
+                                      </div>
+                                      <div>
+                                          <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Logo URL</label>
+                                          <input type="text" value={watermarkSettings.logoUrl} onChange={(e) => onUpdateWatermarkSettings({ ...watermarkSettings, logoUrl: e.target.value })} className="w-full bg-black border border-white/20 p-3 rounded text-white focus:border-news-gold outline-none"/>
+                                      </div>
+                                      <div className="flex gap-4">
+                                          <div className="flex-1">
+                                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2">BG Color</label>
+                                              <div className="flex items-center gap-2">
+                                                  <input type="color" value={watermarkSettings.backgroundColor} onChange={(e) => onUpdateWatermarkSettings({ ...watermarkSettings, backgroundColor: e.target.value })} className="h-10 w-10 bg-transparent cursor-pointer rounded overflow-hidden" />
+                                                  <span className="text-xs text-gray-400 font-mono">{watermarkSettings.backgroundColor}</span>
+                                              </div>
+                                          </div>
+                                          <div className="flex-1">
+                                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Text Color</label>
+                                              <div className="flex items-center gap-2">
+                                                  <input type="color" value={watermarkSettings.textColor} onChange={(e) => onUpdateWatermarkSettings({ ...watermarkSettings, textColor: e.target.value })} className="h-10 w-10 bg-transparent cursor-pointer rounded overflow-hidden" />
+                                                  <span className="text-xs text-gray-400 font-mono">{watermarkSettings.textColor}</span>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div className="bg-gray-800/50 rounded-lg p-4 flex flex-col items-center justify-center border border-white/5">
+                                      <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Preview</p>
+                                      <div style={{ backgroundColor: watermarkSettings.backgroundColor }} className="w-full h-32 rounded flex flex-col items-center justify-center relative overflow-hidden">
+                                          {watermarkSettings.showLogo && <img src={watermarkSettings.logoUrl} className="h-12 object-contain mb-2" alt="Logo"/>}
+                                          <span style={{ color: watermarkSettings.textColor, fontSize: '18px', fontWeight: 'bold', fontFamily: 'serif' }}>{watermarkSettings.text}</span>
+                                          <span className="text-[10px] text-white/70 absolute bottom-2 right-4 font-sans">CJ NEWSHUB GLOBAL ARCHIVE</span>
+                                      </div>
+                                  </div>
+                              </div>
+                              <div className="pt-6 border-t border-white/5 text-right">
+                                  <button onClick={onSaveTaxonomy} className="bg-white text-black px-6 py-2 rounded font-bold uppercase text-xs hover:bg-news-gold transition-colors">Save Configuration</button>
+                              </div>
+                          </div>
+                      )}
+
+                      {activeSettingsTab === 'taxonomy' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              <div className="bg-[#1a1a1a] p-6 rounded-xl border border-white/10">
+                                  <h3 className="text-lg font-bold text-white mb-4">News Categories</h3>
                                   <div className="flex gap-2 mb-4">
-                                      <input type="text" placeholder="New Tag" value={newTag} onChange={e => setNewTag(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
-                                      <button onClick={() => { if(newTag) { onAddTag(newTag); setNewTag(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                                      <input type="text" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 bg-black border border-white/20 rounded p-2 text-white text-sm outline-none focus:border-news-gold" placeholder="New Category..."/>
+                                      <button onClick={() => { if(newCategory) { onAddCategory(newCategory); setNewCategory(''); }}} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded"><Plus size={20}/></button>
                                   </div>
                                   <div className="flex flex-wrap gap-2">
-                                      {tags.map(tag => (
-                                          <span key={tag} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
-                                              #{tag} <button onClick={() => onDeleteTag(tag)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                      {categories.map(c => (
+                                          <span key={c} className="bg-white/5 border border-white/10 px-3 py-1 rounded-full text-xs text-gray-300 flex items-center gap-2">
+                                              {c} <button onClick={() => onDeleteCategory(c)} className="hover:text-red-400"><X size={12}/></button>
                                           </span>
                                       ))}
                                   </div>
                               </div>
-                          )}
-                          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Megaphone size={18}/> Ad Categories</h3>
-                              <div className="flex gap-2 mb-4">
-                                  <input type="text" placeholder="New Section" value={newAdCategory} onChange={e => setNewAdCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
-                                  <button onClick={() => { if(newAdCategory) { onAddAdCategory(newAdCategory); setNewAdCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                  {adCategories.map(cat => (
-                                      <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
-                                          {cat} <button onClick={() => onDeleteAdCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
-                                      </span>
-                                  ))}
+                              <div className="bg-[#1a1a1a] p-6 rounded-xl border border-white/10">
+                                  <h3 className="text-lg font-bold text-white mb-4">Editorial Tags</h3>
+                                  <div className="flex gap-2 mb-4">
+                                      <input type="text" value={newTag} onChange={e => setNewTag(e.target.value)} className="flex-1 bg-black border border-white/20 rounded p-2 text-white text-sm outline-none focus:border-news-gold" placeholder="New Tag..."/>
+                                      <button onClick={() => { if(newTag) { onAddTag(newTag); setNewTag(''); }}} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded"><Plus size={20}/></button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                      {tags.map(t => (
+                                          <span key={t} className="bg-white/5 border border-white/10 px-3 py-1 rounded-full text-xs text-gray-300 flex items-center gap-2">
+                                              #{t} <button onClick={() => onDeleteTag(t)} className="hover:text-red-400"><X size={12}/></button>
+                                          </span>
+                                      ))}
+                                  </div>
                               </div>
                           </div>
-                      </div>
-                  </div>
-              )}
-              
-              {activeTab === 'analytics' && <AnalyticsDashboard articles={articles} role={UserRole.EDITOR} activeVisitors={activeVisitors} />}
+                      )}
 
-              {activeTab === 'settings' && (
-                  /* Settings Content */
-                  <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
-                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
-                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Settings className="text-news-gold" /> System Configuration</h2>
-                          
-                          <div className="space-y-6">
-                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                  <div>
-                                      <h3 className="font-bold text-sm text-gray-900">Global Ad Delivery</h3>
-                                      <p className="text-xs text-gray-500 mt-1">Master switch to enable/disable all advertisement slots across the platform.</p>
-                                  </div>
-                                  <label className="relative inline-flex items-center cursor-pointer">
-                                      <input type="checkbox" checked={globalAdsEnabled} onChange={(e) => onToggleGlobalAds(e.target.checked)} className="sr-only peer" />
-                                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-news-black"></div>
-                                  </label>
-                              </div>
-                              
-                              <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg">
-                                  <div className="flex justify-between items-start mb-2">
-                                      <div>
-                                          <h3 className="font-bold text-sm text-gray-900">Translation Service (Google Gemini)</h3>
-                                          <p className="text-xs text-gray-500 mt-1">Configure your own API key to enable auto-translation features in the editor.</p>
-                                      </div>
-                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${customApiKey ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                                          {customApiKey ? 'Connected' : 'Not Configured'}
-                                      </span>
-                                  </div>
-                                  <div className="mt-4">
-                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">API Key</label>
-                                      <div className="flex gap-2">
-                                          <input 
-                                            type={showKeyInput ? "text" : "password"} 
-                                            value={customApiKey} 
-                                            onChange={e => setCustomApiKey(e.target.value)} 
-                                            placeholder="Enter your Gemini API Key..."
-                                            className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black"
-                                          />
-                                          <button onClick={() => setShowKeyInput(!showKeyInput)} className="bg-gray-200 text-gray-600 px-3 rounded hover:bg-gray-300">
-                                              {showKeyInput ? <Eye size={16}/> : <LayoutIcon size={16}/>}
-                                          </button>
-                                          <button onClick={handleSaveApiKey} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800">
-                                              <Save size={14}/> Save
-                                          </button>
-                                      </div>
-                                  </div>
+                      {activeSettingsTab === 'security' && (
+                          <div className="bg-[#1a1a1a] p-8 rounded-xl border border-white/10">
+                              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><ShieldCheck className="text-news-gold"/> Trusted Devices</h3>
+                              <div className="space-y-4">
+                                  {devices.map(device => {
+                                      let Icon = Monitor;
+                                      if (device.deviceType === 'mobile') Icon = Smartphone;
+                                      if (device.deviceType === 'tablet') Icon = Tablet;
+                                      
+                                      return (
+                                          <div key={device.id} className="flex items-center justify-between p-4 bg-black/50 border border-white/5 rounded-lg">
+                                              <div className="flex items-center gap-4">
+                                                  <div className={`p-3 rounded-full ${device.status === 'approved' ? 'bg-green-900/20 text-green-500' : 'bg-yellow-900/20 text-yellow-500'}`}>
+                                                      <Icon size={20} />
+                                                  </div>
+                                                  <div>
+                                                      <div className="flex items-center gap-2">
+                                                          <span className="font-bold text-white text-sm">{device.deviceName}</span>
+                                                          {device.status === 'pending' && <span className="text-[10px] bg-yellow-600 text-black px-1.5 py-0.5 rounded font-bold uppercase">Pending Approval</span>}
+                                                          {device.isCurrent && <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold uppercase">This Device</span>}
+                                                      </div>
+                                                      <div className="text-xs text-gray-500 mt-1">{device.location} • {device.browser} • {device.lastActive}</div>
+                                                  </div>
+                                              </div>
+                                              <div className="flex gap-2">
+                                                  {device.status === 'pending' && (
+                                                      <button onClick={() => onApproveDevice(device.id)} className="p-2 bg-green-600 text-white rounded hover:bg-green-700" title="Approve"><Check size={16}/></button>
+                                                  )}
+                                                  <button onClick={() => onRevokeDevice(device.id)} className="p-2 bg-red-900/20 text-red-500 rounded hover:bg-red-900/40" title="Revoke"><Trash2 size={16}/></button>
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+                                  {devices.length === 0 && <p className="text-gray-500 italic text-sm">No devices registered.</p>}
                               </div>
                           </div>
-                      </div>
+                      )}
                   </div>
               )}
-           </div>
+          </div>
       </div>
 
-      {/* Article Modal */}
-      {showArticleModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
-            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
-                <h3 className="font-bold text-gray-900">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
-                <button onClick={() => setShowArticleModal(false)} className="p-2 -mr-2 text-gray-500 hover:text-black"><X size={20}/></button>
-            </div>
-            <div className="p-4 md:p-6 overflow-y-auto space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2 space-y-4">
-                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Article Headline"/>
-                        
-                        <div className="flex items-center gap-2">
-                            <input 
-                                type="text" 
-                                value={modalEnglishTitle} 
-                                onChange={(e) => setModalEnglishTitle(e.target.value)} 
-                                className="w-full p-2 border rounded text-sm placeholder:text-gray-300" 
-                                placeholder="English Title (for SEO & URL)" 
-                            />
-                            <button 
-                                onClick={handleTranslateTitle} 
-                                disabled={isTranslating} 
-                                className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors flex items-center gap-1" 
-                                title="Auto Translate (Requires API Key)"
-                            >
-                                {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                            </button>
-                        </div>
-                        
-                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
-                            <button onClick={() => setShowCategorySelector(true)} className="w-full p-2 border rounded text-sm bg-white text-left flex justify-between items-center">
-                                <span className={modalCategories.length === 0 ? 'text-gray-400' : ''}>
-                                    {modalCategories.length === 0 ? 'Select Categories' : `${modalCategories.length} Selected`}
-                                </span>
-                                <ChevronDown size={14} />
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</label>
-                                <select 
-                                    value={modalStatus} 
-                                    onChange={(e) => setModalStatus(e.target.value as ArticleStatus)} 
-                                    className="w-full p-2 border rounded text-sm bg-white"
-                                >
-                                    <option value={ArticleStatus.DRAFT}>Draft</option>
-                                    <option value={ArticleStatus.PENDING}>Pending Review</option>
-                                    <option value={ArticleStatus.PUBLISHED}>Published</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="md:col-span-1">
-                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-[200px] flex flex-col justify-between">
-                            {modalImageUrl ? (
-                                <div className="relative group w-full h-full">
-                                    <img src={modalImageUrl} className="w-full h-full object-cover rounded shadow" />
-                                    <button onClick={() => setModalImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="py-4 text-gray-400 flex flex-col items-center justify-center h-full">
-                                    <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
-                                    <p className="text-xs font-bold uppercase">Featured Image</p>
-                                </div>
-                            )}
-                        </div>
-                        <div className="mt-2">
-                            <button type="button" onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                                <Library size={14} />
-                                <span>Select from Gallery</span>
-                            </button>
-                        </div>
-                        <div className="mt-4 space-y-2">
-                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
-                                <label className="flex items-center gap-2 cursor-pointer w-full">
-                                    <input type="checkbox" checked={modalIsFeatured} onChange={e => setModalIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
-                                    <div className="flex items-center gap-2">
-                                        <Star size={12} className={modalIsFeatured ? "text-news-accent fill-news-accent" : "text-gray-400"} />
-                                        <span className="text-xs font-bold uppercase">Featured</span>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="relative">
-                  <RichTextEditor 
-                    content={modalContent} 
-                    onChange={setModalContent} 
-                    className="min-h-[300px] md:min-h-[400px]" 
-                    onImageUpload={handleContentImageUpload} 
-                    userId={userId} 
-                  />
-                </div>
-
-            </div>
-            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
-              <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold text-gray-600">Cancel</button>
-              <button onClick={handleSaveArticleInternal} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">
-                  Save Article
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Page Modal */}
-      {showAddPageModal && (
-          <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg p-6 w-full max-w-md animate-in zoom-in-95">
-                  <h3 className="font-bold text-lg mb-4">Upload E-Paper Page</h3>
-                  <div className="space-y-4">
-                      <input type="date" value={newPageDate} onChange={(e) => setNewPageDate(e.target.value)} className="w-full p-2 border rounded" />
-                      <input type="number" min="1" placeholder="Page Number" value={newPageNumber} onChange={(e) => setNewPageNumber(parseInt(e.target.value))} className="w-full p-2 border rounded" />
-                      <div className="border-2 border-dashed p-4 rounded text-center">
-                          {newPageImage ? <img src={newPageImage} className="h-32 mx-auto object-contain mb-2"/> : <p className="text-gray-400 text-sm mb-2">No image selected</p>}
-                          <label className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded text-xs font-bold cursor-pointer inline-block">
-                              Choose File
-                              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, 'epaper')} />
-                          </label>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                          <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-gray-600 font-bold text-sm">Cancel</button>
-                          <button onClick={handleUploadPage} disabled={isPageUploading} className="px-4 py-2 bg-news-black text-white rounded font-bold text-sm flex items-center gap-2">
-                              {isPageUploading ? <Loader2 className="animate-spin" size={16}/> : <Upload size={16}/>} Upload
-                          </button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* Enhanced Reporter Modal - Full width with Preview */}
+      {/* REPORTER MODAL */}
       {showReporterModal && (
-          <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in zoom-in-95">
-                  {/* Left: Input Form */}
-                  <div className="w-full md:w-1/2 p-8 overflow-y-auto bg-gray-50">
-                      <div className="flex justify-between items-center mb-6">
-                          <h3 className="font-bold text-2xl text-gray-900">{activeReporter.id ? 'Edit Reporter' : 'Add Reporter'}</h3>
-                          <button onClick={() => setShowReporterModal(false)} className="md:hidden text-gray-500 hover:text-black"><X size={24}/></button>
-                      </div>
+          <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col md:flex-row overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                  
+                  {/* Left: Form */}
+                  <div className="w-full md:w-1/2 p-8 overflow-y-auto bg-white">
+                      <h2 className="font-serif text-2xl font-black text-gray-900 mb-6 uppercase tracking-tight flex items-center gap-2">
+                          <Users className="text-news-gold"/> Reporter Profile
+                      </h2>
                       
                       <div className="space-y-6">
-                          <div className="grid grid-cols-2 gap-4">
-                              <div className="col-span-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
                                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Full Name</label>
-                                  <input type="text" value={activeReporter.fullName || ''} onChange={e => setActiveReporter({...activeReporter, fullName: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="e.g. Jane Doe"/>
+                                  <input type="text" value={activeReporter.fullName || ''} onChange={e => setActiveReporter({...activeReporter, fullName: e.target.value})} className="w-full p-3 border rounded-lg text-sm font-bold text-gray-900 outline-none focus:border-black transition-colors"/>
                               </div>
                               <div>
                                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Role / Designation</label>
-                                  <input type="text" value={activeReporter.role || ''} onChange={e => setActiveReporter({...activeReporter, role: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="e.g. Senior Editor"/>
+                                  <input type="text" value={activeReporter.role || ''} onChange={e => setActiveReporter({...activeReporter, role: e.target.value})} className="w-full p-3 border rounded-lg text-sm"/>
+                              </div>
+                          </div>
+
+                          <div>
+                              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Email Address</label>
+                              <input type="email" value={activeReporter.email || ''} onChange={e => setActiveReporter({...activeReporter, email: e.target.value})} className="w-full p-3 border rounded-lg text-sm"/>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Phone</label>
+                                  <input type="text" value={activeReporter.phone || ''} onChange={e => setActiveReporter({...activeReporter, phone: e.target.value})} className="w-full p-3 border rounded-lg text-sm"/>
                               </div>
                               <div>
                                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Department</label>
-                                  <input type="text" value={activeReporter.department || ''} onChange={e => setActiveReporter({...activeReporter, department: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="e.g. Politics"/>
+                                  <input type="text" value={activeReporter.department || ''} onChange={e => setActiveReporter({...activeReporter, department: e.target.value})} className="w-full p-3 border rounded-lg text-sm"/>
                               </div>
                           </div>
 
@@ -1039,24 +645,29 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
                           <div className="grid grid-cols-2 gap-4">
                               <div>
-                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Valid Until</label>
-                                  <input type="date" value={activeReporter.validUntil?.split('T')[0] || ''} onChange={e => setActiveReporter({...activeReporter, validUntil: e.target.value})} className="w-full p-3 border rounded-lg text-sm"/>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Date Issued</label>
+                                  <input type="date" value={activeReporter.joinedAt?.split('T')[0] || ''} onChange={e => setActiveReporter({...activeReporter, joinedAt: e.target.value})} className="w-full p-3 border rounded-lg text-sm"/>
                               </div>
                               <div>
-                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Location</label>
-                                  <input type="text" value={activeReporter.location || ''} onChange={e => setActiveReporter({...activeReporter, location: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="Base Station"/>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Valid Until</label>
+                                  <input type="date" value={activeReporter.validUntil?.split('T')[0] || ''} onChange={e => setActiveReporter({...activeReporter, validUntil: e.target.value})} className="w-full p-3 border rounded-lg text-sm"/>
                               </div>
                           </div>
 
                           <div className="grid grid-cols-2 gap-4">
                               <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Location</label>
+                                  <input type="text" value={activeReporter.location || ''} onChange={e => setActiveReporter({...activeReporter, location: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="Base Station"/>
+                              </div>
+                              <div>
                                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Emergency Contact</label>
                                   <input type="text" value={activeReporter.emergencyContact || ''} onChange={e => setActiveReporter({...activeReporter, emergencyContact: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="8008129309"/>
                               </div>
-                              <div>
-                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Office Address</label>
-                                  <input type="text" value={activeReporter.officeAddress || ''} onChange={e => setActiveReporter({...activeReporter, officeAddress: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="Specific Office Address"/>
-                              </div>
+                          </div>
+
+                          <div className="space-y-4 pt-4">
+                              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Office Address</label>
+                              <input type="text" value={activeReporter.officeAddress || ''} onChange={e => setActiveReporter({...activeReporter, officeAddress: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="Specific Office Address"/>
                           </div>
 
                           <div className="space-y-4 pt-4 border-t border-gray-200">
@@ -1098,7 +709,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               </button>
                           </div>
                           
-                          {/* Disclaimer Edit */}
                           <div className="pt-4">
                               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Back Side Disclaimer</label>
                               <textarea 
@@ -1108,7 +718,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               ></textarea>
                           </div>
 
-                          {/* Authorization Assets - Only relevant for Official/Backside */}
                           <div className="pt-4 border-t border-gray-200">
                               <h4 className="font-bold text-sm text-gray-800 mb-3">Authorization Assets</h4>
                               <div className="flex gap-4">
@@ -1120,6 +729,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   </button>
                               </div>
                           </div>
+                      </div>
+
+                      <div className="sticky bottom-0 bg-white pt-6 pb-2 border-t border-gray-100 mt-6 flex justify-end gap-3 z-10">
+                          <button onClick={() => setShowReporterModal(false)} className="px-6 py-3 text-sm font-bold text-gray-600 hover:text-black">Cancel</button>
+                          <button onClick={handleSaveReporterProfile} className="px-8 py-3 bg-news-black text-white rounded-lg text-sm font-bold shadow-xl hover:bg-gray-800 transition-transform active:scale-95">Save Profile</button>
                       </div>
                   </div>
 
@@ -1340,188 +954,144 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                           {!showCardBack ? (
                                               // FRONT SIDE
                                               <>
-                                                  {/* Curved Red Header */}
-                                                  <div className="h-[70px] bg-[#d71920] relative w-full overflow-hidden shrink-0">
-                                                      <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center z-10">
-                                                          <h1 className="text-4xl font-bold text-white uppercase tracking-wider font-sans">PRESS</h1>
+                                                  {/* Watermark */}
+                                                  <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none z-0">
+                                                      <img src="https://cdn-icons-png.flaticon.com/512/21/21601.png" className="w-[250px] h-[250px] object-contain grayscale" />
+                                                  </div>
+
+                                                  {/* Curved Red Header with Logo Space */}
+                                                  <div className="h-[70px] bg-[#d71920] relative w-full overflow-hidden shrink-0 z-10 flex justify-between items-center px-8">
+                                                      <div className="flex-1 text-center">
+                                                          <h1 className="text-4xl font-bold text-white uppercase tracking-wider font-sans drop-shadow-md">PRESS</h1>
+                                                      </div>
+                                                      <div className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 border border-white/30 bg-white/10 rounded flex items-center justify-center text-[6px] text-white font-bold uppercase text-center leading-tight opacity-70">
+                                                          Logo<br/>Space
                                                       </div>
                                                       {/* Decorative Curve Bottom Right */}
-                                                      <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-[#1a1a1a] rounded-full z-0 opacity-20"></div>
-                                                      <svg className="absolute bottom-0 w-full h-[20px]" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                      <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-[#1a1a1a] rounded-full z-0 opacity-20 pointer-events-none"></div>
+                                                      <svg className="absolute bottom-0 left-0 w-full h-[20px] pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
                                                           <path d="M0 100 C 40 0 60 0 100 100 Z" fill="white" fillOpacity="0.1"/>
-                                                          {/* Simple white curve to simulate the reference cut */}
                                                           <path d="M50 100 Q 80 0 100 80 L 100 100 L 0 100 Z" fill="white" />
                                                       </svg>
                                                   </div>
 
-                                                  <div className="flex-1 p-6 flex gap-6">
-                                                      {/* Photo Area */}
-                                                      <div className="w-[110px] h-[140px] bg-gray-200 shrink-0 border border-gray-300">
-                                                          {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-4 text-gray-400 w-full h-full"/>}
+                                                  <div className="flex-1 p-6 flex gap-6 relative z-10">
+                                                      {/* Left Column: Photo Area + QR */}
+                                                      <div className="flex flex-col items-center gap-3 shrink-0">
+                                                          <div className="w-[90px] h-[110px] bg-gray-200 border border-gray-300 shadow-sm overflow-hidden">
+                                                              {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-4 text-gray-400 w-full h-full"/>}
+                                                          </div>
+                                                          <div className="w-[80px] h-[80px] bg-white p-1 border border-gray-200 shadow-sm">
+                                                               <img 
+                                                                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/verify-id/${activeReporter.id || 'preview'}`)}`} 
+                                                                  className="w-full h-full object-contain"
+                                                                  alt="QR"
+                                                              />
+                                                          </div>
                                                       </div>
 
-                                                      {/* Fields Area */}
-                                                      <div className="flex-1 space-y-3 pt-1">
+                                                      {/* Right Column: Fields Area */}
+                                                      <div className="flex-1 space-y-2 pt-1">
                                                           {[
                                                               { label: 'Name', value: activeReporter.fullName },
-                                                              { label: 'Position', value: activeReporter.role },
+                                                              { label: 'Designation', value: activeReporter.role },
                                                               { label: 'ID No', value: activeReporter.idNumber },
-                                                              { label: 'Contact', value: activeReporter.phone || activeReporter.email },
+                                                              { label: 'Blood Group', value: activeReporter.bloodGroup || 'N/A' },
                                                               { label: 'Date Issued', value: activeReporter.joinedAt ? format(new Date(activeReporter.joinedAt), 'dd/MM/yyyy') : 'N/A' },
                                                               { label: 'Valid Until', value: activeReporter.validUntil ? format(new Date(activeReporter.validUntil), 'dd/MM/yyyy') : 'N/A' }
                                                           ].map((field, idx) => (
                                                               <div key={idx} className="flex text-sm items-baseline">
-                                                                  <span className="w-24 font-bold text-gray-800 shrink-0">{field.label}:</span>
-                                                                  <span className="flex-1 border-b border-gray-300 text-gray-900 px-1 truncate h-5">{field.value}</span>
+                                                                  <span className="w-24 font-bold text-gray-800 shrink-0 uppercase text-[10px] tracking-wider">{field.label}:</span>
+                                                                  <span className="flex-1 border-b border-gray-300 text-gray-900 px-1 truncate h-5 font-bold">{field.value}</span>
                                                               </div>
                                                           ))}
+                                                          <div className="flex text-sm items-baseline">
+                                                              <span className="w-24 font-bold text-gray-800 shrink-0 uppercase text-[10px] tracking-wider">Contact:</span>
+                                                              <span className="flex-1 border-b border-gray-300 text-gray-900 px-1 truncate h-5 font-bold text-xs">{activeReporter.phone || activeReporter.email}</span>
+                                                          </div>
                                                       </div>
                                                   </div>
 
                                                   {/* Red Footer Curve */}
-                                                  <div className="h-[50px] relative mt-auto w-full">
-                                                      <svg className="absolute top-[-20px] w-full h-[30px]" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                  <div className="h-[40px] relative mt-auto w-full z-10">
+                                                      <svg className="absolute top-[-15px] w-full h-[20px]" viewBox="0 0 100 100" preserveAspectRatio="none">
                                                           <path d="M0 100 L 0 50 Q 50 100 100 30 L 100 100 Z" fill="#d71920" />
                                                       </svg>
                                                       <div className="bg-[#d71920] h-full w-full flex flex-col items-center justify-center z-10 relative">
-                                                          <span className="text-[10px] font-bold text-white uppercase">EMERGENCY CONTACTS:</span>
-                                                          <span className="text-sm font-black text-white">{activeReporter.emergencyContact || 'N/A'}</span>
+                                                          <span className="text-[9px] font-bold text-white uppercase tracking-widest">EMERGENCY: {activeReporter.emergencyContact || 'N/A'}</span>
                                                       </div>
                                                   </div>
                                               </>
                                           ) : (
                                               // BACK SIDE
-                                              <div className="w-full h-full p-8 flex flex-col bg-white text-left relative">
-                                                  <div className="mb-6">
-                                                      <h3 className="text-xs font-bold text-red-600 uppercase mb-2">OFFICE ADDRESS:</h3>
-                                                      <p className="text-xs font-medium text-gray-800 uppercase leading-relaxed max-w-[80%]">
-                                                          {activeReporter.officeAddress || activeReporter.location || 'SUJATHA NAGAR, VISAKHAPATNAM, ANDHRA PRADESH -530051.'}
-                                                      </p>
+                                              <div className="w-full h-full p-8 flex flex-col bg-white text-left relative overflow-hidden">
+                                                  {/* Watermark */}
+                                                  <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none z-0">
+                                                      <img src="https://cdn-icons-png.flaticon.com/512/21/21601.png" className="w-[250px] h-[250px] object-contain grayscale" />
                                                   </div>
 
-                                                  <div className="mb-8 flex-1">
-                                                      <h3 className="text-xs font-bold text-red-600 uppercase mb-2">Disclaimer:</h3>
-                                                      <p className="text-[10px] text-gray-600 leading-relaxed text-justify">
-                                                          {cardDisclaimer}
-                                                      </p>
+                                                  <div className="relative z-10">
+                                                      <div className="mb-6">
+                                                          <h3 className="text-xs font-bold text-red-600 uppercase mb-2 border-b border-red-100 pb-1 inline-block">OFFICE ADDRESS:</h3>
+                                                          <p className="text-xs font-medium text-gray-800 uppercase leading-relaxed max-w-[90%]">
+                                                              {activeReporter.officeAddress || activeReporter.location || 'SUJATHA NAGAR, VISAKHAPATNAM, ANDHRA PRADESH -530051.'}
+                                                          </p>
+                                                      </div>
+
+                                                      <div className="mb-4 flex-1">
+                                                          <h3 className="text-xs font-bold text-red-600 uppercase mb-2 border-b border-red-100 pb-1 inline-block">Terms & Conditions:</h3>
+                                                          <p className="text-[10px] text-gray-600 leading-relaxed text-justify">
+                                                              {cardDisclaimer}
+                                                          </p>
+                                                      </div>
                                                   </div>
 
-                                                  <div className="mt-auto flex justify-end items-end">
+                                                  <div className="mt-auto flex justify-end items-end relative z-10">
                                                        <div className="relative">
                                                            {/* Signature and Stamp Container */}
-                                                           <div className="relative w-64 h-32 mb-1 flex items-end justify-center">
-                                                               {/* Stamp Layer */}
-                                                               {activeReporter.stampUrl ? (
-                                                                   <div className="absolute top-0 left-0 w-28 h-28 opacity-85 transform -rotate-12 mix-blend-multiply z-0 pointer-events-none">
-                                                                       <img src={activeReporter.stampUrl} className="w-full h-full object-contain" alt="Stamp" />
-                                                                   </div>
-                                                               ) : (
-                                                                   <div className="absolute top-2 left-4 w-24 h-24 border-4 border-red-200 rounded-full flex items-center justify-center transform -rotate-12 opacity-40 z-0 pointer-events-none">
-                                                                       <span className="text-[8px] font-bold text-red-300 text-center uppercase">Official<br/>Stamp</span>
-                                                                   </div>
-                                                               )}
-
-                                                               {/* Signature Layer */}
+                                                           <div className="relative w-64 h-36 mb-1 flex items-end justify-center">
+                                                               {/* Signature Layer - Bottom */}
                                                                {activeReporter.signatureUrl && (
                                                                    <img 
                                                                        src={activeReporter.signatureUrl} 
-                                                                       className="w-full h-full object-contain object-bottom mix-blend-multiply z-10 relative"
+                                                                       className="w-full h-24 object-contain object-bottom mix-blend-multiply z-10 relative mb-2"
                                                                        alt="Authorized Signature" 
                                                                    />
+                                                               )}
+
+                                                               {/* Stamp Layer - Large and overlapping */}
+                                                               {activeReporter.stampUrl ? (
+                                                                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 opacity-85 mix-blend-multiply z-20 pointer-events-none rotate-[-15deg]">
+                                                                       <img src={activeReporter.stampUrl} className="w-full h-full object-contain" alt="Stamp" />
+                                                                   </div>
+                                                               ) : (
+                                                                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-28 h-28 border-4 border-red-200 rounded-full flex items-center justify-center opacity-40 z-0 pointer-events-none rotate-[-15deg]">
+                                                                       <span className="text-[10px] font-bold text-red-300 text-center uppercase">Official<br/>Stamp</span>
+                                                                   </div>
                                                                )}
                                                            </div>
                                                            
                                                            {/* Line and Label */}
                                                            <div className="w-64 border-b-2 border-black mb-1"></div>
-                                                           <h3 className="text-sm font-bold text-black uppercase tracking-widest text-right">AUTHORIZED BY</h3>
+                                                           <h3 className="text-sm font-bold text-black uppercase tracking-widest text-center">AUTHORIZED SIGNATURE</h3>
                                                        </div>
                                                   </div>
                                               </div>
                                           )}
                                       </div>
                                   )}
-
                               </div>
                           ) : (
-                              <div className="text-center text-gray-400">
-                                  <CreditCard size={48} className="mx-auto mb-3 opacity-20"/>
-                                  <p className="text-sm font-bold">Fill in details to generate preview</p>
+                              <div className="flex flex-col items-center justify-center text-gray-400 h-full">
+                                  <UserIcon size={64} className="mb-4 opacity-20"/>
+                                  <p className="font-serif text-lg">Start by entering profile details</p>
                               </div>
                           )}
-                      </div>
-                      
-                      {/* Footer Actions */}
-                      <div className="border-t border-gray-200 pt-6 mt-6 flex justify-end gap-3">
-                          <button onClick={() => setShowReporterModal(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors">Cancel</button>
-                          <button onClick={handleSaveReporterInternal} className="px-6 py-2.5 bg-news-black text-white rounded-lg text-sm font-bold shadow-lg hover:bg-gray-800 transition-all flex items-center gap-2">
-                              <Save size={16} /> Save Reporter
-                          </button>
                       </div>
                   </div>
               </div>
           </div>
       )}
-
-      {/* Ad Modal */}
-      {showAdModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-             <div className="bg-white rounded-lg w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-                 <h3 className="font-bold text-lg mb-4">{editingAdId ? 'Edit Advertisement' : 'New Advertisement'}</h3>
-                 <div className="space-y-4">
-                     <input type="text" placeholder="Ad Title (Internal Ref)" value={newAd.title || ''} onChange={e => setNewAd({...newAd, title: e.target.value})} className="w-full p-2 border rounded" />
-                     <input type="text" placeholder="Target Link URL (Optional)" value={newAd.linkUrl || ''} onChange={e => setNewAd({...newAd, linkUrl: e.target.value})} className="w-full p-2 border rounded" />
-                     
-                     <div className="grid grid-cols-2 gap-4">
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 block mb-1">Size</label>
-                             <select value={newAd.size} onChange={e => setNewAd({...newAd, size: e.target.value as AdSize})} className="w-full p-2 border rounded text-sm">
-                                 <option value="BILLBOARD">Billboard (970x250)</option>
-                                 <option value="LEADERBOARD">Leaderboard (728x90)</option>
-                                 <option value="RECTANGLE">Rectangle (300x250)</option>
-                                 <option value="HALF_PAGE">Half Page (300x600)</option>
-                                 <option value="MOBILE_BANNER">Mobile (320x50)</option>
-                             </select>
-                         </div>
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 block mb-1">Placement</label>
-                             <select value={newAd.placement} onChange={e => setNewAd({...newAd, placement: e.target.value as AdPlacement})} className="w-full p-2 border rounded text-sm">
-                                 <option value="GLOBAL">Global (All Pages)</option>
-                                 <option value="HOME">Home Page</option>
-                                 <option value="ARTICLE">Article Pages</option>
-                                 <option value="EPAPER">E-Paper</option>
-                                 <option value="CATEGORY">Specific Category</option>
-                             </select>
-                         </div>
-                     </div>
-
-                     {newAd.placement === 'CATEGORY' && (
-                         <select value={newAd.targetCategory} onChange={e => setNewAd({...newAd, targetCategory: e.target.value})} className="w-full p-2 border rounded text-sm">
-                             <option value="">Select Category...</option>
-                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                         </select>
-                     )}
-
-                     <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative">
-                         {newAd.imageUrl ? (
-                             <img src={newAd.imageUrl} className="max-h-32 mx-auto object-contain mb-2" />
-                         ) : <p className="text-gray-400 text-xs">No banner image</p>}
-                         <button onClick={() => setShowAdImageGallery(true)} className="bg-gray-200 px-3 py-1 rounded text-xs font-bold">Select from Gallery</button>
-                     </div>
-
-                     <div className="flex items-center gap-2">
-                         <input type="checkbox" checked={newAd.isActive} onChange={e => setNewAd({...newAd, isActive: e.target.checked})} id="adActive" />
-                         <label htmlFor="adActive" className="text-sm font-bold">Active</label>
-                     </div>
-
-                     <div className="flex justify-end gap-2 pt-2">
-                         <button onClick={() => setShowAdModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
-                         <button onClick={handleSaveAd} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Save Ad</button>
-                     </div>
-                 </div>
-             </div>
-        </div>
-      )}
-
     </div>
     </>
   );
