@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement, ReporterProfile } from '../types';
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
-  Settings, X, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Copy, RefreshCcw, Type, Star, Save, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, Repeat, PenTool, Stamp, Droplet
+  Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, Repeat, PenTool, Stamp, Droplet
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -57,7 +58,7 @@ interface EditorDashboardProps {
   onDeleteReporter?: (id: string) => void;
 }
 
-const EditorDashboard: React.FC<EditorDashboardProps> = ({ 
+export const EditorDashboard: React.FC<EditorDashboardProps> = ({ 
   articles, ePaperPages, categories, tags = [], adCategories, classifieds, advertisements,
   onAddPage, onDeletePage, onDeleteArticle, onSaveArticle, 
   onAddCategory, onDeleteCategory, onAddTag, onDeleteTag, onAddAdCategory, onDeleteAdCategory, onSaveTaxonomy,
@@ -1116,19 +1117,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               ></textarea>
                           </div>
 
-                          {/* Authorization Assets - Only relevant for Official/Backside */}
-                          <div className="pt-4 border-t border-gray-200">
-                              <h4 className="font-bold text-sm text-gray-800 mb-3">Authorization Assets</h4>
-                              <div className="flex gap-4">
-                                  <button onClick={() => { setImageSelectorTarget('signature'); setShowProfileImageGallery(true); }} className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center justify-center gap-2">
-                                      <PenTool size={14} /> {activeReporter.signatureUrl ? 'Update Signature' : 'Upload Signature'}
-                                  </button>
-                                  <button onClick={() => { setImageSelectorTarget('stamp'); setShowProfileImageGallery(true); }} className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center justify-center gap-2">
-                                      <Stamp size={14} /> {activeReporter.stampUrl ? 'Update Stamp' : 'Upload Stamp'}
-                                  </button>
-                              </div>
-                          </div>
-
+                          {/* Card Branding - Moved Above Authorization Assets */}
                           <div className="pt-4 border-t border-gray-200">
                               <h4 className="font-bold text-sm text-gray-800 mb-3">Card Branding</h4>
                               <div className="flex gap-4">
@@ -1137,6 +1126,19 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   </button>
                                   <button onClick={() => { setImageSelectorTarget('cardWatermark'); setShowProfileImageGallery(true); }} className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center justify-center gap-2">
                                       <Droplet size={14} /> {activeReporter.watermarkUrl ? 'Change Watermark' : 'Upload Watermark'}
+                                  </button>
+                              </div>
+                          </div>
+
+                          {/* Authorization Assets */}
+                          <div className="pt-4 border-t border-gray-200">
+                              <h4 className="font-bold text-sm text-gray-800 mb-3">Authorization Assets</h4>
+                              <div className="flex gap-4">
+                                  <button onClick={() => { setImageSelectorTarget('signature'); setShowProfileImageGallery(true); }} className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center justify-center gap-2">
+                                      <PenTool size={14} /> {activeReporter.signatureUrl ? 'Update Signature' : 'Upload Signature'}
+                                  </button>
+                                  <button onClick={() => { setImageSelectorTarget('stamp'); setShowProfileImageGallery(true); }} className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center justify-center gap-2">
+                                      <Stamp size={14} /> {activeReporter.stampUrl ? 'Update Stamp' : 'Upload Stamp'}
                                   </button>
                               </div>
                           </div>
@@ -1167,7 +1169,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   
                                   {/* CLASSIC MODEL */}
                                   {(!activeReporter.cardTemplate || activeReporter.cardTemplate === 'classic') && (
-                                      <div className="w-[350px] h-[550px] bg-white rounded-2xl shadow-2xl overflow-hidden relative flex flex-col border border-gray-200 print:shadow-none">
+                                      <div className="w-[350px] h-[550px] bg-white rounded-2xl shadow-2xl overflow-hidden relative flex flex-col border border-gray-200 print:shadow-none print:border-black">
                                           {/* Header */}
                                           <div className="h-28 bg-news-blue flex flex-col items-center justify-center relative overflow-hidden shrink-0">
                                               <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
@@ -1462,7 +1464,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                       </div>
                                                   </div>
 
-                                                  <div className="mt-auto flex justify-end items-end relative z-10 pb-8">
+                                                  <div className="mt-auto flex justify-end items-end relative z-10 pb-10">
                                                        <div className="relative">
                                                            {/* Signature and Stamp Container */}
                                                            <div className="relative w-64 h-36 mb-1 flex items-end justify-center">
@@ -1511,5 +1513,3 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     </>
   );
 };
-
-export default EditorDashboard;

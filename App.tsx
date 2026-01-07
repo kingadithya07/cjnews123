@@ -4,7 +4,7 @@ import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
 import ArticleView from './pages/ArticleView';
 import WriterDashboard from './pages/WriterDashboard';
-import EditorDashboard from './pages/EditorDashboard';
+import { EditorDashboard } from './pages/EditorDashboard';
 import EPaperReader from './pages/EPaperReader';
 import ClassifiedsHome from './pages/ClassifiedsHome';
 import Login from './pages/Login';
