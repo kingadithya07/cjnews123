@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, QrCode, CreditCard
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, QrCode, CreditCard, Repeat
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -131,7 +131,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [showReporterModal, setShowReporterModal] = useState(false);
   const [activeReporter, setActiveReporter] = useState<Partial<ReporterProfile>>({});
   const [showProfileImageGallery, setShowProfileImageGallery] = useState(false);
-  const [cardDisclaimer, setCardDisclaimer] = useState('This card is the property of CJ NEWSHUB. If found, please return to the nearest bureau. Verification available via QR Code.');
+  const [cardDisclaimer, setCardDisclaimer] = useState('This press ID is the property of the issuing organization. Unauthorized use of this ID is strictly prohibited. Holder of this ID must comply with journalistic ethics while reporting and is subject to company policies and procedures.');
+  const [showCardBack, setShowCardBack] = useState(false);
 
   // Settings State
   const [profileName, setProfileName] = useState(userName || '');
@@ -386,7 +387,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               validUntil: activeReporter.validUntil || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
               location: activeReporter.location || 'Headquarters',
               status: activeReporter.status || 'active',
-              cardTemplate: activeReporter.cardTemplate || 'classic'
+              cardTemplate: activeReporter.cardTemplate || 'classic',
+              emergencyContact: activeReporter.emergencyContact,
+              officeAddress: activeReporter.officeAddress
           };
           onSaveReporter(reporter);
           setShowReporterModal(false);
@@ -403,6 +406,23 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       const printWindow = window.open('', '_blank');
       if (printWindow) {
           const cardHtml = document.getElementById('id-card-preview')?.innerHTML;
+          // For official card, try to grab back side as well if it's not currently visible or rendered separately
+          // In this implementation, the "Official" card toggles. 
+          // To print both, we ideally need both rendered. 
+          // For simplicity in this edit, we print what is seen, but for "Official", we might want to temporarily render both.
+          
+          const isOfficial = activeReporter.cardTemplate === 'official';
+          
+          let contentToPrint = cardHtml;
+          
+          if (isOfficial) {
+              // Quick hack to ensure we print both sides for official cards if possible, 
+              // but since React state controls visibility, we can only print current view easily.
+              // We'll rely on the user flipping to print each side or just print the current view.
+              // To improve, we would need to render hidden container with both sides.
+              // For now, let's just print the current view.
+          }
+
           printWindow.document.write(`
               <html>
                   <head>
@@ -419,7 +439,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </style>
                   </head>
                   <body>
-                      <div class="print-container">${cardHtml}</div>
+                      <div class="print-container">${contentToPrint}</div>
                       <script>
                           setTimeout(() => { window.print(); window.close(); }, 500);
                       </script>
@@ -604,7 +624,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           <h2 className="font-serif text-2xl font-bold text-gray-900 flex items-center gap-2">
                               <Fingerprint className="text-news-gold" /> Identity Cards
                           </h2>
-                          <button onClick={() => { setActiveReporter({ cardTemplate: 'classic' }); setShowReporterModal(true); }} className="bg-news-black text-white text-xs font-bold uppercase px-4 py-3 rounded flex items-center gap-2 hover:bg-gray-800">
+                          <button onClick={() => { setActiveReporter({ cardTemplate: 'official' }); setShowReporterModal(true); setShowCardBack(false); }} className="bg-news-black text-white text-xs font-bold uppercase px-4 py-3 rounded flex items-center gap-2 hover:bg-gray-800">
                               <Plus size={16} /> Add Reporter
                           </button>
                       </div>
@@ -615,7 +635,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                           <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
                               {reporters.map(rep => (
-                                  <div key={rep.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => { setActiveReporter(rep); setShowReporterModal(true); }}>
+                                  <div key={rep.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => { setActiveReporter(rep); setShowReporterModal(true); setShowCardBack(false); }}>
                                       <div className="flex items-center gap-3">
                                           <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-100">
                                               {rep.photoUrl ? <img src={rep.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-2 text-gray-400 w-full h-full"/>}
@@ -870,9 +890,20 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               </div>
                           </div>
 
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Emergency Contact</label>
+                                  <input type="text" value={activeReporter.emergencyContact || ''} onChange={e => setActiveReporter({...activeReporter, emergencyContact: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="8008129309"/>
+                              </div>
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Office Address</label>
+                                  <input type="text" value={activeReporter.officeAddress || ''} onChange={e => setActiveReporter({...activeReporter, officeAddress: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="Specific Office Address"/>
+                              </div>
+                          </div>
+
                           <div className="space-y-4 pt-4 border-t border-gray-200">
                               <h4 className="font-bold text-sm text-gray-800">Card Design</h4>
-                              <div className="flex gap-4">
+                              <div className="flex gap-4 flex-wrap">
                                   <label className="flex items-center gap-3 cursor-pointer group">
                                       <input type="radio" name="template" checked={activeReporter.cardTemplate === 'classic' || !activeReporter.cardTemplate} onChange={() => setActiveReporter({...activeReporter, cardTemplate: 'classic'})} className="accent-news-black w-4 h-4"/>
                                       <div className={`p-3 border rounded-lg text-xs font-bold text-center w-24 group-hover:bg-white transition-colors ${activeReporter.cardTemplate === 'classic' || !activeReporter.cardTemplate ? 'bg-white border-news-black ring-1 ring-news-black' : 'bg-gray-100 border-transparent'}`}>
@@ -891,6 +922,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                           Agency
                                       </div>
                                   </label>
+                                  <label className="flex items-center gap-3 cursor-pointer group">
+                                      <input type="radio" name="template" checked={activeReporter.cardTemplate === 'official'} onChange={() => setActiveReporter({...activeReporter, cardTemplate: 'official'})} className="accent-news-black w-4 h-4"/>
+                                      <div className={`p-3 border rounded-lg text-xs font-bold text-center w-24 group-hover:bg-white transition-colors ${activeReporter.cardTemplate === 'official' ? 'bg-blue-800 text-white border-blue-800' : 'bg-gray-100 border-transparent'}`}>
+                                          Official
+                                      </div>
+                                  </label>
                               </div>
                           </div>
 
@@ -902,6 +939,16 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   <Camera size={14}/> Change Photo
                               </button>
                           </div>
+                          
+                          {/* Disclaimer Edit */}
+                          <div className="pt-4">
+                              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Back Side Disclaimer</label>
+                              <textarea 
+                                  className="w-full p-3 border rounded-lg text-xs text-gray-600 h-24"
+                                  value={cardDisclaimer}
+                                  onChange={(e) => setCardDisclaimer(e.target.value)}
+                              ></textarea>
+                          </div>
                       </div>
                   </div>
 
@@ -910,6 +957,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       <div className="flex justify-between items-center mb-6">
                           <h3 className="font-bold text-lg text-gray-700">Live Card Preview</h3>
                           <div className="flex gap-2">
+                              {activeReporter.cardTemplate === 'official' && (
+                                  <button onClick={() => setShowCardBack(!showCardBack)} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-50">
+                                      <Repeat size={16} /> {showCardBack ? 'Show Front' : 'Show Back'}
+                                  </button>
+                              )}
                               <button onClick={handlePrintCard} disabled={!activeReporter.fullName} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800 disabled:opacity-50">
                                   <Printer size={16} /> Print
                               </button>
@@ -978,7 +1030,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                   />
                                               </div>
                                               <div className="pl-4 text-right">
-                                                  <p className="text-[7px] text-gray-400 leading-tight">
+                                                  <p className="text-[7px] text-gray-400 leading-tight line-clamp-3">
                                                       {cardDisclaimer}
                                                   </p>
                                                   <div className="mt-2 text-[8px] font-black text-news-blue uppercase tracking-widest">Authorized Press</div>
@@ -1108,6 +1160,94 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                           
                                           {/* Bottom Strip */}
                                           <div className="bg-black h-4 w-full"></div>
+                                      </div>
+                                  )}
+
+                                  {/* OFFICIAL (LANDSCAPE) MODEL */}
+                                  {activeReporter.cardTemplate === 'official' && (
+                                      <div className={`w-[550px] h-[350px] bg-white rounded-xl shadow-2xl overflow-hidden relative flex flex-col border border-gray-200 print:shadow-none print:border-black transition-transform duration-500 preserve-3d ${showCardBack ? 'rotate-y-180' : ''}`}>
+                                          {!showCardBack ? (
+                                              // FRONT SIDE
+                                              <>
+                                                  {/* Curved Red Header */}
+                                                  <div className="h-[70px] bg-[#d71920] relative w-full overflow-hidden shrink-0">
+                                                      <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center z-10">
+                                                          <h1 className="text-4xl font-bold text-white uppercase tracking-wider font-sans">PRESS</h1>
+                                                      </div>
+                                                      {/* Decorative Curve Bottom Right */}
+                                                      <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-[#1a1a1a] rounded-full z-0 opacity-20"></div>
+                                                      <svg className="absolute bottom-0 w-full h-[20px]" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                          <path d="M0 100 C 40 0 60 0 100 100 Z" fill="white" fillOpacity="0.1"/>
+                                                          {/* Simple white curve to simulate the reference cut */}
+                                                          <path d="M50 100 Q 80 0 100 80 L 100 100 L 0 100 Z" fill="white" />
+                                                      </svg>
+                                                  </div>
+
+                                                  <div className="flex-1 p-6 flex gap-6">
+                                                      {/* Photo Area */}
+                                                      <div className="w-[110px] h-[140px] bg-gray-200 shrink-0 border border-gray-300">
+                                                          {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-4 text-gray-400 w-full h-full"/>}
+                                                      </div>
+
+                                                      {/* Fields Area */}
+                                                      <div className="flex-1 space-y-3 pt-1">
+                                                          {[
+                                                              { label: 'Name', value: activeReporter.fullName },
+                                                              { label: 'Position', value: activeReporter.role },
+                                                              { label: 'ID No', value: activeReporter.idNumber },
+                                                              { label: 'Contact', value: activeReporter.phone || activeReporter.email },
+                                                              { label: 'Date Issued', value: activeReporter.joinedAt ? format(new Date(activeReporter.joinedAt), 'dd/MM/yyyy') : 'N/A' },
+                                                              { label: 'Valid Until', value: activeReporter.validUntil ? format(new Date(activeReporter.validUntil), 'dd/MM/yyyy') : 'N/A' }
+                                                          ].map((field, idx) => (
+                                                              <div key={idx} className="flex text-sm items-baseline">
+                                                                  <span className="w-24 font-bold text-gray-800 shrink-0">{field.label}:</span>
+                                                                  <span className="flex-1 border-b border-gray-300 text-gray-900 px-1 truncate h-5">{field.value}</span>
+                                                              </div>
+                                                          ))}
+                                                      </div>
+                                                  </div>
+
+                                                  {/* Red Footer Curve */}
+                                                  <div className="h-[50px] relative mt-auto w-full">
+                                                      <svg className="absolute top-[-20px] w-full h-[30px]" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                          <path d="M0 100 L 0 50 Q 50 100 100 30 L 100 100 Z" fill="#d71920" />
+                                                      </svg>
+                                                      <div className="bg-[#d71920] h-full w-full flex flex-col items-center justify-center z-10 relative">
+                                                          <span className="text-[10px] font-bold text-white uppercase">EMERGENCY CONTACTS:</span>
+                                                          <span className="text-sm font-black text-white">{activeReporter.emergencyContact || 'N/A'}</span>
+                                                      </div>
+                                                  </div>
+                                              </>
+                                          ) : (
+                                              // BACK SIDE
+                                              <div className="w-full h-full p-8 flex flex-col bg-white text-left relative">
+                                                  <div className="mb-6">
+                                                      <h3 className="text-xs font-bold text-red-600 uppercase mb-2">OFFICE ADDRESS:</h3>
+                                                      <p className="text-xs font-medium text-gray-800 uppercase leading-relaxed max-w-[80%]">
+                                                          {activeReporter.officeAddress || activeReporter.location || 'SUJATHA NAGAR, VISAKHAPATNAM, ANDHRA PRADESH -530051.'}
+                                                      </p>
+                                                  </div>
+
+                                                  <div className="mb-8 flex-1">
+                                                      <h3 className="text-xs font-bold text-red-600 uppercase mb-2">Disclaimer:</h3>
+                                                      <p className="text-[10px] text-gray-600 leading-relaxed text-justify">
+                                                          {cardDisclaimer}
+                                                      </p>
+                                                  </div>
+
+                                                  <div className="mt-auto flex justify-between items-end">
+                                                       {/* Stamp Placeholder */}
+                                                       <div className="w-20 h-20 border-2 border-red-200 rounded-full flex items-center justify-center transform -rotate-12 opacity-50">
+                                                           <span className="text-[8px] font-bold text-red-300 text-center uppercase">Official<br/>Stamp</span>
+                                                       </div>
+
+                                                       <div className="text-right">
+                                                           <div className="w-48 border-b border-black mb-1"></div>
+                                                           <h3 className="text-sm font-bold text-black uppercase">AUTHORIZED BY</h3>
+                                                       </div>
+                                                  </div>
+                                              </div>
+                                          )}
                                       </div>
                                   )}
 

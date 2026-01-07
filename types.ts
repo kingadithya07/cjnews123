@@ -39,7 +39,9 @@ export interface ReporterProfile {
   validUntil: string;
   location: string;
   status: 'active' | 'suspended';
-  cardTemplate?: 'classic' | 'modern' | 'agency'; // New field for ID card design preference
+  cardTemplate?: 'classic' | 'modern' | 'agency' | 'official'; // New field for ID card design preference
+  emergencyContact?: string; // New field for official ID
+  officeAddress?: string; // New field for official ID
 }
 
 export interface Article {
