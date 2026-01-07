@@ -1241,7 +1241,16 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                            <span className="text-[8px] font-bold text-red-300 text-center uppercase">Official<br/>Stamp</span>
                                                        </div>
 
-                                                       <div className="text-right">
+                                                       <div className="text-right relative">
+                                                           {/* Signature Added Here */}
+                                                           <div className="absolute bottom-5 right-2 w-32 h-12 flex items-end justify-center pointer-events-none mix-blend-multiply">
+                                                               <img 
+                                                                   src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Signature_sample.svg/600px-Signature_sample.svg.png" 
+                                                                   className="w-full h-full object-contain opacity-90"
+                                                                   style={{ filter: 'brightness(0) saturate(100%) invert(18%) sepia(91%) saturate(2338%) hue-rotate(224deg) brightness(89%) contrast(93%)' }} // Simulates Blue Ink
+                                                                   alt="Authorized Signature" 
+                                                               />
+                                                           </div>
                                                            <div className="w-48 border-b border-black mb-1"></div>
                                                            <h3 className="text-sm font-bold text-black uppercase">AUTHORIZED BY</h3>
                                                        </div>
