@@ -4,7 +4,7 @@ import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
 import ArticleView from './pages/ArticleView';
 import WriterDashboard from './pages/WriterDashboard';
-import { EditorDashboard } from './pages/EditorDashboard';
+import EditorDashboard from './pages/EditorDashboard';
 import EPaperReader from './pages/EPaperReader';
 import ClassifiedsHome from './pages/ClassifiedsHome';
 import Login from './pages/Login';
@@ -264,14 +264,7 @@ function App() {
               joinedAt: r.joined_at || r.joinedAt,
               validUntil: r.valid_until || r.validUntil,
               location: r.location,
-              status: r.status,
-              cardTemplate: r.card_template || r.cardTemplate,
-              emergencyContact: r.emergency_contact || r.emergencyContact,
-              officeAddress: r.office_address || r.officeAddress,
-              signatureUrl: r.signature_url || r.signatureUrl,
-              stampUrl: r.stamp_url || r.stampUrl,
-              logoUrl: r.logo_url || r.logoUrl,
-              watermarkUrl: r.watermark_url || r.watermarkUrl
+              status: r.status
           })));
       }
 
@@ -568,14 +561,7 @@ function App() {
           joined_at: reporter.joinedAt,
           valid_until: reporter.validUntil,
           location: reporter.location,
-          status: reporter.status,
-          card_template: reporter.cardTemplate,
-          emergency_contact: reporter.emergencyContact,
-          office_address: reporter.officeAddress,
-          signature_url: reporter.signatureUrl,
-          stamp_url: reporter.stampUrl,
-          logo_url: reporter.logoUrl,
-          watermark_url: reporter.watermarkUrl
+          status: reporter.status
       };
 
       const { error } = await supabase.from('reporters').upsert(dbPayload);
