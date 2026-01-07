@@ -1,10 +1,9 @@
-
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement, ReporterProfile } from '../types';
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
-  Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, QrCode, CreditCard, Repeat, PenTool, Stamp
+  Settings, X, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Loader2, Library, User as UserIcon, Lock,
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Copy, RefreshCcw, Type, Star, Save, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, Repeat, PenTool, Stamp, Droplet
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -131,7 +130,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [showReporterModal, setShowReporterModal] = useState(false);
   const [activeReporter, setActiveReporter] = useState<Partial<ReporterProfile>>({});
   const [showProfileImageGallery, setShowProfileImageGallery] = useState(false);
-  const [imageSelectorTarget, setImageSelectorTarget] = useState<'photo' | 'signature' | 'stamp'>('photo');
+  const [imageSelectorTarget, setImageSelectorTarget] = useState<'photo' | 'signature' | 'stamp' | 'logo' | 'cardWatermark'>('photo');
   const [cardDisclaimer, setCardDisclaimer] = useState('This press ID is the property of the issuing organization. Unauthorized use of this ID is strictly prohibited. Holder of this ID must comply with journalistic ethics while reporting and is subject to company policies and procedures.');
   const [showCardBack, setShowCardBack] = useState(false);
 
@@ -392,7 +391,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               emergencyContact: activeReporter.emergencyContact,
               officeAddress: activeReporter.officeAddress,
               signatureUrl: activeReporter.signatureUrl,
-              stampUrl: activeReporter.stampUrl
+              stampUrl: activeReporter.stampUrl,
+              logoUrl: activeReporter.logoUrl,
+              watermarkUrl: activeReporter.watermarkUrl
           };
           onSaveReporter(reporter);
           setShowReporterModal(false);
@@ -504,6 +505,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
             if (imageSelectorTarget === 'photo') setActiveReporter({...activeReporter, photoUrl: url});
             else if (imageSelectorTarget === 'signature') setActiveReporter({...activeReporter, signatureUrl: url});
             else if (imageSelectorTarget === 'stamp') setActiveReporter({...activeReporter, stampUrl: url});
+            else if (imageSelectorTarget === 'logo') setActiveReporter({...activeReporter, logoUrl: url});
+            else if (imageSelectorTarget === 'cardWatermark') setActiveReporter({...activeReporter, watermarkUrl: url});
             setShowProfileImageGallery(false); 
         }}
         uploadFolder="avatars"
@@ -1125,6 +1128,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   </button>
                               </div>
                           </div>
+
+                          <div className="pt-4 border-t border-gray-200">
+                              <h4 className="font-bold text-sm text-gray-800 mb-3">Card Branding</h4>
+                              <div className="flex gap-4">
+                                  <button onClick={() => { setImageSelectorTarget('logo'); setShowProfileImageGallery(true); }} className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center justify-center gap-2">
+                                      <ImageIcon size={14} /> {activeReporter.logoUrl ? 'Change Logo' : 'Upload Logo'}
+                                  </button>
+                                  <button onClick={() => { setImageSelectorTarget('cardWatermark'); setShowProfileImageGallery(true); }} className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center justify-center gap-2">
+                                      <Droplet size={14} /> {activeReporter.watermarkUrl ? 'Change Watermark' : 'Upload Watermark'}
+                                  </button>
+                              </div>
+                          </div>
                       </div>
                   </div>
 
@@ -1347,34 +1362,39 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                               <>
                                                   {/* Watermark */}
                                                   <div className="absolute inset-0 flex items-center justify-center opacity-[0.05] pointer-events-none z-0">
-                                                      <img src="https://cdn-icons-png.flaticon.com/512/21/21601.png" className="w-[300px] h-[300px] object-contain grayscale" />
+                                                      <img 
+                                                          src={activeReporter.watermarkUrl || "https://cdn-icons-png.flaticon.com/512/21/21601.png"} 
+                                                          className="w-[300px] h-[300px] object-contain grayscale" 
+                                                      />
                                                   </div>
 
-                                                  {/* Curved Red Header */}
-                                                  <div className="h-[70px] bg-[#d71920] relative w-full overflow-hidden shrink-0 z-10">
-                                                      <div className="absolute top-0 left-0 w-full h-full flex items-center justify-between px-8 z-10">
-                                                          <h1 className="text-4xl font-bold text-white uppercase tracking-wider font-sans">PRESS</h1>
-                                                          {/* Logo Space */}
-                                                          <div className="w-12 h-12 bg-white/20 rounded-lg border border-white/30 flex items-center justify-center">
-                                                               <span className="text-[8px] font-bold text-white uppercase text-center leading-tight">Brand<br/>Logo</span>
-                                                          </div>
+                                                  {/* Curved Red Header with Logo Space */}
+                                                  <div className="h-[70px] bg-[#d71920] relative w-full overflow-hidden shrink-0 z-10 flex justify-between items-center px-8">
+                                                      <div className="flex-1 text-center">
+                                                          <h1 className="text-4xl font-bold text-white uppercase tracking-wider font-sans drop-shadow-md">PRESS</h1>
+                                                      </div>
+                                                      <div className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 rounded-lg border border-white/30 flex items-center justify-center overflow-hidden">
+                                                           {activeReporter.logoUrl ? (
+                                                               <img src={activeReporter.logoUrl} className="w-full h-full object-contain p-1" />
+                                                           ) : (
+                                                               <span className="text-[8px] font-bold text-white uppercase text-center leading-tight opacity-70">Logo<br/>Space</span>
+                                                           )}
                                                       </div>
                                                       {/* Decorative Curve Bottom Right */}
-                                                      <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-[#1a1a1a] rounded-full z-0 opacity-20"></div>
-                                                      <svg className="absolute bottom-0 w-full h-[20px]" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                      <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-[#1a1a1a] rounded-full z-0 opacity-20 pointer-events-none"></div>
+                                                      <svg className="absolute bottom-0 left-0 w-full h-[20px] pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
                                                           <path d="M0 100 C 40 0 60 0 100 100 Z" fill="white" fillOpacity="0.1"/>
-                                                          {/* Simple white curve to simulate the reference cut */}
                                                           <path d="M50 100 Q 80 0 100 80 L 100 100 L 0 100 Z" fill="white" />
                                                       </svg>
                                                   </div>
 
                                                   <div className="flex-1 p-6 flex gap-6 relative z-10">
-                                                      {/* Left Column: Photo & QR */}
-                                                      <div className="flex flex-col items-center gap-2 shrink-0">
-                                                          <div className="w-[90px] h-[110px] bg-gray-200 border border-gray-300 shadow-sm overflow-hidden relative">
+                                                      {/* Left Column: Photo Area + QR */}
+                                                      <div className="flex flex-col items-center gap-3 shrink-0">
+                                                          <div className="w-[90px] h-[110px] bg-gray-200 border border-gray-300 shadow-sm overflow-hidden">
                                                               {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-4 text-gray-400 w-full h-full"/>}
                                                           </div>
-                                                          <div className="w-[80px] h-[80px] bg-white p-1 border border-gray-200">
+                                                          <div className="w-[80px] h-[80px] bg-white p-1 border border-gray-200 shadow-sm">
                                                                <img 
                                                                   src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/verify-id/${activeReporter.id || 'preview'}`)}`} 
                                                                   className="w-full h-full object-contain"
@@ -1383,11 +1403,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                           </div>
                                                       </div>
 
-                                                      {/* Fields Area */}
+                                                      {/* Right Column: Fields Area */}
                                                       <div className="flex-1 space-y-2 pt-1">
                                                           {[
                                                               { label: 'Name', value: activeReporter.fullName },
-                                                              { label: 'Position', value: activeReporter.role },
+                                                              { label: 'Designation', value: activeReporter.role },
                                                               { label: 'ID No', value: activeReporter.idNumber },
                                                               { label: 'Blood Group', value: activeReporter.bloodGroup || 'N/A' },
                                                               { label: 'Date Issued', value: activeReporter.joinedAt ? format(new Date(activeReporter.joinedAt), 'dd/MM/yyyy') : 'N/A' },
@@ -1395,9 +1415,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                           ].map((field, idx) => (
                                                               <div key={idx} className="flex text-sm items-baseline">
                                                                   <span className="w-24 font-bold text-gray-800 shrink-0 uppercase text-[10px] tracking-wider">{field.label}:</span>
-                                                                  <span className="flex-1 border-b border-gray-300 text-gray-900 px-1 truncate h-5 font-semibold">{field.value}</span>
+                                                                  <span className="flex-1 border-b border-gray-300 text-gray-900 px-1 truncate h-5 font-bold">{field.value}</span>
                                                               </div>
                                                           ))}
+                                                          <div className="flex text-sm items-baseline">
+                                                              <span className="w-24 font-bold text-gray-800 shrink-0 uppercase text-[10px] tracking-wider">Contact:</span>
+                                                              <span className="flex-1 border-b border-gray-300 text-gray-900 px-1 truncate h-5 font-bold text-xs">{activeReporter.phone || activeReporter.email}</span>
+                                                          </div>
                                                       </div>
                                                   </div>
 
@@ -1407,7 +1431,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                           <path d="M0 100 L 0 50 Q 50 100 100 30 L 100 100 Z" fill="#d71920" />
                                                       </svg>
                                                       <div className="bg-[#d71920] h-full w-full flex flex-col items-center justify-center z-10 relative">
-                                                          <span className="text-[10px] font-bold text-white uppercase tracking-widest">EMERGENCY: {activeReporter.emergencyContact || 'N/A'}</span>
+                                                          <span className="text-[9px] font-bold text-white uppercase tracking-widest">EMERGENCY: {activeReporter.emergencyContact || 'N/A'}</span>
                                                       </div>
                                                   </div>
                                               </>
@@ -1416,45 +1440,48 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                               <div className="w-full h-full p-8 flex flex-col bg-white text-left relative overflow-hidden">
                                                   {/* Watermark */}
                                                   <div className="absolute inset-0 flex items-center justify-center opacity-[0.05] pointer-events-none z-0">
-                                                      <img src="https://cdn-icons-png.flaticon.com/512/21/21601.png" className="w-[300px] h-[300px] object-contain grayscale" />
+                                                      <img 
+                                                          src={activeReporter.watermarkUrl || "https://cdn-icons-png.flaticon.com/512/21/21601.png"} 
+                                                          className="w-[300px] h-[300px] object-contain grayscale" 
+                                                      />
                                                   </div>
 
                                                   <div className="relative z-10">
                                                       <div className="mb-6">
                                                           <h3 className="text-xs font-bold text-red-600 uppercase mb-2 border-b border-red-100 pb-1 inline-block">OFFICE ADDRESS:</h3>
-                                                          <p className="text-xs font-medium text-gray-800 uppercase leading-relaxed max-w-[80%]">
+                                                          <p className="text-xs font-medium text-gray-800 uppercase leading-relaxed max-w-[90%]">
                                                               {activeReporter.officeAddress || activeReporter.location || 'SUJATHA NAGAR, VISAKHAPATNAM, ANDHRA PRADESH -530051.'}
                                                           </p>
                                                       </div>
 
-                                                      <div className="mb-8 flex-1">
-                                                          <h3 className="text-xs font-bold text-red-600 uppercase mb-2 border-b border-red-100 pb-1 inline-block">Disclaimer:</h3>
+                                                      <div className="mb-4 flex-1">
+                                                          <h3 className="text-xs font-bold text-red-600 uppercase mb-2 border-b border-red-100 pb-1 inline-block">Terms & Conditions:</h3>
                                                           <p className="text-[10px] text-gray-600 leading-relaxed text-justify">
                                                               {cardDisclaimer}
                                                           </p>
                                                       </div>
                                                   </div>
 
-                                                  <div className="mt-auto flex justify-end items-end relative z-10">
+                                                  <div className="mt-auto flex justify-end items-end relative z-10 pb-8">
                                                        <div className="relative">
                                                            {/* Signature and Stamp Container */}
-                                                           <div className="relative w-64 h-40 mb-1 flex items-end justify-center">
+                                                           <div className="relative w-64 h-36 mb-1 flex items-end justify-center">
                                                                {/* Signature Layer - Bottom */}
                                                                {activeReporter.signatureUrl && (
                                                                    <img 
                                                                        src={activeReporter.signatureUrl} 
-                                                                       className="w-full h-24 object-contain object-bottom mix-blend-multiply z-10 relative mb-4"
+                                                                       className="w-full h-24 object-contain object-bottom mix-blend-multiply z-10 relative mb-2"
                                                                        alt="Authorized Signature" 
                                                                    />
                                                                )}
 
                                                                {/* Stamp Layer - Large and overlapping */}
                                                                {activeReporter.stampUrl ? (
-                                                                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 opacity-85 mix-blend-multiply z-20 pointer-events-none rotate-[-15deg]">
+                                                                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 opacity-85 mix-blend-multiply z-20 pointer-events-none rotate-[-15deg]">
                                                                        <img src={activeReporter.stampUrl} className="w-full h-full object-contain" alt="Stamp" />
                                                                    </div>
                                                                ) : (
-                                                                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-4 border-red-200 rounded-full flex items-center justify-center opacity-40 z-0 pointer-events-none rotate-[-15deg]">
+                                                                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-28 h-28 border-4 border-red-200 rounded-full flex items-center justify-center opacity-40 z-0 pointer-events-none rotate-[-15deg]">
                                                                        <span className="text-[10px] font-bold text-red-300 text-center uppercase">Official<br/>Stamp</span>
                                                                    </div>
                                                                )}
@@ -1462,96 +1489,25 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                                            
                                                            {/* Line and Label */}
                                                            <div className="w-64 border-b-2 border-black mb-1"></div>
-                                                           <h3 className="text-sm font-bold text-black uppercase tracking-widest text-center">AUTHORIZED BY</h3>
+                                                           <h3 className="text-sm font-bold text-black uppercase tracking-widest text-center">AUTHORIZED SIGNATURE</h3>
                                                        </div>
                                                   </div>
                                               </div>
                                           )}
                                       </div>
                                   )}
-
                               </div>
                           ) : (
-                              <div className="text-center text-gray-400">
-                                  <CreditCard size={48} className="mx-auto mb-3 opacity-20"/>
-                                  <p className="text-sm font-bold">Fill in details to generate preview</p>
+                              <div className="flex flex-col items-center justify-center h-full text-gray-400 opacity-30">
+                                  <UserIcon size={64} strokeWidth={1} />
+                                  <p className="text-xs font-bold uppercase mt-4 tracking-widest">Enter details to preview ID card</p>
                               </div>
                           )}
-                      </div>
-                      
-                      {/* Footer Actions */}
-                      <div className="border-t border-gray-200 pt-6 mt-6 flex justify-end gap-3">
-                          <button onClick={() => setShowReporterModal(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors">Cancel</button>
-                          <button onClick={handleSaveReporterInternal} className="px-6 py-2.5 bg-news-black text-white rounded-lg text-sm font-bold shadow-lg hover:bg-gray-800 transition-all flex items-center gap-2">
-                              <Save size={16} /> Save Reporter
-                          </button>
                       </div>
                   </div>
               </div>
           </div>
       )}
-
-      {/* Ad Modal */}
-      {showAdModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-             <div className="bg-white rounded-lg w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-                 <h3 className="font-bold text-lg mb-4">{editingAdId ? 'Edit Advertisement' : 'New Advertisement'}</h3>
-                 <div className="space-y-4">
-                     <input type="text" placeholder="Ad Title (Internal Ref)" value={newAd.title || ''} onChange={e => setNewAd({...newAd, title: e.target.value})} className="w-full p-2 border rounded" />
-                     <input type="text" placeholder="Target Link URL (Optional)" value={newAd.linkUrl || ''} onChange={e => setNewAd({...newAd, linkUrl: e.target.value})} className="w-full p-2 border rounded" />
-                     
-                     <div className="grid grid-cols-2 gap-4">
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 block mb-1">Size</label>
-                             <select value={newAd.size} onChange={e => setNewAd({...newAd, size: e.target.value as AdSize})} className="w-full p-2 border rounded text-sm">
-                                 <option value="BILLBOARD">Billboard (970x250)</option>
-                                 <option value="LEADERBOARD">Leaderboard (728x90)</option>
-                                 <option value="RECTANGLE">Rectangle (300x250)</option>
-                                 <option value="HALF_PAGE">Half Page (300x600)</option>
-                                 <option value="MOBILE_BANNER">Mobile (320x50)</option>
-                             </select>
-                         </div>
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 block mb-1">Placement</label>
-                             <select value={newAd.placement} onChange={e => setNewAd({...newAd, placement: e.target.value as AdPlacement})} className="w-full p-2 border rounded text-sm">
-                                 <option value="GLOBAL">Global (All Pages)</option>
-                                 <option value="HOME">Home Page</option>
-                                 <option value="ARTICLE">Article Pages</option>
-                                 <option value="EPAPER">E-Paper</option>
-                                 <option value="CATEGORY">Specific Category</option>
-                             </select>
-                         </div>
-                     </div>
-
-                     {newAd.placement === 'CATEGORY' && (
-                         <select value={newAd.targetCategory} onChange={e => setNewAd({...newAd, targetCategory: e.target.value})} className="w-full p-2 border rounded text-sm">
-                             <option value="">Select Category...</option>
-                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                         </select>
-                     )}
-
-                     <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative">
-                         {newAd.imageUrl ? (
-                             <img src={newAd.imageUrl} className="max-h-32 mx-auto object-contain mb-2" />
-                         ) : <p className="text-gray-400 text-xs">No banner image</p>}
-                         <button onClick={() => setShowAdImageGallery(true)} className="bg-gray-200 px-3 py-1 rounded text-xs font-bold">Select from Gallery</button>
-                     </div>
-
-                     <div className="flex items-center gap-2">
-                         <input type="checkbox" checked={newAd.isActive} onChange={e => setNewAd({...newAd, isActive: e.target.checked})} id="adActive" />
-                         <label htmlFor="adActive" className="text-sm font-bold">Active</label>
-                     </div>
-
-                     <div className="flex justify-end gap-2 pt-2">
-                         <button onClick={() => setShowAdModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
-                         <button onClick={handleSaveAd} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Save Ad</button>
-                     </div>
-                 </div>
-             </div>
-        </div>
-      )}
-
-    </div>
     </>
   );
 };
