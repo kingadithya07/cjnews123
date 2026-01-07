@@ -39,6 +39,7 @@ export interface ReporterProfile {
   validUntil: string;
   location: string;
   status: 'active' | 'suspended';
+  cardTemplate?: 'classic' | 'modern'; // New field for ID card design preference
 }
 
 export interface Article {

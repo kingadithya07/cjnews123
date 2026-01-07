@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, QrCode
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, QrCode, CreditCard
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -130,7 +130,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   // ID Cards State
   const [showReporterModal, setShowReporterModal] = useState(false);
   const [activeReporter, setActiveReporter] = useState<Partial<ReporterProfile>>({});
-  const [showCardPreview, setShowCardPreview] = useState(false);
   const [showProfileImageGallery, setShowProfileImageGallery] = useState(false);
   const [cardDisclaimer, setCardDisclaimer] = useState('This card is the property of CJ NEWSHUB. If found, please return to the nearest bureau. Verification available via QR Code.');
 
@@ -386,7 +385,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               joinedAt: activeReporter.joinedAt || new Date().toISOString(),
               validUntil: activeReporter.validUntil || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
               location: activeReporter.location || 'Headquarters',
-              status: activeReporter.status || 'active'
+              status: activeReporter.status || 'active',
+              cardTemplate: activeReporter.cardTemplate || 'classic'
           };
           onSaveReporter(reporter);
           setShowReporterModal(false);
@@ -411,7 +411,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       <style>
                           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Playfair+Display:wght@700&display=swap');
                           body { font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fff; }
-                          .print-container { transform: scale(1.5); }
+                          .print-container { transform: scale(1); }
+                          @media print {
+                              body { background: none; }
+                              .print-container { transform: scale(1); }
+                          }
                       </style>
                   </head>
                   <body>
@@ -600,132 +604,34 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           <h2 className="font-serif text-2xl font-bold text-gray-900 flex items-center gap-2">
                               <Fingerprint className="text-news-gold" /> Identity Cards
                           </h2>
-                          <button onClick={() => { setActiveReporter({}); setShowReporterModal(true); }} className="bg-news-black text-white text-xs font-bold uppercase px-4 py-3 rounded flex items-center gap-2 hover:bg-gray-800">
+                          <button onClick={() => { setActiveReporter({ cardTemplate: 'classic' }); setShowReporterModal(true); }} className="bg-news-black text-white text-xs font-bold uppercase px-4 py-3 rounded flex items-center gap-2 hover:bg-gray-800">
                               <Plus size={16} /> Add Reporter
                           </button>
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                          {/* List of Reporters */}
-                          <div className="lg:col-span-1 space-y-4">
-                              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-                                  <div className="p-4 bg-gray-50 border-b border-gray-100">
-                                      <h3 className="font-bold text-sm text-gray-700 uppercase tracking-wide">Staff Directory</h3>
-                                  </div>
-                                  <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
-                                      {reporters.map(rep => (
-                                          <div key={rep.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => { setActiveReporter(rep); setShowCardPreview(true); }}>
-                                              <div className="flex items-center gap-3">
-                                                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-100">
-                                                      {rep.photoUrl ? <img src={rep.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-2 text-gray-400 w-full h-full"/>}
-                                                  </div>
-                                                  <div className="flex-1 min-w-0">
-                                                      <h4 className="font-bold text-sm text-gray-900 truncate">{rep.fullName}</h4>
-                                                      <p className="text-[10px] text-gray-500 uppercase tracking-wider truncate">{rep.role}</p>
-                                                  </div>
-                                                  <div className="opacity-0 group-hover:opacity-100 flex gap-2">
-                                                      <button onClick={(e) => { e.stopPropagation(); handleEditReporter(rep); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><PenSquare size={14}/></button>
-                                                      {onDeleteReporter && <button onClick={(e) => { e.stopPropagation(); onDeleteReporter(rep.id); }} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14}/></button>}
-                                                  </div>
-                                              </div>
-                                          </div>
-                                      ))}
-                                      {reporters.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No reporters added.</div>}
-                                  </div>
-                              </div>
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                          <div className="p-4 bg-gray-50 border-b border-gray-100">
+                              <h3 className="font-bold text-sm text-gray-700 uppercase tracking-wide">Staff Directory</h3>
                           </div>
-
-                          {/* ID Card Preview */}
-                          <div className="lg:col-span-2">
-                              {activeReporter.fullName ? (
-                                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-                                      <div className="flex justify-between items-center mb-6">
-                                          <h3 className="font-bold text-lg text-gray-900">Card Preview</h3>
-                                          <div className="flex gap-2">
-                                              <button onClick={handlePrintCard} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800">
-                                                  <Printer size={16} /> Print Card
-                                              </button>
+                          <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+                              {reporters.map(rep => (
+                                  <div key={rep.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => { setActiveReporter(rep); setShowReporterModal(true); }}>
+                                      <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-100">
+                                              {rep.photoUrl ? <img src={rep.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-2 text-gray-400 w-full h-full"/>}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                              <h4 className="font-bold text-sm text-gray-900 truncate">{rep.fullName}</h4>
+                                              <p className="text-[10px] text-gray-500 uppercase tracking-wider truncate">{rep.role}</p>
+                                          </div>
+                                          <div className="opacity-0 group-hover:opacity-100 flex gap-2">
+                                              <button onClick={(e) => { e.stopPropagation(); handleEditReporter(rep); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><PenSquare size={14}/></button>
+                                              {onDeleteReporter && <button onClick={(e) => { e.stopPropagation(); onDeleteReporter(rep.id); }} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14}/></button>}
                                           </div>
                                       </div>
-
-                                      {/* ID Card HTML Structure */}
-                                      <div className="flex justify-center bg-gray-100 p-8 rounded-lg border border-dashed border-gray-300">
-                                          <div id="id-card-preview" className="w-[350px] h-[550px] bg-white rounded-2xl shadow-xl overflow-hidden relative flex flex-col border border-gray-200">
-                                              {/* Header */}
-                                              <div className="h-24 bg-news-black flex items-center justify-center relative overflow-hidden shrink-0">
-                                                  <div className="absolute inset-0 bg-news-gold/10"></div>
-                                                  <div className="text-center z-10">
-                                                      <h1 className="font-serif text-2xl font-black text-white tracking-tight uppercase italic">CJ <span className="not-italic text-news-gold">NEWSHUB</span></h1>
-                                                      <p className="text-[8px] text-gray-300 font-bold uppercase tracking-[0.4em] mt-1">Press Accreditation</p>
-                                                  </div>
-                                              </div>
-
-                                              {/* Photo */}
-                                              <div className="flex justify-center -mt-10 mb-4 relative z-10">
-                                                  <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-gray-200 overflow-hidden">
-                                                      {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-500"><UserIcon size={40}/></div>}
-                                                  </div>
-                                              </div>
-
-                                              {/* Details */}
-                                              <div className="text-center px-6 flex-1">
-                                                  <h2 className="text-xl font-bold text-gray-900 uppercase leading-none mb-1">{activeReporter.fullName}</h2>
-                                                  <p className="text-news-gold text-xs font-bold uppercase tracking-widest mb-4">{activeReporter.role}</p>
-                                                  
-                                                  <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-left text-[10px] border-t border-gray-100 pt-4">
-                                                      <div>
-                                                          <span className="block font-bold text-gray-400 uppercase tracking-wider">ID Number</span>
-                                                          <span className="font-mono font-bold text-gray-800">{activeReporter.idNumber}</span>
-                                                      </div>
-                                                      <div>
-                                                          <span className="block font-bold text-gray-400 uppercase tracking-wider">Valid Until</span>
-                                                          <span className="font-bold text-gray-800">{activeReporter.validUntil ? format(new Date(activeReporter.validUntil), 'MMM d, yyyy') : 'N/A'}</span>
-                                                      </div>
-                                                      <div>
-                                                          <span className="block font-bold text-gray-400 uppercase tracking-wider">Department</span>
-                                                          <span className="font-bold text-gray-800">{activeReporter.department}</span>
-                                                      </div>
-                                                      <div>
-                                                          <span className="block font-bold text-gray-400 uppercase tracking-wider">Blood Group</span>
-                                                          <span className="font-bold text-gray-800">{activeReporter.bloodGroup || 'N/A'}</span>
-                                                      </div>
-                                                  </div>
-                                              </div>
-
-                                              {/* QR & Footer */}
-                                              <div className="bg-gray-50 p-4 flex items-center justify-between border-t border-gray-100 mt-auto shrink-0">
-                                                  <div className="w-3/4 pr-4">
-                                                      <p className="text-[7px] text-gray-400 leading-tight text-justify">
-                                                          {cardDisclaimer}
-                                                      </p>
-                                                  </div>
-                                                  <div className="w-16 h-16 bg-white p-1 rounded border border-gray-200 shrink-0">
-                                                      {/* Using reliable QR API for static generation without npm deps */}
-                                                      <img 
-                                                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/verify-id/${activeReporter.id}`)}`} 
-                                                          className="w-full h-full object-contain"
-                                                          alt="Verification QR"
-                                                      />
-                                                  </div>
-                                              </div>
-                                          </div>
-                                      </div>
-                                      <div className="mt-4">
-                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Card Disclaimer Text</label>
-                                          <textarea 
-                                              value={cardDisclaimer} 
-                                              onChange={e => setCardDisclaimer(e.target.value)} 
-                                              className="w-full p-3 border rounded-lg text-xs" 
-                                              rows={2}
-                                          />
-                                      </div>
                                   </div>
-                              ) : (
-                                  <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-12 text-center text-gray-400 h-full flex flex-col items-center justify-center">
-                                      <Fingerprint size={48} className="mb-4 opacity-20" />
-                                      <p className="text-sm font-bold uppercase tracking-wide">Select a reporter to preview ID Card</p>
-                                  </div>
-                              )}
+                              ))}
+                              {reporters.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No reporters added.</div>}
                           </div>
                       </div>
                   </div>
@@ -915,38 +821,246 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
       </div>
 
-      {/* Reporter Modal */}
+      {/* Enhanced Reporter Modal - Full width with Preview */}
       {showReporterModal && (
-          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg w-full max-w-2xl p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-                  <div className="flex justify-between items-center mb-6">
-                      <h3 className="font-bold text-lg">{activeReporter.id ? 'Edit Reporter' : 'Add Reporter'}</h3>
-                      <button onClick={() => setShowReporterModal(false)} className="text-gray-500 hover:text-black"><X size={20}/></button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                          <input type="text" placeholder="Full Name" value={activeReporter.fullName || ''} onChange={e => setActiveReporter({...activeReporter, fullName: e.target.value})} className="w-full p-2 border rounded text-sm" />
-                          <input type="text" placeholder="Role / Designation" value={activeReporter.role || ''} onChange={e => setActiveReporter({...activeReporter, role: e.target.value})} className="w-full p-2 border rounded text-sm" />
-                          <input type="text" placeholder="Department (e.g. Politics)" value={activeReporter.department || ''} onChange={e => setActiveReporter({...activeReporter, department: e.target.value})} className="w-full p-2 border rounded text-sm" />
-                          <input type="text" placeholder="ID Number (Optional)" value={activeReporter.idNumber || ''} onChange={e => setActiveReporter({...activeReporter, idNumber: e.target.value})} className="w-full p-2 border rounded text-sm" />
+          <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in zoom-in-95">
+                  {/* Left: Input Form */}
+                  <div className="w-full md:w-1/2 p-8 overflow-y-auto bg-gray-50">
+                      <div className="flex justify-between items-center mb-6">
+                          <h3 className="font-bold text-2xl text-gray-900">{activeReporter.id ? 'Edit Reporter' : 'Add Reporter'}</h3>
+                          <button onClick={() => setShowReporterModal(false)} className="md:hidden text-gray-500 hover:text-black"><X size={24}/></button>
                       </div>
-                      <div className="space-y-4">
-                          <input type="text" placeholder="Location" value={activeReporter.location || ''} onChange={e => setActiveReporter({...activeReporter, location: e.target.value})} className="w-full p-2 border rounded text-sm" />
-                          <input type="date" placeholder="Valid Until" value={activeReporter.validUntil?.split('T')[0] || ''} onChange={e => setActiveReporter({...activeReporter, validUntil: e.target.value})} className="w-full p-2 border rounded text-sm" />
-                          <input type="text" placeholder="Phone (Optional)" value={activeReporter.phone || ''} onChange={e => setActiveReporter({...activeReporter, phone: e.target.value})} className="w-full p-2 border rounded text-sm" />
-                          <div className="flex items-center gap-4">
-                              <div className="w-16 h-16 rounded bg-gray-100 overflow-hidden border">
-                                  {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-2 text-gray-300 w-full h-full"/>}
+                      
+                      <div className="space-y-6">
+                          <div className="grid grid-cols-2 gap-4">
+                              <div className="col-span-2">
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Full Name</label>
+                                  <input type="text" value={activeReporter.fullName || ''} onChange={e => setActiveReporter({...activeReporter, fullName: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="e.g. Jane Doe"/>
                               </div>
-                              <button onClick={() => setShowProfileImageGallery(true)} className="text-xs font-bold text-blue-600 hover:underline">Change Photo</button>
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Role / Designation</label>
+                                  <input type="text" value={activeReporter.role || ''} onChange={e => setActiveReporter({...activeReporter, role: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="e.g. Senior Editor"/>
+                              </div>
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Department</label>
+                                  <input type="text" value={activeReporter.department || ''} onChange={e => setActiveReporter({...activeReporter, department: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="e.g. Politics"/>
+                              </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">ID Number</label>
+                                  <input type="text" value={activeReporter.idNumber || ''} onChange={e => setActiveReporter({...activeReporter, idNumber: e.target.value})} className="w-full p-3 border rounded-lg text-sm font-mono"/>
+                              </div>
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Blood Group</label>
+                                  <input type="text" value={activeReporter.bloodGroup || ''} onChange={e => setActiveReporter({...activeReporter, bloodGroup: e.target.value})} className="w-full p-3 border rounded-lg text-sm"/>
+                              </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Valid Until</label>
+                                  <input type="date" value={activeReporter.validUntil?.split('T')[0] || ''} onChange={e => setActiveReporter({...activeReporter, validUntil: e.target.value})} className="w-full p-3 border rounded-lg text-sm"/>
+                              </div>
+                              <div>
+                                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Location</label>
+                                  <input type="text" value={activeReporter.location || ''} onChange={e => setActiveReporter({...activeReporter, location: e.target.value})} className="w-full p-3 border rounded-lg text-sm" placeholder="Base Station"/>
+                              </div>
+                          </div>
+
+                          <div className="space-y-4 pt-4 border-t border-gray-200">
+                              <h4 className="font-bold text-sm text-gray-800">Card Design</h4>
+                              <div className="flex gap-4">
+                                  <label className="flex items-center gap-3 cursor-pointer group">
+                                      <input type="radio" name="template" checked={activeReporter.cardTemplate !== 'modern'} onChange={() => setActiveReporter({...activeReporter, cardTemplate: 'classic'})} className="accent-news-black w-4 h-4"/>
+                                      <div className={`p-3 border rounded-lg text-xs font-bold text-center w-24 group-hover:bg-white transition-colors ${activeReporter.cardTemplate !== 'modern' ? 'bg-white border-news-black ring-1 ring-news-black' : 'bg-gray-100 border-transparent'}`}>
+                                          Classic
+                                      </div>
+                                  </label>
+                                  <label className="flex items-center gap-3 cursor-pointer group">
+                                      <input type="radio" name="template" checked={activeReporter.cardTemplate === 'modern'} onChange={() => setActiveReporter({...activeReporter, cardTemplate: 'modern'})} className="accent-news-black w-4 h-4"/>
+                                      <div className={`p-3 border rounded-lg text-xs font-bold text-center w-24 group-hover:bg-white transition-colors ${activeReporter.cardTemplate === 'modern' ? 'bg-news-black text-white border-news-black' : 'bg-gray-100 border-transparent'}`}>
+                                          Press Pass
+                                      </div>
+                                  </label>
+                              </div>
+                          </div>
+
+                          <div className="flex items-center gap-4 pt-4">
+                              <div className="w-20 h-20 rounded-full bg-gray-200 overflow-hidden border-2 border-gray-300 flex items-center justify-center shrink-0">
+                                  {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="text-gray-400 w-10 h-10"/>}
+                              </div>
+                              <button onClick={() => setShowProfileImageGallery(true)} className="px-4 py-2 bg-white border border-gray-300 rounded text-xs font-bold hover:bg-gray-100 flex items-center gap-2">
+                                  <Camera size={14}/> Change Photo
+                              </button>
                           </div>
                       </div>
                   </div>
 
-                  <div className="flex justify-end gap-2 mt-8 pt-4 border-t border-gray-100">
-                      <button onClick={() => setShowReporterModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
-                      <button onClick={handleSaveReporterInternal} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Save Reporter</button>
+                  {/* Right: Live Preview */}
+                  <div className="w-full md:w-1/2 p-8 bg-gray-100 border-l border-gray-200 flex flex-col">
+                      <div className="flex justify-between items-center mb-6">
+                          <h3 className="font-bold text-lg text-gray-700">Live Card Preview</h3>
+                          <div className="flex gap-2">
+                              <button onClick={handlePrintCard} disabled={!activeReporter.fullName} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800 disabled:opacity-50">
+                                  <Printer size={16} /> Print
+                              </button>
+                              <button onClick={() => setShowReporterModal(false)} className="text-gray-500 hover:text-black hidden md:block"><X size={24}/></button>
+                          </div>
+                      </div>
+
+                      <div className="flex-1 flex items-center justify-center min-h-[500px]">
+                          {/* DYNAMIC CARD RENDERER */}
+                          {activeReporter.fullName ? (
+                              <div id="id-card-preview" className="relative group perspective">
+                                  
+                                  {/* CLASSIC MODEL */}
+                                  {(!activeReporter.cardTemplate || activeReporter.cardTemplate === 'classic') && (
+                                      <div className="w-[350px] h-[550px] bg-white rounded-2xl shadow-2xl overflow-hidden relative flex flex-col border border-gray-200 print:shadow-none">
+                                          {/* Header */}
+                                          <div className="h-28 bg-news-blue flex flex-col items-center justify-center relative overflow-hidden shrink-0">
+                                              <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                                              <div className="text-center z-10">
+                                                  <h1 className="font-serif text-2xl font-black text-white tracking-tight uppercase italic">CJ <span className="not-italic text-news-gold">NEWSHUB</span></h1>
+                                                  <p className="text-[9px] text-gray-300 font-bold uppercase tracking-[0.4em] mt-1">Global Press Corps</p>
+                                              </div>
+                                          </div>
+
+                                          {/* Photo */}
+                                          <div className="flex justify-center -mt-12 mb-4 relative z-10">
+                                              <div className="w-32 h-32 rounded-full border-[6px] border-white shadow-lg bg-gray-200 overflow-hidden">
+                                                  {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-500"><UserIcon size={40}/></div>}
+                                              </div>
+                                          </div>
+
+                                          {/* Details */}
+                                          <div className="text-center px-8 flex-1">
+                                              <h2 className="text-xl font-black text-gray-900 uppercase leading-none mb-1">{activeReporter.fullName}</h2>
+                                              <div className="inline-block bg-news-gold text-black text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-6 mt-2">
+                                                  {activeReporter.role}
+                                              </div>
+                                              
+                                              <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-left text-[10px] border-t border-gray-100 pt-6">
+                                                  <div>
+                                                      <span className="block font-bold text-gray-400 uppercase tracking-wider text-[8px]">ID Number</span>
+                                                      <span className="font-mono font-bold text-gray-800 text-sm">{activeReporter.idNumber}</span>
+                                                  </div>
+                                                  <div>
+                                                      <span className="block font-bold text-gray-400 uppercase tracking-wider text-[8px]">Valid Until</span>
+                                                      <span className="font-bold text-gray-800 text-sm">{activeReporter.validUntil ? format(new Date(activeReporter.validUntil), 'MMM d, yyyy') : 'N/A'}</span>
+                                                  </div>
+                                                  <div>
+                                                      <span className="block font-bold text-gray-400 uppercase tracking-wider text-[8px]">Department</span>
+                                                      <span className="font-bold text-gray-800 text-sm">{activeReporter.department}</span>
+                                                  </div>
+                                                  <div>
+                                                      <span className="block font-bold text-gray-400 uppercase tracking-wider text-[8px]">Blood Group</span>
+                                                      <span className="font-bold text-gray-800 text-sm">{activeReporter.bloodGroup || 'N/A'}</span>
+                                                  </div>
+                                              </div>
+                                          </div>
+
+                                          {/* Footer */}
+                                          <div className="bg-gray-50 p-5 flex items-center justify-between border-t border-gray-200 mt-auto shrink-0">
+                                              <div className="w-20 h-20 bg-white p-1 rounded border border-gray-200 shrink-0">
+                                                  <img 
+                                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/verify-id/${activeReporter.id || 'preview'}`)}`} 
+                                                      className="w-full h-full object-contain"
+                                                      alt="QR"
+                                                  />
+                                              </div>
+                                              <div className="pl-4 text-right">
+                                                  <p className="text-[7px] text-gray-400 leading-tight">
+                                                      {cardDisclaimer}
+                                                  </p>
+                                                  <div className="mt-2 text-[8px] font-black text-news-blue uppercase tracking-widest">Authorized Press</div>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  )}
+
+                                  {/* MODERN (PRESS PASS) MODEL */}
+                                  {activeReporter.cardTemplate === 'modern' && (
+                                      <div className="w-[350px] h-[550px] bg-[#111] rounded-xl shadow-2xl overflow-hidden relative flex flex-col border border-gray-800 text-white print:shadow-none print:border-black">
+                                          {/* Background Elements */}
+                                          <div className="absolute top-0 right-0 w-40 h-40 bg-news-gold/20 rounded-full blur-[60px] pointer-events-none"></div>
+                                          
+                                          {/* Header */}
+                                          <div className="p-6 pb-0 z-10 flex justify-between items-start">
+                                              <div>
+                                                  <h1 className="font-serif text-xl font-black text-white uppercase italic tracking-tighter leading-none">CJ <span className="not-italic text-news-gold">NEWSHUB</span></h1>
+                                                  <div className="h-1 w-8 bg-news-gold mt-2"></div>
+                                              </div>
+                                              <div className="border border-white/20 px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest text-gray-400">
+                                                  Media Access
+                                              </div>
+                                          </div>
+
+                                          {/* Photo Section */}
+                                          <div className="mt-6 mx-6 relative aspect-square bg-gray-800 rounded-lg overflow-hidden border border-white/10">
+                                              {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover grayscale contrast-125" /> : <div className="w-full h-full flex items-center justify-center text-gray-600"><UserIcon size={48}/></div>}
+                                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 pt-12">
+                                                  <h2 className="text-2xl font-black uppercase text-white leading-none tracking-tight">{activeReporter.fullName}</h2>
+                                                  <p className="text-news-gold font-bold uppercase text-[10px] tracking-widest mt-1">{activeReporter.role}</p>
+                                              </div>
+                                          </div>
+
+                                          {/* Big PRESS Label */}
+                                          <div className="absolute top-[45%] right-[-30px] rotate-90 origin-center text-[60px] font-black text-white/5 uppercase tracking-widest pointer-events-none select-none">
+                                              PRESS
+                                          </div>
+
+                                          {/* Details */}
+                                          <div className="flex-1 px-6 pt-6 z-10">
+                                              <div className="grid grid-cols-2 gap-4 text-[10px]">
+                                                  <div className="border-l-2 border-news-gold pl-3">
+                                                      <span className="block text-gray-500 uppercase tracking-wider font-bold text-[8px] mb-0.5">Department</span>
+                                                      <span className="font-bold text-white">{activeReporter.department}</span>
+                                                  </div>
+                                                  <div className="border-l-2 border-gray-700 pl-3">
+                                                      <span className="block text-gray-500 uppercase tracking-wider font-bold text-[8px] mb-0.5">Valid Thru</span>
+                                                      <span className="font-bold text-white">{activeReporter.validUntil ? format(new Date(activeReporter.validUntil), 'MM/yy') : 'N/A'}</span>
+                                                  </div>
+                                              </div>
+                                              <div className="mt-6 border-t border-white/10 pt-4 flex justify-between items-end">
+                                                  <div>
+                                                      <p className="text-[12px] font-mono text-gray-400 mb-1">ID: <span className="text-white font-bold">{activeReporter.idNumber}</span></p>
+                                                      <p className="text-[7px] text-gray-600 w-32 leading-tight uppercase">Authorized for editorial assignments globally.</p>
+                                                  </div>
+                                                  <div className="w-16 h-16 bg-white p-1 rounded-sm">
+                                                      <img 
+                                                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/verify-id/${activeReporter.id || 'preview'}`)}`} 
+                                                          className="w-full h-full object-contain"
+                                                          alt="QR"
+                                                      />
+                                                  </div>
+                                              </div>
+                                          </div>
+                                          
+                                          <div className="bg-news-gold text-black text-center py-1 text-[9px] font-black uppercase tracking-[0.3em] mt-auto">
+                                              Official Press Pass
+                                          </div>
+                                      </div>
+                                  )}
+
+                              </div>
+                          ) : (
+                              <div className="text-center text-gray-400">
+                                  <CreditCard size={48} className="mx-auto mb-3 opacity-20"/>
+                                  <p className="text-sm font-bold">Fill in details to generate preview</p>
+                              </div>
+                          )}
+                      </div>
+                      
+                      {/* Footer Actions */}
+                      <div className="border-t border-gray-200 pt-6 mt-6 flex justify-end gap-3">
+                          <button onClick={() => setShowReporterModal(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors">Cancel</button>
+                          <button onClick={handleSaveReporterInternal} className="px-6 py-2.5 bg-news-black text-white rounded-lg text-sm font-bold shadow-lg hover:bg-gray-800 transition-all flex items-center gap-2">
+                              <Save size={16} /> Save Reporter
+                          </button>
+                      </div>
                   </div>
               </div>
           </div>
@@ -1006,179 +1120,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                      <div className="flex justify-end gap-2 pt-2">
                          <button onClick={() => setShowAdModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
                          <button onClick={handleSaveAd} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Save Ad</button>
-                     </div>
-                 </div>
-             </div>
-        </div>
-      )}
-
-      {/* Classified Modal, Article Modal, Page Modal logic remains same ... */}
-      {/* (Abbreviated existing modals for brevity, assumes they exist in file logic above) */}
-      {showArticleModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
-             <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
-                <h3 className="font-bold text-gray-900">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
-                <button onClick={() => setShowArticleModal(false)} className="p-2 -mr-2 text-gray-500 hover:text-black"><X size={20}/></button>
-            </div>
-             <div className="p-4 md:p-6 overflow-y-auto space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2 space-y-4">
-                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Article Headline"/>
-                        
-                         <div className="flex items-center gap-2">
-                            <input 
-                                type="text" 
-                                value={modalEnglishTitle} 
-                                onChange={(e) => setModalEnglishTitle(e.target.value)} 
-                                className="w-full p-2 border rounded text-sm placeholder:text-gray-300" 
-                                placeholder="English Title (for SEO & URL)" 
-                            />
-                            <button 
-                                onClick={handleTranslateTitle} 
-                                disabled={isTranslating} 
-                                className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors flex items-center gap-1" 
-                                title="Auto Translate (Requires API Key)"
-                            >
-                                {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                            </button>
-                        </div>
-
-                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
-                            <button onClick={() => setShowCategorySelector(true)} className="w-full p-2 border rounded text-sm bg-white text-left flex justify-between items-center">
-                                <span className={modalCategories.length === 0 ? 'text-gray-400' : ''}>
-                                    {modalCategories.length === 0 ? 'Select Categories' : `${modalCategories.length} Selected`}
-                                </span>
-                                <ChevronDown size={14} />
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                             <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</label>
-                                <select 
-                                    value={modalStatus} 
-                                    onChange={(e) => setModalStatus(e.target.value as ArticleStatus)} 
-                                    className="w-full p-2 border rounded text-sm bg-white"
-                                >
-                                    <option value={ArticleStatus.DRAFT}>Draft</option>
-                                    <option value={ArticleStatus.PENDING}>Pending Review</option>
-                                    <option value={ArticleStatus.PUBLISHED}>Published</option>
-                                </select>
-                             </div>
-                             <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tags</label>
-                                <input type="text" placeholder="Add tags..." className="w-full p-2 border rounded text-sm" />
-                             </div>
-                        </div>
-                    </div>
-                     <div className="md:col-span-1">
-                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-[200px] flex flex-col justify-between">
-                            {modalImageUrl ? (
-                                <div className="relative group w-full h-full">
-                                    <img src={modalImageUrl} className="w-full h-full object-cover rounded shadow" />
-                                    <button onClick={() => setModalImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="py-4 text-gray-400 flex flex-col items-center justify-center h-full">
-                                    <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
-                                    <p className="text-xs font-bold uppercase">Featured Image</p>
-                                </div>
-                            )}
-                        </div>
-                        <div className="mt-2">
-                            <button type="button" onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                                <Library size={14} />
-                                <span>Select from Gallery</span>
-                            </button>
-                        </div>
-                        <div className="mt-4 space-y-2">
-                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
-                                <label className="flex items-center gap-2 cursor-pointer w-full">
-                                    <input type="checkbox" checked={modalIsFeatured} onChange={e => setModalIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
-                                    <div className="flex items-center gap-2">
-                                        <Star size={12} className={modalIsFeatured ? "text-news-accent fill-news-accent" : "text-gray-400"} />
-                                        <span className="text-xs font-bold uppercase">Featured</span>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                 <div className="relative">
-                  <RichTextEditor 
-                    content={modalContent} 
-                    onChange={setModalContent} 
-                    className="min-h-[300px] md:min-h-[400px]" 
-                    onImageUpload={handleContentImageUpload} 
-                    userId={userId}
-                  />
-                </div>
-             </div>
-             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
-                <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold text-gray-600">Cancel</button>
-                <button onClick={handleSaveArticleInternal} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">
-                  Save Article
-                </button>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {showAddPageModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-             <div className="bg-white rounded-lg w-full max-w-md p-6 animate-in zoom-in-95">
-                 <h3 className="font-bold text-lg mb-4">Upload E-Paper Page</h3>
-                 <div className="space-y-4">
-                     <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full p-2 border rounded" />
-                     <input type="number" min="1" value={newPageNumber} onChange={e => setNewPageNumber(parseInt(e.target.value))} className="w-full p-2 border rounded" placeholder="Page Number" />
-                     
-                     <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center">
-                         {newPageImage ? (
-                             <img src={newPageImage} className="max-h-48 mx-auto object-contain mb-2" />
-                         ) : <p className="text-gray-400 text-xs">No image selected</p>}
-                         <label className="block mt-2">
-                             <span className="bg-gray-200 px-3 py-1 rounded text-xs font-bold cursor-pointer">Choose Image</span>
-                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, 'epaper')} />
-                         </label>
-                         {isPageUploading && <p className="text-xs text-blue-500 mt-2">Uploading...</p>}
-                     </div>
-
-                     <div className="flex justify-end gap-2 pt-2">
-                         <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
-                         <button onClick={handleUploadPage} disabled={isPageUploading} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Upload</button>
-                     </div>
-                 </div>
-             </div>
-        </div>
-      )}
-
-      {showClassifiedModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-             <div className="bg-white rounded-lg w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-                 <h3 className="font-bold text-lg mb-4">Post Classified Ad</h3>
-                 <div className="space-y-4">
-                     <input type="text" placeholder="Ad Title" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-2 border rounded" />
-                     <textarea placeholder="Ad Content..." value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-2 border rounded min-h-[100px]" />
-                     
-                     <div className="grid grid-cols-2 gap-4">
-                         <select value={newClassified.category} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="w-full p-2 border rounded">
-                             {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                         </select>
-                         <input type="text" placeholder="Price (Optional)" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="w-full p-2 border rounded" />
-                     </div>
-
-                     <div className="grid grid-cols-2 gap-4">
-                         <input type="text" placeholder="Location" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="w-full p-2 border rounded" />
-                         <input type="text" placeholder="Contact Info" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="w-full p-2 border rounded" />
-                     </div>
-
-                     <div className="flex justify-end gap-2 pt-2">
-                         <button onClick={() => setShowClassifiedModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
-                         <button onClick={handleAddClassified} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Post Ad</button>
                      </div>
                  </div>
              </div>
