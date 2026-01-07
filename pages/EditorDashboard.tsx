@@ -874,8 +874,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               <h4 className="font-bold text-sm text-gray-800">Card Design</h4>
                               <div className="flex gap-4">
                                   <label className="flex items-center gap-3 cursor-pointer group">
-                                      <input type="radio" name="template" checked={activeReporter.cardTemplate !== 'modern'} onChange={() => setActiveReporter({...activeReporter, cardTemplate: 'classic'})} className="accent-news-black w-4 h-4"/>
-                                      <div className={`p-3 border rounded-lg text-xs font-bold text-center w-24 group-hover:bg-white transition-colors ${activeReporter.cardTemplate !== 'modern' ? 'bg-white border-news-black ring-1 ring-news-black' : 'bg-gray-100 border-transparent'}`}>
+                                      <input type="radio" name="template" checked={activeReporter.cardTemplate === 'classic' || !activeReporter.cardTemplate} onChange={() => setActiveReporter({...activeReporter, cardTemplate: 'classic'})} className="accent-news-black w-4 h-4"/>
+                                      <div className={`p-3 border rounded-lg text-xs font-bold text-center w-24 group-hover:bg-white transition-colors ${activeReporter.cardTemplate === 'classic' || !activeReporter.cardTemplate ? 'bg-white border-news-black ring-1 ring-news-black' : 'bg-gray-100 border-transparent'}`}>
                                           Classic
                                       </div>
                                   </label>
@@ -883,6 +883,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       <input type="radio" name="template" checked={activeReporter.cardTemplate === 'modern'} onChange={() => setActiveReporter({...activeReporter, cardTemplate: 'modern'})} className="accent-news-black w-4 h-4"/>
                                       <div className={`p-3 border rounded-lg text-xs font-bold text-center w-24 group-hover:bg-white transition-colors ${activeReporter.cardTemplate === 'modern' ? 'bg-news-black text-white border-news-black' : 'bg-gray-100 border-transparent'}`}>
                                           Press Pass
+                                      </div>
+                                  </label>
+                                  <label className="flex items-center gap-3 cursor-pointer group">
+                                      <input type="radio" name="template" checked={activeReporter.cardTemplate === 'agency'} onChange={() => setActiveReporter({...activeReporter, cardTemplate: 'agency'})} className="accent-news-black w-4 h-4"/>
+                                      <div className={`p-3 border rounded-lg text-xs font-bold text-center w-24 group-hover:bg-white transition-colors ${activeReporter.cardTemplate === 'agency' ? 'bg-red-700 text-white border-red-700' : 'bg-gray-100 border-transparent'}`}>
+                                          Agency
                                       </div>
                                   </label>
                               </div>
@@ -1042,6 +1048,66 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                           <div className="bg-news-gold text-black text-center py-1 text-[9px] font-black uppercase tracking-[0.3em] mt-auto">
                                               Official Press Pass
                                           </div>
+                                      </div>
+                                  )}
+
+                                  {/* AGENCY (BOLD) MODEL */}
+                                  {activeReporter.cardTemplate === 'agency' && (
+                                      <div className="w-[350px] h-[550px] bg-white rounded-xl shadow-2xl overflow-hidden relative flex flex-col border border-gray-300 print:shadow-none print:border-black">
+                                          {/* Top Strip */}
+                                          <div className="bg-red-700 text-white text-center py-2 font-black uppercase tracking-[0.5em] text-xl">
+                                              PRESS
+                                          </div>
+                                          
+                                          {/* Photo Section */}
+                                          <div className="flex justify-center mt-8 mb-6">
+                                              <div className="w-40 h-40 bg-gray-200 border-2 border-black overflow-hidden relative">
+                                                  {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-4 text-gray-400 w-full h-full"/>}
+                                              </div>
+                                          </div>
+
+                                          {/* Main Content */}
+                                          <div className="px-8 text-center flex-1">
+                                              <h1 className="text-2xl font-black uppercase text-black leading-none mb-2">{activeReporter.fullName}</h1>
+                                              <p className="text-red-700 font-bold uppercase text-sm tracking-wide border-b-2 border-black pb-4 mb-4 inline-block px-4">{activeReporter.role}</p>
+                                              
+                                              <div className="text-left space-y-2 text-xs font-mono">
+                                                  <div className="flex justify-between border-b border-gray-200 pb-1">
+                                                      <span className="font-bold text-gray-500 uppercase">Organization</span>
+                                                      <span className="font-bold">CJ NEWSHUB</span>
+                                                  </div>
+                                                  <div className="flex justify-between border-b border-gray-200 pb-1">
+                                                      <span className="font-bold text-gray-500 uppercase">Department</span>
+                                                      <span className="font-bold">{activeReporter.department}</span>
+                                                  </div>
+                                                  <div className="flex justify-between border-b border-gray-200 pb-1">
+                                                      <span className="font-bold text-gray-500 uppercase">ID No.</span>
+                                                      <span className="font-bold">{activeReporter.idNumber}</span>
+                                                  </div>
+                                                  <div className="flex justify-between border-b border-gray-200 pb-1">
+                                                      <span className="font-bold text-gray-500 uppercase">Expires</span>
+                                                      <span className="font-bold text-red-600">{activeReporter.validUntil ? format(new Date(activeReporter.validUntil), 'dd MMM yyyy') : 'N/A'}</span>
+                                                  </div>
+                                              </div>
+                                          </div>
+
+                                          {/* Footer Area */}
+                                          <div className="mt-auto px-6 pb-6 flex items-center justify-between">
+                                              <div className="w-20 h-20 border border-black p-1">
+                                                  <img 
+                                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/verify-id/${activeReporter.id || 'preview'}`)}`} 
+                                                      className="w-full h-full object-contain"
+                                                      alt="QR"
+                                                  />
+                                              </div>
+                                              <div className="text-right">
+                                                  <div className="h-10 w-24 bg-black mb-1"></div> {/* Fake Barcode Block */}
+                                                  <p className="text-[8px] font-bold uppercase tracking-widest text-gray-500">Official Credential</p>
+                                              </div>
+                                          </div>
+                                          
+                                          {/* Bottom Strip */}
+                                          <div className="bg-black h-4 w-full"></div>
                                       </div>
                                   )}
 
