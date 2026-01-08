@@ -10,8 +10,7 @@ import ClassifiedsHome from './pages/ClassifiedsHome';
 import Login from './pages/Login';
 import StaffLogin from './pages/StaffLogin';
 import ResetPassword from './pages/ResetPassword';
-import IDVerification from './pages/IDVerification';
-import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, ReporterProfile } from './types';
+import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice } from './types';
 import { MOCK_ARTICLES, MOCK_EPAPER, APP_NAME } from './constants';
 import { generateId, getDeviceId, createSlug } from './utils';
 import { supabase } from './supabaseClient';
@@ -40,7 +39,6 @@ function App() {
   const [adCategories, setAdCategories] = useState<string[]>(['Jobs', 'Real Estate', 'For Sale', 'Services', 'Community', 'Automotive', 'Events']);
   const [classifieds, setClassifieds] = useState<ClassifiedAd[]>([]);
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
-  const [reporters, setReporters] = useState<ReporterProfile[]>([]);
   const [globalAdsEnabled, setGlobalAdsEnabled] = useState(true);
   const [watermarkSettings, setWatermarkSettings] = useState<WatermarkSettings>({
     text: `${APP_NAME} Edition`,
@@ -179,11 +177,8 @@ function App() {
       // 4. Classifieds & Ads
       const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
-      
-      // 5. Reporters (Simulated table fetch - falls back to state if fails/empty)
-      const { data: repData } = await supabase.from('reporters').select('*');
 
-      // 6. Trusted Devices (Only if logged in)
+      // 5. Trusted Devices (Only if logged in)
       if (userId) {
           await fetchDevices();
       }
@@ -249,24 +244,6 @@ function App() {
           isActive: ad.isActive !== undefined ? ad.isActive : (ad.is_active !== undefined ? ad.is_active : true)
         })) as Advertisement[]);
       }
-      
-      if (repData && repData.length > 0) {
-          setReporters(repData.map(r => ({
-              id: r.id,
-              fullName: r.full_name || r.fullName,
-              role: r.role,
-              department: r.department,
-              idNumber: r.id_number || r.idNumber,
-              bloodGroup: r.blood_group || r.bloodGroup,
-              phone: r.phone,
-              email: r.email,
-              photoUrl: r.photo_url || r.photoUrl,
-              joinedAt: r.joined_at || r.joinedAt,
-              validUntil: r.valid_until || r.validUntil,
-              location: r.location,
-              status: r.status
-          })));
-      }
 
       setLastSync(new Date());
     } catch (err) {
@@ -284,7 +261,6 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reporters' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, () => {
           if (userId) fetchDevices(); // Refresh devices on change
       })
@@ -538,43 +514,6 @@ function App() {
     if (error) console.error("Page update error:", error.message);
     fetchData(true); 
   }
-  
-  // Reporter Management Handlers
-  const handleSaveReporter = async (reporter: ReporterProfile) => {
-      // Optimistic update
-      setReporters(prev => {
-          const exists = prev.find(r => r.id === reporter.id);
-          return exists ? prev.map(r => r.id === reporter.id ? reporter : r) : [reporter, ...prev];
-      });
-
-      // DB Sync
-      const dbPayload = {
-          id: reporter.id,
-          full_name: reporter.fullName,
-          role: reporter.role,
-          department: reporter.department,
-          id_number: reporter.idNumber,
-          blood_group: reporter.bloodGroup,
-          phone: reporter.phone,
-          email: reporter.email,
-          photo_url: reporter.photoUrl,
-          joined_at: reporter.joinedAt,
-          valid_until: reporter.validUntil,
-          location: reporter.location,
-          status: reporter.status
-      };
-
-      const { error } = await supabase.from('reporters').upsert(dbPayload);
-      if (error) {
-          alert("Error saving reporter profile: " + error.message);
-          fetchData(true);
-      }
-  };
-
-  const handleDeleteReporter = async (id: string) => {
-      setReporters(prev => prev.filter(r => r.id !== id));
-      await supabase.from('reporters').delete().eq('id', id);
-  };
 
   const isDeviceAuthorized = () => {
     if (!userId) return false;
@@ -601,9 +540,6 @@ function App() {
   
   if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
-  } else if (path.startsWith('/verify-id/')) {
-    const rId = currentPath.split('/verify-id/')[1];
-    content = <IDVerification reporters={reporters} reporterId={rId} onNavigate={navigate} />;
   } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
     content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => {}} />;
   } else if (path === '/staff/login') {
@@ -676,11 +612,10 @@ function App() {
         onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} 
         onRejectDevice={(id) => handleRevokeDevice(id)} 
         onRevokeDevice={handleRevokeDevice}
+        // Pass userId to EditorDashboard for isolated gallery handling
         userId={userId}
+        // Pass Active Visitors Prop
         activeVisitors={activeVisitors}
-        reporters={reporters}
-        onSaveReporter={handleSaveReporter}
-        onDeleteReporter={handleDeleteReporter}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard 
