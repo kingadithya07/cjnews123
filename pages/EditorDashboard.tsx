@@ -189,7 +189,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       }
   };
 
-  // ... (rest of the code remains the same, truncating for brevity as requested by instructions if no changes in those parts) ...
   const handleContentImageUpload = async (file: File): Promise<string> => {
       const fileExt = file.name.split('.').pop();
       const folderPrefix = userId ? `users/${userId}/` : '';
@@ -299,6 +298,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       }
   };
 
+  // ... (Other internal handlers retained) ...
   const handleSaveTaxonomyInternal = async () => {
       setIsSavingTaxonomy(true);
       try {
@@ -402,7 +402,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       }
   };
 
-  // ... (rest of methods) ...
   const handleEditReporter = (rep: ReporterProfile) => {
       setActiveReporter(rep);
       setShowReporterModal(true);
@@ -523,7 +522,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-          {/* ... Sidebar ... */}
           <div className="flex justify-between items-center p-6 border-b border-gray-800">
               <h1 className="font-serif text-2xl font-bold text-white">Editor<span className="text-news-gold">.</span></h1>
               <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={24} /></button>
@@ -557,8 +555,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
 
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
-              {/* ... Other Tabs ... */}
-              
+              {/* ... (Previous Tabs Content) ... */}
               {activeTab === 'articles' && (
                   <div className="max-w-6xl mx-auto space-y-6">
                       <div className="flex justify-between items-center">
@@ -613,7 +610,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   </div>
               )}
 
-              {/* ... ID Cards, Ads, Taxonomy, Analytics, Settings ... */}
+              {/* ... (Other Tabs Content: idcards, epaper, etc.) ... */}
               {activeTab === 'epaper' && (
                   <div className="max-w-6xl mx-auto space-y-8">
                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -650,9 +647,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                        </div>
                   </div>
               )}
-              
-              {/* ... Rest of tabs ... */}
+
+              {/* ... (Ads, Taxonomy, Analytics, Settings, ID Cards sections) ... */}
               {activeTab === 'idcards' && (
+                  /* ID Cards Section Logic */
                   <div className="max-w-7xl mx-auto space-y-8">
                       <div className="flex justify-between items-center">
                           <h2 className="font-serif text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -697,10 +695,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
       </div>
 
-      {/* ... Article Modal ... */}
       {showArticleModal && (/* ... */ <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">{/* ... */}</div>)}
 
-      {/* Add Page Modal */}
       {showAddPageModal && (
           <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
               <div className="bg-white rounded-lg p-6 w-full max-w-md animate-in zoom-in-95">
@@ -726,10 +722,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           </div>
       )}
 
-      {/* ... Reporter Modal ... */}
       {showReporterModal && (/* ... */ <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">{/* ... */}</div>)}
-
-      {/* ... Ad Modal ... */}
       {showAdModal && (/* ... */ <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">{/* ... */}</div>)}
 
     </div>
