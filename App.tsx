@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -714,8 +713,10 @@ function App() {
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   } else if (path.startsWith('/article/')) {
-    // Determine if it's an ID or a Slug
-    const slugOrId = currentPath.split('/article/')[1];
+    // Robust Slug/ID parsing to handle query params and trailing slashes
+    const rawSlug = currentPath.split('/article/')[1];
+    // Remove query string (?) and trailing slash (/)
+    const slugOrId = rawSlug ? rawSlug.split('?')[0].split('/')[0] : '';
     
     // Find matching article either by ID or Slug OR by generated slug from title (robust fallback)
     let targetId = slugOrId;

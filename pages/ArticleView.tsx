@@ -37,16 +37,24 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
     setArticle(found);
     
     if (found) {
-      // Calculate Word Count
-      const text = found.content.replace(/<[^>]*>/g, ' '); // Strip HTML tags
+      // Calculate Word Count - Guard against missing content
+      const contentText = found.content || '';
+      const text = contentText.replace(/<[^>]*>/g, ' '); // Strip HTML tags
       const count = text.trim().split(/\s+/).length;
       setWordCount(count);
       setReadTime(Math.ceil(count / 200)); // Approx 200 wpm
 
+      // Safe access to categories
+      const currentCategories = found.categories || [];
+
       // 1. Related Articles (Overlap in categories)
-      // Find articles that share at least one category with the current article
+      // Guard against articles with missing categories in the global list
       let related = articles
-        .filter(a => a.id !== found.id && a.categories.some(cat => found.categories.includes(cat)))
+        .filter(a => {
+            if (a.id === found.id) return false;
+            const aCats = a.categories || [];
+            return aCats.some(cat => currentCategories.includes(cat));
+        })
         .slice(0, 3);
       
       // If not enough related, fill with recent
@@ -59,7 +67,6 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
       setRelatedArticles(related);
 
       // 2. More Articles (General Pool)
-      // Exclude current and already shown related articles
       const usedIds = new Set([found.id, ...related.map(r => r.id)]);
       const remaining = articles.filter(a => !usedIds.has(a.id));
       
@@ -75,20 +82,15 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
       const incrementView = async () => {
           if (!articleId) return;
           try {
-              // Attempt to increment view in DB
               const { data } = await supabase.from('articles').select('views').eq('id', articleId).single();
-              // If data exists, update it. Note: 'views' column must exist in DB.
-              // If it doesn't exist, this will just fail silently in the background which is acceptable for a prototype.
               if (data) {
                   await supabase.from('articles').update({ views: (data.views || 0) + 1 }).eq('id', articleId);
               }
           } catch (e) {
-              // Ignore errors if views column missing or network issue
               console.warn("Could not increment view count", e);
           }
       };
       
-      // Only increment if we actually found the article object in props first
       if (articles.find(a => a.id === articleId)) {
           incrementView();
       }
@@ -96,30 +98,16 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
   const getPermalink = () => {
       if (!article) return '';
-      
-      // Robust Logic: Database Slug -> Generated Slug -> ID Fallback
       let identifier = article.slug;
-      
-      // If no slug in DB or it's empty
-      if (!identifier || identifier.trim() === '') {
-          identifier = createSlug(article.title);
-      }
-      
-      // If title generated an empty slug (e.g. symbols only), fall back to ID
-      if (!identifier || identifier.trim() === '') {
-          identifier = article.id;
-      }
-      
-      // Final safety check to ensure we don't return ".../article/"
+      if (!identifier || identifier.trim() === '') identifier = createSlug(article.title);
+      if (!identifier || identifier.trim() === '') identifier = article.id;
       if (!identifier) return window.location.href;
-      
       return `${window.location.origin}/#/article/${identifier}`;
   };
 
   const handleCopyLink = () => {
       const permalink = getPermalink();
       if (!permalink) return;
-
       navigator.clipboard.writeText(permalink).then(() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
@@ -140,10 +128,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                   url: permalink
               });
           } catch (error: any) {
-              // Ignore abort errors (user cancellation)
-              if (error.name !== 'AbortError') {
-                  console.error('Share failed:', error);
-              }
+              if (error.name !== 'AbortError') console.error('Share failed:', error);
           } finally {
               isSharing.current = false;
           }
@@ -167,15 +152,25 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
   };
 
   if (!article) {
-    return <div className="text-center py-20 text-gray-500">Article not found.</div>;
+    return (
+        <div className="flex flex-col items-center justify-center py-32 text-gray-400">
+            <Newspaper size={48} className="mb-4 opacity-20" />
+            <p className="font-serif text-lg">Article not found.</p>
+            <Link to="/" onNavigate={onNavigate} className="mt-4 text-xs font-bold uppercase tracking-widest text-news-accent hover:underline">
+                Return Home
+            </Link>
+        </div>
+    );
   }
   
-  const [authorName, authorRole] = article.author.split(',').map(s => s.trim());
+  // Safe split of author string
+  const authorString = article.author || 'Unknown';
+  const [authorName] = authorString.split(',').map(s => s.trim());
+  const categories = article.categories || ['General'];
 
   return (
     <div className="animate-in fade-in duration-500 pb-16">
       
-      {/* Top Mobile Banner */}
       <AdvertisementBanner 
         ads={advertisements} 
         size="MOBILE_BANNER" 
@@ -183,27 +178,22 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
         globalAdsEnabled={globalAdsEnabled}
       />
 
-      {/* Main Container - Removed px-4 on mobile to prevent double padding with Layout */}
       <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12 px-0 md:px-0 w-full">
         
-        {/* Main Content Column */}
         <div className="flex-1 min-w-0">
-            {/* Navigation */}
             <Link to="/" onNavigate={onNavigate} className="inline-flex items-center text-gray-500 hover:text-news-accent hover:underline my-8 transition-colors text-sm font-medium">
             <ArrowLeft size={16} className="mr-1" /> Back to Headlines
             </Link>
 
-            {/* Header Section */}
             <header className="mb-8">
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex flex-wrap gap-2">
-                        {article.categories.map(cat => (
+                        {categories.map(cat => (
                             <span key={cat} className="inline-block bg-news-secondary text-white text-xs font-bold px-3 py-1 uppercase tracking-widest rounded-sm">
                                 {cat}
                             </span>
                         ))}
                     </div>
-                    {/* Share Button (Top Right - Mobile/Universal) */}
                     <div className="flex gap-2">
                         <button onClick={handleShare} className="flex items-center gap-2 bg-gray-100 hover:bg-news-gold hover:text-white px-3 py-1.5 rounded-full text-xs font-bold uppercase transition-colors text-gray-600">
                             <Share2 size={14} /> <span className="hidden sm:inline">Share</span>
@@ -211,7 +201,6 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     </div>
                 </div>
                 
-                {/* Desktop: Reduced font size to text-3xl (same as mobile base) which is smaller than previous 4xl */}
                 <h1 className="text-3xl md:text-3xl font-serif font-bold text-gray-900 mb-6 leading-tight">
                     {article.title}
                 </h1>
@@ -222,7 +211,6 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     </h2>
                 )}
 
-                {/* Profile Name, Date, Duration, Word Count */}
                 <div className="flex items-start md:items-center border-y border-gray-200 py-4 gap-3 md:gap-4">
                     <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-400 shrink-0 overflow-hidden mt-0.5 md:mt-0">
                         {article.authorAvatar ? (
@@ -233,7 +221,6 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     </div>
                     
                     <div className="flex flex-col md:flex-row md:items-center w-full">
-                        {/* Author */}
                         <div className="flex items-center mb-1.5 md:mb-0">
                             <span className="font-bold text-gray-900 uppercase tracking-wide text-xs md:text-sm">{authorName}</span>
                             <span className="hidden md:inline text-gray-300 mx-4">|</span>
@@ -256,19 +243,17 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 </div>
             </header>
 
-            {/* Featured Image */}
             <figure className="mb-10 -mx-4 md:mx-0">
                 <img 
                     src={article.imageUrl} 
                     alt={article.title} 
-                    className="w-full h-auto md:rounded-sm shadow-sm"
+                    className="w-full h-auto md:rounded-sm shadow-sm bg-gray-100"
                 />
                 <figcaption className="text-xs md:text-sm text-gray-500 mt-2 italic text-center px-4">
-                    Featured image for {article.categories[0]} section.
+                    Featured image for {categories[0] || 'this'} section.
                 </figcaption>
             </figure>
 
-            {/* Article Content */}
             <article 
               className="prose prose-slate max-w-none w-full font-serif text-gray-800 
               !leading-snug md:!leading-loose 
@@ -285,13 +270,12 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
               prose-li:text-[17px] md:prose-li:text-[18px] 
               prose-headings:font-serif 
               break-words mb-8 md:mb-12" 
-              dangerouslySetInnerHTML={{ __html: article.content }} 
+              dangerouslySetInnerHTML={{ __html: article.content || '<p>No content available.</p>' }} 
             />
 
-            {/* Tags */}
             <div className="mt-10 pt-6 border-t border-gray-100 mb-10">
                 <div className="flex flex-wrap gap-2">
-                    {article.categories.map(cat => (
+                    {categories.map(cat => (
                          <span key={cat} className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-wide">#{cat}</span>
                     ))}
                     <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-wide">#News</span>
@@ -299,7 +283,6 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 </div>
             </div>
             
-             {/* Bottom Leaderboard */}
              <AdvertisementBanner 
                 ads={advertisements} 
                 size="LEADERBOARD" 
@@ -309,11 +292,9 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
         </div>
 
-        {/* Right Sidebar (Desktop) */}
         <div className="hidden md:block w-[300px] flex-shrink-0 space-y-8 mt-16">
              <div className="sticky top-24">
                 
-                {/* Rectangle Ad */}
                 <AdvertisementBanner 
                     ads={advertisements} 
                     size="RECTANGLE" 
@@ -321,9 +302,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                     globalAdsEnabled={globalAdsEnabled}
                 />
                 
-                {/* In This Section Box */}
                 <div className="bg-gray-50 border border-gray-200 p-6 mt-8">
-                    {/* Share moved here */}
                     <div className="mb-6 pb-6 border-b border-gray-200 space-y-4">
                         <div>
                              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Share Article</span>
@@ -348,10 +327,10 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                                 <span className="text-xs text-gray-500">{safeFormat(rel.publishedAt, 'MMM d')}</span>
                             </Link>
                         ))}
+                        {relatedArticles.length === 0 && <p className="text-xs text-gray-400">No related articles.</p>}
                     </div>
                 </div>
 
-                {/* Skyscraper Ad */}
                  <AdvertisementBanner 
                     ads={advertisements} 
                     size="SKYSCRAPER" 
@@ -364,16 +343,14 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
 
       </div>
 
-      {/* --- BOTTOM SECTION: EXTENDED READS --- */}
       <div className="bg-gray-50 border-t border-gray-200 mt-12 py-12">
         <div className="max-w-6xl mx-auto px-4">
             
-            {/* 1. Read Next (Related) */}
             <div className="mb-16">
                 <div className="flex items-center justify-between mb-8">
                     <h3 className="font-serif font-bold text-2xl md:text-3xl text-gray-900">Read Next</h3>
                     <Link to="#" onNavigate={onNavigate} className="text-xs font-bold uppercase tracking-widest text-news-accent flex items-center hover:underline">
-                        View {article.categories[0]} <ArrowRight size={14} className="ml-1"/>
+                        View {categories[0]} <ArrowRight size={14} className="ml-1"/>
                     </Link>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
@@ -383,10 +360,10 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                                 <img 
                                     src={rel.imageUrl} 
                                     alt={rel.title}
-                                    className="w-full h-auto transform group-hover:scale-105 transition-transform duration-500"
+                                    className="w-full h-auto transform group-hover:scale-105 transition-transform duration-500 bg-gray-200"
                                 />
                                 <span className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 uppercase rounded-sm backdrop-blur-sm">
-                                    {rel.categories[0]}
+                                    {rel.categories?.[0] || 'News'}
                                 </span>
                             </div>
                             <div className="p-5">
@@ -403,13 +380,11 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                 </div>
             </div>
 
-            {/* 2. More News (Latest) */}
             {moreArticles.length > 0 && (
                 <div>
                      <h3 className="font-serif font-bold text-2xl md:text-3xl text-gray-900 mb-8 pb-4 border-b border-gray-200">
                         Latest Headlines
                      </h3>
-                     {/* Changed from grid-cols-1 md:grid-cols-2 lg:grid-cols-4 to grid-cols-1 to make them one by one */}
                      <div className="grid grid-cols-1 gap-6">
                         {moreArticles.map(more => (
                              <Link to={`/article/${more.slug || more.id}`} onNavigate={onNavigate} key={more.id} className="group block bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
@@ -423,13 +398,13 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles, articleId, onNaviga
                                     </div>
                                     <div>
                                         <div className="text-[10px] font-bold text-news-accent uppercase tracking-widest mb-1">
-                                            {more.categories[0]}
+                                            {more.categories?.[0] || 'General'}
                                         </div>
                                         <h5 className="font-serif font-bold text-lg text-gray-900 leading-snug group-hover:text-news-accent transition-colors mb-1">
                                             {more.title}
                                         </h5>
                                         <p className="text-xs text-gray-500 line-clamp-2 hidden sm:block">
-                                            {more.subline || more.summary || more.content.replace(/<[^>]*>/g, '').slice(0, 100) + '...'}
+                                            {more.subline || more.summary || (more.content || '').replace(/<[^>]*>/g, '').slice(0, 100) + '...'}
                                         </p>
                                     </div>
                                 </div>
