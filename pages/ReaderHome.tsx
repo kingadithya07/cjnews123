@@ -150,18 +150,14 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
         globalAdsEnabled={globalAdsEnabled}
       />
 
-      {/* --- TOP SECTION: SLIDER & TRENDING --- */}
-      {/* Overlapping Layout: Slider spans 9 columns, Sidebar spans 4 columns starting at 9 */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 h-auto lg:h-[550px] relative px-4 md:px-0">
-          
-          {/* Slider */}
-          <div className="col-span-1 lg:col-span-9 h-[400px] lg:h-full relative z-0">
+      {/* --- TOP SECTION: SLIDER (Full Width) --- */}
+      <div className="max-w-7xl mx-auto px-4 md:px-0">
+          <div className="w-full h-[400px] md:h-[500px] relative rounded-2xl overflow-hidden shadow-2xl bg-news-black group border border-gray-800"
+               onMouseEnter={() => setIsPaused(true)}
+               onMouseLeave={() => setIsPaused(false)}
+          >
               {sliderArticles.length > 0 ? (
-              <div 
-                className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl bg-news-black group border border-gray-800"
-                onMouseEnter={() => setIsPaused(true)}
-                onMouseLeave={() => setIsPaused(false)}
-              >
+              <>
                   <div 
                       className="flex h-full transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]" 
                       style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -196,7 +192,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                   </span>
                               </div>
 
-                              <div className="absolute bottom-0 left-0 right-0 lg:right-1/4 bg-gradient-to-t from-black via-black/90 to-transparent p-6 md:p-10 pt-24 flex flex-col justify-end items-start z-20">
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 md:p-10 pt-24 flex flex-col justify-end items-start z-20">
                                   <div className="flex items-center gap-3 mb-2 md:mb-3">
                                       <div className="w-5 h-5 md:w-6 md:h-6 rounded-full border border-white/20 overflow-hidden bg-gray-800 shrink-0">
                                           <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
@@ -212,7 +208,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                   </div>
 
                                   <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-xl md:max-w-2xl">
-                                      <h2 className="text-base md:text-2xl lg:text-3xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg">
+                                      <h2 className="text-base md:text-3xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg">
                                           {article.title}
                                       </h2>
                                   </Link>
@@ -230,58 +226,50 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                   </div>
 
                   <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronLeft size={20} /></button>
-                  <button onClick={nextSlide} className="absolute right-4 lg:right-[35%] top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
+                  <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
 
-                  <div className="absolute bottom-6 right-6 lg:right-[35%] flex gap-2 z-30">
+                  <div className="absolute bottom-6 right-6 flex gap-2 z-30">
                       {sliderArticles.map((_, idx) => (
                           <button key={idx} onClick={() => setCurrentSlide(idx)} className={`transition-all duration-300 rounded-full ${currentSlide === idx ? 'bg-news-gold w-6 h-1' : 'bg-white/30 hover:bg-white/50 w-2 h-1'}`} />
                       ))}
                   </div>
-              </div>
+              </>
               ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-2xl text-gray-400 border border-gray-200">
                       <p className="text-[10px] font-black uppercase tracking-widest">Bureau Dispatches Awaited</p>
                   </div>
               )}
           </div>
+      </div>
 
-          {/* Trending Sidebar - Floating Overlap */}
-          <div className="hidden lg:flex lg:col-span-4 lg:col-start-9 flex-col lg:h-[85%] lg:self-center bg-white/95 backdrop-blur-md border border-white/20 rounded-2xl overflow-hidden shadow-2xl z-20">
-               <div className="p-5 bg-gray-50/80 border-b border-gray-100 flex justify-between items-center shrink-0 backdrop-blur-sm">
-                   <h3 className="font-black text-gray-900 text-[10px] uppercase tracking-[0.2em] flex items-center gap-2">
-                       <TrendingUp size={14} className="text-news-accent"/> Latest News
-                   </h3>
-               </div>
-               <div className="flex-1 overflow-y-auto p-0 scrollbar-hide">
-                   <div className="divide-y divide-gray-100/50">
-                       {trendingArticles.map((article, idx) => (
-                           <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block p-4 hover:bg-white/50 transition-colors group">
-                               <div className="flex gap-4">
-                                    <div className="flex flex-col items-center justify-start pt-1">
-                                        <span className="text-news-gold font-display font-black text-lg leading-none">0{idx + 1}</span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <span className="text-[9px] font-bold text-news-accent uppercase tracking-wide mb-1 truncate flex items-center gap-1">
-                                            <Star size={8} fill="currentColor" /> {article.categories[0]}
-                                        </span>
-                                        <h4 className="font-serif font-bold text-xs text-gray-900 leading-snug group-hover:text-news-accent line-clamp-2 transition-colors">
-                                            {article.title}
-                                        </h4>
-                                        <div className="flex items-center gap-2 mt-2 text-[9px] text-gray-400 font-bold uppercase tracking-widest">
-                                            <Clock size={10} /> {safeFormat(article.publishedAt, 'MMM d')}
-                                        </div>
-                                    </div>
-                               </div>
-                           </Link>
-                       ))}
-                   </div>
-               </div>
-               <div className="p-3 border-t border-gray-100 bg-gray-50/50 text-center shrink-0 backdrop-blur-sm">
-                   <Link to="#" onNavigate={onNavigate} className="text-[9px] font-black uppercase tracking-[0.25em] text-news-black hover:text-news-accent flex items-center justify-center gap-2">
-                       Full Index <ArrowRight size={12}/>
+      {/* --- TRENDING / LATEST NEWS SECTION (Downside of Slider) --- */}
+      <div className="max-w-7xl mx-auto px-4 md:px-0">
+           <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-3">
+               <TrendingUp className="text-news-accent" size={20}/>
+               <h3 className="text-lg font-black uppercase tracking-widest text-gray-900">Latest News</h3>
+           </div>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               {trendingArticles.map((article, idx) => (
+                   <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group flex gap-4 items-start p-4 bg-white rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-all h-full">
+                       <div className="w-20 h-20 shrink-0 rounded-md overflow-hidden bg-gray-200 relative border border-gray-100">
+                           <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+                       </div>
+                       <div className="flex-1 min-w-0 flex flex-col h-full">
+                           <div className="flex items-center gap-2 mb-1">
+                               <span className="text-news-gold font-black text-xs">0{idx+1}</span>
+                               <span className="text-[9px] font-bold text-news-accent uppercase tracking-wide truncate">{article.categories[0]}</span>
+                           </div>
+                           <h4 className="font-bold text-sm text-gray-900 leading-snug line-clamp-2 group-hover:text-news-accent transition-colors flex-grow">
+                               {article.title}
+                           </h4>
+                           <div className="flex items-center gap-2 mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                               <Clock size={10}/> {safeFormat(article.publishedAt, 'MMM d')}
+                           </div>
+                       </div>
                    </Link>
-               </div>
-          </div>
+               ))}
+           </div>
       </div>
 
       <AdvertisementBanner 
@@ -295,72 +283,23 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
         
         {/* LEFT COLUMN (Main Feed) */}
         <div className="lg:col-span-8 space-y-8">
-            <div className="md:hidden">
-               {/* Mobile Tabs */}
-               <div className="flex border-b border-gray-200 mb-6 sticky top-[60px] bg-news-paper z-20 pt-2">
-                   <button onClick={() => setMobileTab('latest')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${mobileTab === 'latest' ? 'border-b-2 border-news-black text-news-black' : 'text-gray-400 hover:text-gray-600'}`}>Latest</button>
-                   <button onClick={() => setMobileTab('trending')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${mobileTab === 'trending' ? 'border-b-2 border-news-black text-news-black' : 'text-gray-400 hover:text-gray-600'}`}>Trending</button>
-               </div>
-
-               <div className="min-h-[300px]">
-                   {mobileTab === 'latest' && (
-                       <div className="space-y-8">
-                           {mainFeedArticles.map(article => (
-                               <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                                   <div className="w-full aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4 relative">
-                                       <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
-                                       <div className="absolute top-2 left-2 flex flex-col gap-1">
-                                            <span className="bg-white/90 backdrop-blur text-black text-[9px] font-black px-2 py-1 uppercase tracking-wider rounded-sm w-fit shadow-sm flex items-center gap-1">
-                                                <Star size={8} fill="currentColor" /> {article.categories[0]}
-                                            </span>
-                                       </div>
-                                   </div>
-                                   <div>
-                                       <h4 className="font-serif font-bold text-base leading-tight text-gray-900 group-hover:text-news-accent transition-colors mb-2">{article.title}</h4>
-                                       <p className="text-xs text-gray-500 line-clamp-2 mb-3 leading-relaxed">{article.subline || article.content.replace(/<[^>]*>/g, '').substring(0, 100) + '...'}</p>
-                                   </div>
-                               </Link>
-                           ))}
+            <h3 className="text-[10px] font-black text-gray-900 mb-6 flex items-center uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Latest Dispatches</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
+               {mainFeedArticles.map(article => (
+                   <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block flex flex-col h-full">
+                       <div className="overflow-hidden mb-4 relative shadow-sm rounded-lg">
+                            <img src={article.imageUrl} alt={article.title} className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700 aspect-video object-cover"/>
+                            <div className="absolute top-2 left-2 flex flex-col gap-1">
+                                <span className="bg-white/90 backdrop-blur text-black text-[9px] font-black px-2 py-1 uppercase tracking-widest rounded-sm w-fit shadow-sm flex items-center gap-1">
+                                    <Star size={8} fill="currentColor" /> {article.categories[0]}
+                                </span>
+                            </div>
                        </div>
-                   )}
-
-                   {mobileTab === 'trending' && (
-                       <div className="space-y-4">
-                           {trendingArticles.map((article, idx) => (
-                               <div key={article.id} className="flex gap-4 items-start group bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                   <span className="text-xl font-serif font-bold text-gray-200 group-hover:text-news-gold transition-colors w-8 text-center shrink-0 leading-none mt-1">0{idx+1}</span>
-                                   <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="flex-1">
-                                       <span className="text-[9px] text-news-accent font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                                           <Star size={8} fill="currentColor" /> {article.categories[0]}
-                                       </span>
-                                       <h4 className="font-bold text-xs text-gray-900 group-hover:text-news-accent transition-colors leading-snug mb-1">{article.title}</h4>
-                                   </Link>
-                               </div>
-                           ))}
-                       </div>
-                   )}
-               </div>
-            </div>
-
-            <div className="hidden md:block">
-                <h3 className="text-[10px] font-black text-gray-900 mb-6 flex items-center uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Latest Dispatches</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
-                   {mainFeedArticles.map(article => (
-                       <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block flex flex-col h-full">
-                           <div className="overflow-hidden mb-4 relative shadow-sm rounded-lg">
-                                <img src={article.imageUrl} alt={article.title} className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700 aspect-video object-cover"/>
-                                <div className="absolute top-2 left-2 flex flex-col gap-1">
-                                    <span className="bg-white/90 backdrop-blur text-black text-[9px] font-black px-2 py-1 uppercase tracking-widest rounded-sm w-fit shadow-sm flex items-center gap-1">
-                                        <Star size={8} fill="currentColor" /> {article.categories[0]}
-                                    </span>
-                                </div>
-                           </div>
-                           <h3 className="text-base font-serif font-bold text-gray-900 mb-3 leading-tight group-hover:text-news-accent transition-colors">{article.title}</h3>
-                           <p className="text-xs text-gray-500 line-clamp-3 mb-4 flex-grow font-sans leading-relaxed" dangerouslySetInnerHTML={{ __html: article.content.substring(0, 140) + '...' }}/>
-                           <div className="text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] flex items-center mt-auto group-hover:text-news-black transition-colors">Read Story <ArrowRight size={12} className="ml-1 group-hover:translate-x-1 transition-transform"/></div>
-                       </Link>
-                   ))}
-                </div>
+                       <h3 className="text-base font-serif font-bold text-gray-900 mb-3 leading-tight group-hover:text-news-accent transition-colors">{article.title}</h3>
+                       <p className="text-xs text-gray-500 line-clamp-3 mb-4 flex-grow font-sans leading-relaxed" dangerouslySetInnerHTML={{ __html: article.content.substring(0, 140) + '...' }}/>
+                       <div className="text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] flex items-center mt-auto group-hover:text-news-black transition-colors">Read Story <ArrowRight size={12} className="ml-1 group-hover:translate-x-1 transition-transform"/></div>
+                   </Link>
+               ))}
             </div>
         </div>
 
