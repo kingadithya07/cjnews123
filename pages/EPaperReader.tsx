@@ -233,8 +233,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     const clipHeight = croppedCanvas.height;
 
     const isNarrow = clipWidth < 450;
-    const baseFooterHeight = Math.max(50, Math.min(clipHeight * 0.12, 120));
-    const footerHeight = isNarrow ? baseFooterHeight * 1.8 : baseFooterHeight;
+    // Increased footer height significantly to ensure text fits
+    const baseFooterHeight = Math.max(100, Math.min(clipHeight * 0.15, 200)); 
+    const footerHeight = isNarrow ? baseFooterHeight * 1.6 : baseFooterHeight;
     
     finalCanvas.width = clipWidth;
     finalCanvas.height = clipHeight + footerHeight;
@@ -246,7 +247,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     ctx.fillStyle = watermarkSettings.backgroundColor || '#1a1a1a';
     ctx.fillRect(0, clipHeight, finalCanvas.width, footerHeight);
     
-    const padding = Math.max(10, clipWidth * 0.05);
+    const padding = Math.max(15, clipWidth * 0.05);
     const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
     
     const brandLabel = (watermarkSettings.text || APP_NAME).toUpperCase();
@@ -258,16 +259,19 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             const img = new Image();
             img.crossOrigin = "anonymous";
             img.src = watermarkSettings.logoUrl;
-            await new Promise((res) => { img.onload = res; img.onerror = res; });
-            logoImg = img;
+            // Robust image loading promise
+            await new Promise((resolve) => {
+                img.onload = () => { logoImg = img; resolve(true); };
+                img.onerror = () => { console.warn("Logo failed to load for clip"); resolve(false); };
+            });
         } catch (e) { console.error("Logo load failed", e); }
     }
 
     const getFittingFontSize = (text: string, initialSize: number, maxWidth: number, fontFace: string) => {
         let size = initialSize;
         ctx.font = `bold ${size}px ${fontFace}`;
-        while (ctx.measureText(text).width > maxWidth && size > 8) {
-            size -= 0.5;
+        while (ctx.measureText(text).width > maxWidth && size > 10) {
+            size -= 1;
             ctx.font = `bold ${size}px ${fontFace}`;
         }
         return size;
@@ -294,7 +298,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         }
         
         const maxBrandWidth = clipWidth - currentX - padding;
-        const initialSize = footerHeight * fontSizePercent;
+        const initialSize = footerHeight * fontSizePercent * 0.8;
         const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Playfair Display", serif');
         ctx.font = `bold ${brandFontSize}px "Playfair Display", serif`;
         ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
@@ -302,7 +306,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         
         const fullDateStr = `CJ NEWSHUB ARCHIVE: ${dateStr}`;
         const maxDateWidth = clipWidth - (padding * 2);
-        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", sans-serif');
+        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.15, maxDateWidth, '"Inter", sans-serif');
         ctx.font = `500 ${dateFontSize}px "Inter", sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.fillText(fullDateStr, padding, line2Y);
@@ -329,9 +333,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         const dateW = ctx.measureText(fullDateStr).width;
         
         let fontSize = baseFontSize;
-        if ((brandW + dateW + padding) > totalAvailableWidth) {
-            const scale = totalAvailableWidth / (brandW + dateW + padding);
-            fontSize = Math.max(10, baseFontSize * scale);
+        if ((brandW + dateW + (padding * 2)) > totalAvailableWidth) {
+            const scale = totalAvailableWidth / (brandW + dateW + (padding * 2));
+            fontSize = Math.max(12, baseFontSize * scale);
         }
 
         ctx.font = `bold ${fontSize}px "Playfair Display", serif`;

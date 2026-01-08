@@ -1,4 +1,5 @@
 
+
 export enum UserRole {
   READER = 'READER',
   WRITER = 'WRITER',
@@ -44,6 +45,8 @@ export interface ReporterProfile {
   officeAddress?: string; // New field for official ID
   signatureUrl?: string; // Uploaded authorized signature
   stampUrl?: string; // Uploaded official stamp
+  logoUrl?: string; // Uploaded custom logo
+  watermarkUrl?: string; // Uploaded watermark
 }
 
 export interface Article {
