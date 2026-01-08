@@ -246,7 +246,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       <div className="max-w-7xl mx-auto px-4 md:px-0">
            <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-3">
                <TrendingUp className="text-news-accent" size={20}/>
-               <h3 className="text-lg font-black uppercase tracking-widest text-gray-900">Latest News</h3>
+               <h3 className="text-lg font-black uppercase tracking-widest text-gray-900">Trending</h3>
            </div>
            
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
