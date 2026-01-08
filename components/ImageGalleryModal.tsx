@@ -100,6 +100,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
 
         // Create local preview for editing
         const url = URL.createObjectURL(file);
+        // We set the filename here, but we will sanitize it in handleSaveCrop
         setFileName(file.name.split('.')[0]);
         setEditImageUrl(url);
         setEditMode(true);
@@ -181,7 +182,12 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                     try {
                         const fileExt = 'jpg'; // Standardize on web
                         const prefix = userId ? `users/${userId}/` : '';
-                        const finalPath = `${prefix}${uploadFolder}/${fileName}_${generateId()}.${fileExt}`;
+                        
+                        // SANITIZATION: Replace any char that isn't a-z, 0-9, or -/_ with underscore.
+                        // This fixes issues with Telugu chars, spaces, parens, etc. in Supabase Storage keys.
+                        const cleanFileName = fileName.replace(/[^a-z0-9\-_]/gi, '_').replace(/_{2,}/g, '_').toLowerCase().slice(0, 50);
+                        
+                        const finalPath = `${prefix}${uploadFolder}/${cleanFileName}_${generateId()}.${fileExt}`;
 
                         const { error: uploadError } = await supabase.storage
                             .from(BUCKET_NAME)
