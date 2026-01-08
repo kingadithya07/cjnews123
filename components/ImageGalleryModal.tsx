@@ -100,9 +100,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
 
         // Create local preview for editing
         const url = URL.createObjectURL(file);
-        // Clean the filename initially for display (basic)
-        const cleanName = file.name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '_');
-        setFileName(cleanName);
+        setFileName(file.name.split('.')[0]);
         setEditImageUrl(url);
         setEditMode(true);
         e.target.value = ''; // Reset input
@@ -183,19 +181,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                     try {
                         const fileExt = 'jpg'; // Standardize on web
                         const prefix = userId ? `users/${userId}/` : '';
-                        
-                        // STRICT SANITIZATION:
-                        // Convert to lowercase, replace non-alphanumeric with underscore.
-                        // This handles spaces, Telugu chars, parens, etc.
-                        const cleanFileName = fileName
-                            .replace(/[^a-z0-9\-_]/gi, '_')
-                            .replace(/_{2,}/g, '_')
-                            .toLowerCase()
-                            .slice(0, 50); // Limit length
-                        
-                        // Fallback name if sanitization leaves nothing
-                        const finalName = cleanFileName || `img_${generateId().slice(0,6)}`;
-                        const finalPath = `${prefix}${uploadFolder}/${finalName}_${generateId()}.${fileExt}`;
+                        const finalPath = `${prefix}${uploadFolder}/${fileName}_${generateId()}.${fileExt}`;
 
                         const { error: uploadError } = await supabase.storage
                             .from(BUCKET_NAME)
