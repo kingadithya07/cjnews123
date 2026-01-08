@@ -100,8 +100,9 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
 
         // Create local preview for editing
         const url = URL.createObjectURL(file);
-        // We set the filename here, but we will sanitize it in handleSaveCrop
-        setFileName(file.name.split('.')[0]);
+        // Clean the filename initially for display, but strict sanitization happens on save
+        const cleanName = file.name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '_');
+        setFileName(cleanName);
         setEditImageUrl(url);
         setEditMode(true);
         e.target.value = ''; // Reset input
@@ -183,11 +184,18 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                         const fileExt = 'jpg'; // Standardize on web
                         const prefix = userId ? `users/${userId}/` : '';
                         
-                        // SANITIZATION: Replace any char that isn't a-z, 0-9, or -/_ with underscore.
-                        // This fixes issues with Telugu chars, spaces, parens, etc. in Supabase Storage keys.
-                        const cleanFileName = fileName.replace(/[^a-z0-9\-_]/gi, '_').replace(/_{2,}/g, '_').toLowerCase().slice(0, 50);
+                        // STRICT SANITIZATION: 
+                        // Replace any char that isn't a-z, 0-9, or -/_ with underscore.
+                        // This prevents "Invalid key" errors from Telugu chars or spaces.
+                        const cleanFileName = fileName
+                            .replace(/[^a-z0-9\-_]/gi, '_') // Replace non-ascii
+                            .replace(/_{2,}/g, '_') // Remove double underscores
+                            .toLowerCase()
+                            .slice(0, 50); // Limit length
                         
-                        const finalPath = `${prefix}${uploadFolder}/${cleanFileName}_${generateId()}.${fileExt}`;
+                        // Fallback if name becomes empty after sanitization
+                        const finalName = cleanFileName || `image_${generateId().slice(0,8)}`;
+                        const finalPath = `${prefix}${uploadFolder}/${finalName}_${generateId()}.${fileExt}`;
 
                         const { error: uploadError } = await supabase.storage
                             .from(BUCKET_NAME)

@@ -126,55 +126,59 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
 
   const handleShare = async () => {
       if (!article) return;
-      const permalink = getPermalink();
+      if (isSharing.current) return;
       
+      const permalink = getPermalink();
+      isSharing.current = true;
+
+      // New format: [URL] - [Title] [Subline]
+      const captionText = `${permalink} - ${article.title} ${article.subline ? '\n' + article.subline : ''}`;
+
       if (navigator.share) {
-          if (isSharing.current) return;
-          isSharing.current = true;
           try {
-              // Construct a detailed text caption
-              // Apps like WhatsApp use 'text' as the image caption. 
-              // We separate lines clearly to ensure title, subline and link are distinct.
-              const shareText = `📰 ${article.title}\n\n${article.subline ? article.subline + '\n\n' : ''}🔗 Read full story: ${permalink}`;
-
-              let shareData: ShareData = {
-                  title: article.title,
-                  text: shareText,
-                  url: permalink
-              };
-
-              // Enhanced Sharing: Try to share the actual image file along with link
-              try {
-                  if (article.imageUrl) {
+              let file: File | null = null;
+              
+              // Attempt to fetch the image to share it directly
+              if (article.imageUrl) {
+                  try {
                       const response = await fetch(article.imageUrl);
                       const blob = await response.blob();
-                      const file = new File([blob], "article_cover.jpg", { type: blob.type });
-                      
-                      const fileShareData = {
-                          files: [file],
-                          title: article.title,
-                          text: shareText, // Pass the full captioned text here
-                          url: permalink 
-                      };
-
-                      if (navigator.canShare && navigator.canShare(fileShareData)) {
-                          shareData = fileShareData;
-                      }
+                      // Create a file object with a safe name
+                      file = new File([blob], "article_cover.jpg", { type: "image/jpeg" });
+                  } catch (e) {
+                      console.warn("Image fetching for share failed, falling back to link share.", e);
                   }
-              } catch (e) {
-                  console.warn("Image sharing fallback enabled. Sharing link only.", e);
               }
 
-              await navigator.share(shareData);
+              if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+                  // SCENARIO 1: Sharing with an Image File
+                  // Omit 'url' to force caption use
+                  await navigator.share({
+                      files: [file],
+                      title: article.title,
+                      text: captionText 
+                  });
+              } else {
+                  // SCENARIO 2: Sharing Link Only (No image file support or fetch failed)
+                  await navigator.share({
+                      title: article.title,
+                      text: `${article.title} ${article.subline ? '- ' + article.subline : ''}`,
+                      url: permalink
+                  });
+              }
           } catch (error: any) {
+              // Ignore AbortError (user cancelled share)
               if (error.name !== 'AbortError') {
                   console.error('Share failed:', error);
+                  // Fallback to clipboard if share crashes
+                  handleCopyLink();
               }
           } finally {
               isSharing.current = false;
           }
       } else {
           handleCopyLink();
+          isSharing.current = false;
       }
   };
 
