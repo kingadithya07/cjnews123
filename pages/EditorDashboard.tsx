@@ -81,6 +81,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [modalPublishedAt, setModalPublishedAt] = useState<string>(new Date().toISOString());
   
   // E-Paper State
   const [showAddPageModal, setShowAddPageModal] = useState(false);
@@ -189,11 +190,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setShowArticleModal(true);
+      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setModalPublishedAt(new Date().toISOString()); setShowArticleModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setShowArticleModal(true);
+      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setModalPublishedAt(article.publishedAt); setShowArticleModal(true);
   };
 
   const handleTranslateTitle = async () => {
@@ -257,7 +258,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           content: modalContent,
           categories: modalCategories.length > 0 ? modalCategories : ['General'],
           imageUrl: modalImageUrl || 'https://picsum.photos/800/400',
-          publishedAt: new Date().toISOString(),
+          publishedAt: modalPublishedAt, // Use preserved date
           status: modalStatus,
           isFeatured: modalIsFeatured,
           isEditorsChoice: false, // Force false since removed from UI
