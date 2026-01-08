@@ -151,10 +151,11 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       />
 
       {/* --- TOP SECTION: SLIDER & TRENDING --- */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 h-auto lg:h-[520px]">
+      {/* Overlapping Layout: Slider spans 9 columns, Sidebar spans 4 columns starting at 9 */}
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 h-auto lg:h-[550px] relative px-4 md:px-0">
           
           {/* Slider */}
-          <div className="col-span-1 lg:col-span-8 h-[400px] lg:h-full">
+          <div className="col-span-1 lg:col-span-9 h-[400px] lg:h-full relative z-0">
               {sliderArticles.length > 0 ? (
               <div 
                 className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl bg-news-black group border border-gray-800"
@@ -195,7 +196,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                   </span>
                               </div>
 
-                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 md:p-10 pt-24 flex flex-col justify-end items-start z-20">
+                              <div className="absolute bottom-0 left-0 right-0 lg:right-1/4 bg-gradient-to-t from-black via-black/90 to-transparent p-6 md:p-10 pt-24 flex flex-col justify-end items-start z-20">
                                   <div className="flex items-center gap-3 mb-2 md:mb-3">
                                       <div className="w-5 h-5 md:w-6 md:h-6 rounded-full border border-white/20 overflow-hidden bg-gray-800 shrink-0">
                                           <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
@@ -211,7 +212,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                   </div>
 
                                   <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-xl md:max-w-2xl">
-                                      <h2 className="text-base md:text-2xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg">
+                                      <h2 className="text-base md:text-2xl lg:text-3xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg">
                                           {article.title}
                                       </h2>
                                   </Link>
@@ -229,9 +230,9 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                   </div>
 
                   <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronLeft size={20} /></button>
-                  <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
+                  <button onClick={nextSlide} className="absolute right-4 lg:right-[35%] top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
 
-                  <div className="absolute bottom-6 right-6 md:right-10 flex gap-2 z-30">
+                  <div className="absolute bottom-6 right-6 lg:right-[35%] flex gap-2 z-30">
                       {sliderArticles.map((_, idx) => (
                           <button key={idx} onClick={() => setCurrentSlide(idx)} className={`transition-all duration-300 rounded-full ${currentSlide === idx ? 'bg-news-gold w-6 h-1' : 'bg-white/30 hover:bg-white/50 w-2 h-1'}`} />
                       ))}
@@ -244,17 +245,17 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
               )}
           </div>
 
-          {/* Trending Sidebar */}
-          <div className="hidden lg:flex lg:col-span-4 flex-col h-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-               <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0">
+          {/* Trending Sidebar - Floating Overlap */}
+          <div className="hidden lg:flex lg:col-span-4 lg:col-start-9 flex-col lg:h-[85%] lg:self-center bg-white/95 backdrop-blur-md border border-white/20 rounded-2xl overflow-hidden shadow-2xl z-20">
+               <div className="p-5 bg-gray-50/80 border-b border-gray-100 flex justify-between items-center shrink-0 backdrop-blur-sm">
                    <h3 className="font-black text-gray-900 text-[10px] uppercase tracking-[0.2em] flex items-center gap-2">
-                       <TrendingUp size={14} className="text-news-accent"/> Trending Now
+                       <TrendingUp size={14} className="text-news-accent"/> Latest News
                    </h3>
                </div>
                <div className="flex-1 overflow-y-auto p-0 scrollbar-hide">
-                   <div className="divide-y divide-gray-100">
+                   <div className="divide-y divide-gray-100/50">
                        {trendingArticles.map((article, idx) => (
-                           <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block p-4 hover:bg-gray-50 transition-colors group">
+                           <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block p-4 hover:bg-white/50 transition-colors group">
                                <div className="flex gap-4">
                                     <div className="flex flex-col items-center justify-start pt-1">
                                         <span className="text-news-gold font-display font-black text-lg leading-none">0{idx + 1}</span>
@@ -275,7 +276,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                        ))}
                    </div>
                </div>
-               <div className="p-3 border-t border-gray-100 bg-gray-50 text-center shrink-0">
+               <div className="p-3 border-t border-gray-100 bg-gray-50/50 text-center shrink-0 backdrop-blur-sm">
                    <Link to="#" onNavigate={onNavigate} className="text-[9px] font-black uppercase tracking-[0.25em] text-news-black hover:text-news-accent flex items-center justify-center gap-2">
                        Full Index <ArrowRight size={12}/>
                    </Link>
