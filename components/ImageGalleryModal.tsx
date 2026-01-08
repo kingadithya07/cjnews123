@@ -100,7 +100,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
 
         // Create local preview for editing
         const url = URL.createObjectURL(file);
-        // Clean the filename initially for display, but strict sanitization happens on save
+        // Clean the filename initially for display (basic)
         const cleanName = file.name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '_');
         setFileName(cleanName);
         setEditImageUrl(url);
@@ -184,17 +184,17 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                         const fileExt = 'jpg'; // Standardize on web
                         const prefix = userId ? `users/${userId}/` : '';
                         
-                        // STRICT SANITIZATION: 
-                        // Replace any char that isn't a-z, 0-9, or -/_ with underscore.
-                        // This prevents "Invalid key" errors from Telugu chars or spaces.
+                        // STRICT SANITIZATION:
+                        // Convert to lowercase, replace non-alphanumeric with underscore.
+                        // This handles spaces, Telugu chars, parens, etc.
                         const cleanFileName = fileName
-                            .replace(/[^a-z0-9\-_]/gi, '_') // Replace non-ascii
-                            .replace(/_{2,}/g, '_') // Remove double underscores
+                            .replace(/[^a-z0-9\-_]/gi, '_')
+                            .replace(/_{2,}/g, '_')
                             .toLowerCase()
                             .slice(0, 50); // Limit length
                         
-                        // Fallback if name becomes empty after sanitization
-                        const finalName = cleanFileName || `image_${generateId().slice(0,8)}`;
+                        // Fallback name if sanitization leaves nothing
+                        const finalName = cleanFileName || `img_${generateId().slice(0,6)}`;
                         const finalPath = `${prefix}${uploadFolder}/${finalName}_${generateId()}.${fileExt}`;
 
                         const { error: uploadError } = await supabase.storage

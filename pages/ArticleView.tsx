@@ -131,8 +131,9 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
       const permalink = getPermalink();
       isSharing.current = true;
 
-      // New format: [URL] - [Title] [Subline]
-      const captionText = `${permalink} - ${article.title} ${article.subline ? '\n' + article.subline : ''}`;
+      // FORMAT: [URL] - [Title] [Subline]
+      // This places the link first, making it immediately visible and clickable in WhatsApp/Facebook image captions.
+      const captionText = `${permalink} - ${article.title}${article.subline ? '\n' + article.subline : ''}`;
 
       if (navigator.share) {
           try {
@@ -152,7 +153,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
 
               if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
                   // SCENARIO 1: Sharing with an Image File
-                  // Omit 'url' to force caption use
+                  // Omit 'url' property to force apps (like WhatsApp) to use 'text' as the image caption.
                   await navigator.share({
                       files: [file],
                       title: article.title,
