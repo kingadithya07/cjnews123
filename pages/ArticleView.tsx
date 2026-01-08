@@ -132,9 +132,10 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
           if (isSharing.current) return;
           isSharing.current = true;
           try {
-              // Construct a comprehensive text body
-              // We include the URL in the text because when sharing files, some apps ignore the 'url' field.
-              const shareText = `${article.title}\n\n${article.subline || ''}\n\n${permalink}`;
+              // Construct a detailed text caption
+              // Apps like WhatsApp use 'text' as the image caption. 
+              // We separate lines clearly to ensure title, subline and link are distinct.
+              const shareText = `📰 ${article.title}\n\n${article.subline ? article.subline + '\n\n' : ''}🔗 Read full story: ${permalink}`;
 
               let shareData: ShareData = {
                   title: article.title,
@@ -152,7 +153,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                       const fileShareData = {
                           files: [file],
                           title: article.title,
-                          text: shareText, // Use the robust text with URL
+                          text: shareText, // Pass the full captioned text here
                           url: permalink 
                       };
 
@@ -180,7 +181,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
   const handleSocialShare = (platform: 'twitter' | 'facebook' | 'linkedin') => {
       if (!article) return;
       const permalink = getPermalink();
-      const text = encodeURIComponent(article.title);
+      const text = encodeURIComponent(article.title + (article.subline ? ` - ${article.subline}` : ''));
       const url = encodeURIComponent(permalink);
       
       let shareUrl = '';
