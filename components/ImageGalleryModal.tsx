@@ -170,29 +170,44 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
 
             if (!canvas) throw new Error("Could not crop image");
 
-            canvas.toBlob(async (blob) => {
-                if (!blob) return;
-                
-                const fileExt = 'jpg'; // Standardize on web
-                const prefix = userId ? `users/${userId}/` : '';
-                const finalPath = `${prefix}${uploadFolder}/${fileName}_${generateId()}.${fileExt}`;
+            // Wrap canvas.toBlob in a Promise to await its result properly
+            await new Promise<void>((resolve, reject) => {
+                canvas.toBlob(async (blob) => {
+                    if (!blob) {
+                        reject(new Error("Failed to create image blob"));
+                        return;
+                    }
+                    
+                    try {
+                        const fileExt = 'jpg'; // Standardize on web
+                        const prefix = userId ? `users/${userId}/` : '';
+                        const finalPath = `${prefix}${uploadFolder}/${fileName}_${generateId()}.${fileExt}`;
 
-                const { error: uploadError } = await supabase.storage
-                    .from(BUCKET_NAME)
-                    .upload(finalPath, blob, { contentType: 'image/jpeg', upsert: false });
+                        const { error: uploadError } = await supabase.storage
+                            .from(BUCKET_NAME)
+                            .upload(finalPath, blob, { contentType: 'image/jpeg', upsert: false });
 
-                if (uploadError) throw uploadError;
+                        if (uploadError) {
+                            reject(uploadError);
+                            return;
+                        }
+                        
+                        resolve();
+                    } catch (e) {
+                        reject(e);
+                    }
+                }, 'image/jpeg', 0.9);
+            });
 
-                // Cleanup and Refresh
-                setIsProcessing(false);
-                setEditMode(false);
-                setEditImageUrl(null);
-                await fetchImages();
-
-            }, 'image/jpeg', 0.9);
+            // Cleanup and Refresh only if upload succeeds
+            setEditMode(false);
+            setEditImageUrl(null);
+            await fetchImages();
 
         } catch (err: any) {
-            alert("Error saving image: " + err.message);
+            console.error("Save error:", err);
+            alert("Error saving image: " + (err.message || "Unknown error"));
+        } finally {
             setIsProcessing(false);
         }
     };
@@ -212,10 +227,6 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                 throw error;
             }
 
-            // Verify deletion - usually data contains the deleted files
-            // Even if data is empty, we should trust the success unless error thrown
-            // But we can double check by forcing UI update
-            
             // Remove from local state immediately
             setImages(prev => prev.filter(img => img.name !== imageName));
             

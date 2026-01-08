@@ -132,25 +132,28 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
           if (isSharing.current) return;
           isSharing.current = true;
           try {
+              // Construct a comprehensive text body
+              // We include the URL in the text because when sharing files, some apps ignore the 'url' field.
+              const shareText = `${article.title}\n\n${article.subline || ''}\n\n${permalink}`;
+
               let shareData: ShareData = {
                   title: article.title,
-                  text: article.subline || article.title,
+                  text: shareText,
                   url: permalink
               };
 
-              // Try to include the image file if available
+              // Enhanced Sharing: Try to share the actual image file along with link
               try {
                   if (article.imageUrl) {
                       const response = await fetch(article.imageUrl);
                       const blob = await response.blob();
-                      const file = new File([blob], "thumbnail.jpg", { type: blob.type });
+                      const file = new File([blob], "article_cover.jpg", { type: blob.type });
                       
                       const fileShareData = {
                           files: [file],
                           title: article.title,
-                          // Important: Some apps drop 'url' when files are present, so we append it to text as well
-                          text: `${article.title}\n\n${article.subline || ''}\n\nRead more: ${permalink}`,
-                          url: permalink // Include URL explicitly for apps that support both
+                          text: shareText, // Use the robust text with URL
+                          url: permalink 
                       };
 
                       if (navigator.canShare && navigator.canShare(fileShareData)) {
