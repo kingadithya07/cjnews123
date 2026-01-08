@@ -233,11 +233,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     const clipHeight = croppedCanvas.height;
 
     const isNarrow = clipWidth < 450;
-    
-    // SIGNIFICANTLY INCREASED FOOTER HEIGHT: 
-    // Now set to a minimum of 180px or 22% of image height
-    const baseFooterHeight = Math.max(180, clipHeight * 0.22); 
-    const footerHeight = isNarrow ? baseFooterHeight * 1.4 : baseFooterHeight;
+    const baseFooterHeight = Math.max(50, Math.min(clipHeight * 0.12, 120));
+    const footerHeight = isNarrow ? baseFooterHeight * 1.8 : baseFooterHeight;
     
     finalCanvas.width = clipWidth;
     finalCanvas.height = clipHeight + footerHeight;
@@ -249,7 +246,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     ctx.fillStyle = watermarkSettings.backgroundColor || '#1a1a1a';
     ctx.fillRect(0, clipHeight, finalCanvas.width, footerHeight);
     
-    const padding = Math.max(25, clipWidth * 0.06); 
+    const padding = Math.max(10, clipWidth * 0.05);
     const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
     
     const brandLabel = (watermarkSettings.text || APP_NAME).toUpperCase();
@@ -261,21 +258,16 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             const img = new Image();
             img.crossOrigin = "anonymous";
             img.src = watermarkSettings.logoUrl;
-            // Robust async image loading
-            await new Promise((resolve) => {
-                img.onload = () => { logoImg = img; resolve(true); };
-                img.onerror = () => { console.warn("Watermark logo failed to load"); resolve(false); };
-                // Timeout safety
-                setTimeout(() => resolve(false), 3000);
-            });
-        } catch (e) { console.error("Logo load system error", e); }
+            await new Promise((res) => { img.onload = res; img.onerror = res; });
+            logoImg = img;
+        } catch (e) { console.error("Logo load failed", e); }
     }
 
     const getFittingFontSize = (text: string, initialSize: number, maxWidth: number, fontFace: string) => {
         let size = initialSize;
         ctx.font = `bold ${size}px ${fontFace}`;
-        while (ctx.measureText(text).width > maxWidth && size > 14) {
-            size -= 1;
+        while (ctx.measureText(text).width > maxWidth && size > 8) {
+            size -= 0.5;
             ctx.font = `bold ${size}px ${fontFace}`;
         }
         return size;
@@ -289,31 +281,30 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         let currentX = padding;
         
         if (logoImg) {
-            const logoH = footerHeight * 0.45;
+            const logoH = footerHeight * 0.35;
             let logoW = (logoImg.width / logoImg.height) * logoH;
-            
-            if (logoW > clipWidth * 0.35) {
-                logoW = clipWidth * 0.35;
+            if (logoW > clipWidth * 0.3) {
+                logoW = clipWidth * 0.3;
                 const newLogoH = (logoImg.height / logoImg.width) * logoW;
                 ctx.drawImage(logoImg, currentX, line1Y - (newLogoH / 2), logoW, newLogoH);
             } else {
                 ctx.drawImage(logoImg, currentX, line1Y - (logoH / 2), logoW, logoH);
             }
-            currentX += logoW + (padding * 0.7);
+            currentX += logoW + (padding * 0.5);
         }
         
         const maxBrandWidth = clipWidth - currentX - padding;
-        const initialSize = footerHeight * fontSizePercent * 0.85;
-        const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Noto Sans Telugu", sans-serif');
-        ctx.font = `bold ${brandFontSize}px "Noto Sans Telugu", sans-serif`;
+        const initialSize = footerHeight * fontSizePercent;
+        const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Playfair Display", serif');
+        ctx.font = `bold ${brandFontSize}px "Playfair Display", serif`;
         ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
         ctx.fillText(brandLabel, currentX, line1Y);
         
-        const fullDateStr = `DIGITAL ARCHIVE: ${dateStr}`;
+        const fullDateStr = `CJ NEWSHUB ARCHIVE: ${dateStr}`;
         const maxDateWidth = clipWidth - (padding * 2);
-        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.16, maxDateWidth, '"Inter", sans-serif');
+        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", sans-serif');
         ctx.font = `500 ${dateFontSize}px "Inter", sans-serif`;
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.fillText(fullDateStr, padding, line2Y);
         
     } else {
@@ -322,34 +313,34 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         let currentX = padding;
         
         if (logoImg) {
-            const logoH = footerHeight * 0.65;
+            const logoH = footerHeight * 0.6;
             const logoW = (logoImg.width / logoImg.height) * logoH;
             ctx.drawImage(logoImg, currentX, clipHeight + (footerHeight - logoH) / 2, logoW, logoH);
-            currentX += logoW + (padding * 0.8);
+            currentX += logoW + (padding * 0.5);
         }
         
-        const fullDateStr = `GLOBAL DIGITAL EDITION ARCHIVE: ${dateStr}`;
+        const fullDateStr = `CJ NEWSHUB GLOBAL ARCHIVE: ${dateStr}`;
         const baseFontSize = footerHeight * fontSizePercent;
         const totalAvailableWidth = clipWidth - currentX - (padding * 2);
         
-        ctx.font = `bold ${baseFontSize}px "Noto Sans Telugu", sans-serif`;
+        ctx.font = `bold ${baseFontSize}px "Playfair Display", serif`;
         const brandW = ctx.measureText(brandLabel).width;
-        ctx.font = `500 ${baseFontSize * 0.55}px "Inter", sans-serif`;
+        ctx.font = `500 ${baseFontSize * 0.6}px "Inter", sans-serif`;
         const dateW = ctx.measureText(fullDateStr).width;
         
         let fontSize = baseFontSize;
-        if ((brandW + dateW + (padding * 2)) > totalAvailableWidth) {
-            const scale = totalAvailableWidth / (brandW + dateW + (padding * 2));
-            fontSize = Math.max(16, baseFontSize * scale);
+        if ((brandW + dateW + padding) > totalAvailableWidth) {
+            const scale = totalAvailableWidth / (brandW + dateW + padding);
+            fontSize = Math.max(10, baseFontSize * scale);
         }
 
-        ctx.font = `bold ${fontSize}px "Noto Sans Telugu", sans-serif`;
+        ctx.font = `bold ${fontSize}px "Playfair Display", serif`;
         ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
         ctx.textAlign = 'left';
         ctx.fillText(brandLabel, currentX, textY);
         
-        ctx.font = `500 ${fontSize * 0.5}px "Inter", sans-serif`;
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.textAlign = 'right';
         ctx.fillText(fullDateStr, clipWidth - padding, textY);
     }
@@ -362,7 +353,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (!cropPreview) return;
     const link = document.createElement('a');
     link.href = cropPreview;
-    link.download = `CLIP_${activePage?.date}_P${activePage?.pageNumber}.jpg`;
+    link.download = `CJ_NEWSHUB_EXTRACT_${activePage?.date}.jpg`;
     link.click();
   };
 
@@ -373,16 +364,22 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
       isSharing.current = true;
       try {
           const blob = await (await fetch(cropPreview)).blob();
-          const file = new File([blob], `NEWS_CLIP_${activePage?.date}.jpg`, { type: 'image/jpeg' });
-          const shareData = { files: [file], title: 'News Clip', text: `Archived from CJ NEWSHUB Digital Edition` };
+          const file = new File([blob], `CJNEWSHUB_CLIP_${activePage?.date}.jpg`, { type: 'image/jpeg' });
           
+          const shareData = { files: [file], title: 'News Clipping', text: `Extracted from CJ NEWSHUB Global Edition` };
+          
+          // Helper for canShare check if available
           if (navigator.canShare && navigator.canShare(shareData)) {
              await navigator.share(shareData);
           } else {
-             await navigator.share({ title: 'News Clip', text: `Archived from CJ NEWSHUB Digital Edition` });
+             // Fallback to text share if files not supported or valid
+             await navigator.share({ title: 'News Clipping', text: `Extracted from CJ NEWSHUB Global Edition` });
           }
       } catch (err: any) { 
-          if (err.name !== 'AbortError') console.error('Share failure', err); 
+          // Ignore abort errors (user cancellation)
+          if (err.name !== 'AbortError') {
+              console.error('Share failed', err); 
+          }
       } finally {
           isSharing.current = false;
       }
@@ -405,6 +402,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                       <div className="px-3 text-[9px] font-black tracking-[0.2em] font-mono text-news-black uppercase">{safeFormat(selectedDate, 'dd MMM yyyy')}</div>
                   </button>
 
+                  {/* CALENDAR POPUP */}
                   {showCalendar && (
                       <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-50 w-72 animate-in fade-in zoom-in-95">
                           <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
@@ -442,12 +440,13 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                   {showCalendar && <div className="fixed inset-0 z-40" onClick={() => setShowCalendar(false)}></div>}
               </div>
            </div>
-           <div className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 hidden md:block">DIGITAL NEWSROOM ARCHIVE</div>
+           <div className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 hidden md:block">CJ NEWSHUB ARCHIVE</div>
         </div>
       )}
 
       {viewMode === 'grid' && (
           <div className="flex-1 overflow-y-auto p-6 md:p-12 animate-in fade-in duration-500">
+              
               <div className="max-w-7xl mx-auto space-y-10">
                   <div className="border-b border-gray-200 pb-6 flex flex-col md:flex-row justify-between items-end gap-4">
                       <div>
@@ -455,6 +454,16 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                         <p className="text-gray-500 text-[9px] font-black uppercase tracking-[0.4em] flex items-center gap-3">
                             <Calendar size={12} className="text-news-gold"/> Edition: {safeFormat(selectedDate, 'MMMM do, yyyy')}
                         </p>
+                      </div>
+                      <div className="w-full md:w-auto">
+                          {/* Banner Ad for E-Paper Section */}
+                          <AdvertisementBanner 
+                            ads={advertisements} 
+                            size="LEADERBOARD" 
+                            placement="EPAPER"
+                            globalAdsEnabled={globalAdsEnabled}
+                            className="!my-0"
+                          />
                       </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 pb-20">
@@ -599,7 +608,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                     <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col items-center justify-center p-6 md:p-12 bg-black animate-in slide-in-from-right duration-700 relative overflow-y-auto">
                         <div className="absolute top-4 right-6 text-[8px] font-black uppercase tracking-[0.4em] text-news-gold">Digital Output</div>
                         <div className="max-w-full md:max-w-4xl shadow-[0_0_80px_rgba(191,161,123,0.15)] border border-white/5 rounded-sm overflow-hidden bg-white animate-in zoom-in-95 duration-700 mb-6">
-                             <img src={cropPreview} className="max-h-[55vh] md:max-h-[68vh] w-auto block border-2 border-gray-100" alt="Branded Result" />
+                             <img src={cropPreview} className="max-h-[50vh] md:max-h-[65vh] w-auto block" alt="Branded Archival Result" />
                         </div>
                     </div>
                 )}
