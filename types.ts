@@ -1,6 +1,4 @@
 
-
-
 export enum UserRole {
   READER = 'READER',
   WRITER = 'WRITER',
@@ -25,6 +23,22 @@ export interface TrustedDevice {
   isPrimary: boolean;
   status: 'approved' | 'pending';
   browser: string;
+}
+
+export interface ReporterProfile {
+  id: string;
+  fullName: string;
+  role: string; // e.g. Senior Correspondent
+  department: string; // e.g. Politics, Crime
+  idNumber: string; // Internal Employee ID
+  bloodGroup?: string;
+  phone?: string;
+  email: string;
+  photoUrl: string;
+  joinedAt: string;
+  validUntil: string;
+  location: string;
+  status: 'active' | 'suspended';
 }
 
 export interface Article {
