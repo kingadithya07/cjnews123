@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Article, Advertisement } from '../types';
 import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft, Check, Loader2 } from 'lucide-react';
@@ -137,7 +138,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                   url: permalink
               };
 
-              // Enhanced Sharing: Try to share the actual image file along with link
+              // Try to include the image file if available
               try {
                   if (article.imageUrl) {
                       const response = await fetch(article.imageUrl);
@@ -147,8 +148,9 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                       const fileShareData = {
                           files: [file],
                           title: article.title,
-                          // Combine text and URL in text field as some apps ignore URL when files are present
-                          text: `${article.title}\n\n${article.subline || ''}\n\nRead more: ${permalink}`
+                          // Important: Some apps drop 'url' when files are present, so we append it to text as well
+                          text: `${article.title}\n\n${article.subline || ''}\n\nRead more: ${permalink}`,
+                          url: permalink // Include URL explicitly for apps that support both
                       };
 
                       if (navigator.canShare && navigator.canShare(fileShareData)) {
