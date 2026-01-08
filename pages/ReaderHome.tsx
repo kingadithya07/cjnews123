@@ -171,20 +171,31 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                           const plainText = article.subline || article.content.replace(/<[^>]*>/g, '').substring(0, 120) + '...';
                           
                           return (
-                          <div key={`slide-${article.id}`} className="w-full shrink-0 relative h-full">
+                          <div key={`slide-${article.id}`} className="w-full shrink-0 relative h-full bg-[#050505]">
+                              {/* Layer 1: Blurred Background */}
+                              <div className="absolute inset-0 overflow-hidden">
+                                  <img 
+                                    src={article.imageUrl} 
+                                    alt="" 
+                                    className="w-full h-full object-cover opacity-50 blur-2xl scale-110"
+                                  />
+                                  <div className="absolute inset-0 bg-black/30"></div>
+                              </div>
+
+                              {/* Layer 2: Main Image (Full View) */}
                               <img 
                                 src={article.imageUrl} 
                                 alt={article.title} 
-                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-[4s] group-hover:scale-105"
+                                className="absolute inset-0 w-full h-full object-contain relative z-10 transition-transform duration-[4s] group-hover:scale-105"
                               />
                               
-                              <div className="absolute top-5 left-5 md:top-8 md:left-8 z-20 pointer-events-none flex flex-col gap-2">
+                              <div className="absolute top-5 left-5 md:top-8 md:left-8 z-30 pointer-events-none flex flex-col gap-2">
                                   <span className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-[7px] md:text-[8px] font-black px-2 py-1 md:px-3 md:py-1 uppercase tracking-[0.2em] shadow-lg inline-flex items-center gap-2 rounded-sm w-fit">
                                       <Star size={8} fill="currentColor" /> {article.categories[0]}
                                   </span>
                               </div>
 
-                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 md:p-10 pt-24 flex flex-col justify-end items-start z-10">
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 md:p-10 pt-24 flex flex-col justify-end items-start z-20">
                                   <div className="flex items-center gap-3 mb-2 md:mb-3">
                                       <div className="w-5 h-5 md:w-6 md:h-6 rounded-full border border-white/20 overflow-hidden bg-gray-800 shrink-0">
                                           <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
@@ -217,10 +228,10 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                       )})}
                   </div>
 
-                  <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-20 border border-white/10"><ChevronLeft size={20} /></button>
-                  <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-20 border border-white/10"><ChevronRight size={20} /></button>
+                  <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronLeft size={20} /></button>
+                  <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
 
-                  <div className="absolute bottom-6 right-6 md:right-10 flex gap-2 z-20">
+                  <div className="absolute bottom-6 right-6 md:right-10 flex gap-2 z-30">
                       {sliderArticles.map((_, idx) => (
                           <button key={idx} onClick={() => setCurrentSlide(idx)} className={`transition-all duration-300 rounded-full ${currentSlide === idx ? 'bg-news-gold w-6 h-1' : 'bg-white/30 hover:bg-white/50 w-2 h-1'}`} />
                       ))}
