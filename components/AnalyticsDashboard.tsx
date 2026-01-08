@@ -1,13 +1,12 @@
 
 import React, { useMemo } from 'react';
 import { Article, UserRole, ArticleStatus } from '../types';
-import { BarChart3, FileText, CheckCircle, Clock, PieChart as PieChartIcon, AlertCircle, Users, Activity, PenTool, Hash, Globe } from 'lucide-react';
+import { BarChart3, FileText, CheckCircle, Clock, PieChart as PieChartIcon, AlertCircle, Users, Activity, PenTool, Hash } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface AnalyticsDashboardProps {
   articles: Article[];
   role: UserRole;
-  activeVisitors?: number;
 }
 
 const COLORS = ['#0f2b46', '#c5a059', '#b91c1c', '#333333', '#64748b', '#94a3b8', '#cbd5e1'];
@@ -17,7 +16,7 @@ const STATUS_COLORS = {
     [ArticleStatus.DRAFT]: '#64748b'      // Gray
 };
 
-const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role, activeVisitors }) => {
+const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role }) => {
   // --- Real Calculations based on Props ---
   const stats = useMemo(() => {
     const total = articles.length;
@@ -158,15 +157,6 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ articles, role,
 
       {/* Top Row Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {activeVisitors !== undefined && (
-             <StatCard 
-                icon={Globe} 
-                label="Active Readers" 
-                value={activeVisitors.toLocaleString()} 
-                subtext="Real-time"
-                colorClass="bg-red-50 text-red-600 animate-pulse"
-            />
-        )}
         <StatCard 
             icon={FileText} 
             label="Total Articles" 

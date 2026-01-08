@@ -233,12 +233,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     const clipHeight = croppedCanvas.height;
 
     const isNarrow = clipWidth < 450;
-    
-    // INCREASED FOOTER HEIGHT: Make it proportional but with a larger minimum to accommodate logo + text
-    // Old: Math.max(100, Math.min(clipHeight * 0.15, 200))
-    // New: Increased base minimum to 180px and percentage to 20%
-    const baseFooterHeight = Math.max(180, clipHeight * 0.2); 
-    const footerHeight = isNarrow ? baseFooterHeight * 1.6 : baseFooterHeight;
+    const baseFooterHeight = Math.max(50, Math.min(clipHeight * 0.12, 120));
+    const footerHeight = isNarrow ? baseFooterHeight * 1.8 : baseFooterHeight;
     
     finalCanvas.width = clipWidth;
     finalCanvas.height = clipHeight + footerHeight;
@@ -250,7 +246,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     ctx.fillStyle = watermarkSettings.backgroundColor || '#1a1a1a';
     ctx.fillRect(0, clipHeight, finalCanvas.width, footerHeight);
     
-    const padding = Math.max(20, clipWidth * 0.05); // Increased padding
+    const padding = Math.max(10, clipWidth * 0.05);
     const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
     
     const brandLabel = (watermarkSettings.text || APP_NAME).toUpperCase();
@@ -262,26 +258,22 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
             const img = new Image();
             img.crossOrigin = "anonymous";
             img.src = watermarkSettings.logoUrl;
-            // Robust image loading promise
-            await new Promise((resolve) => {
-                img.onload = () => { logoImg = img; resolve(true); };
-                img.onerror = () => { console.warn("Logo failed to load for clip"); resolve(false); };
-            });
+            await new Promise((res) => { img.onload = res; img.onerror = res; });
+            logoImg = img;
         } catch (e) { console.error("Logo load failed", e); }
     }
 
     const getFittingFontSize = (text: string, initialSize: number, maxWidth: number, fontFace: string) => {
         let size = initialSize;
         ctx.font = `bold ${size}px ${fontFace}`;
-        while (ctx.measureText(text).width > maxWidth && size > 12) {
-            size -= 1;
+        while (ctx.measureText(text).width > maxWidth && size > 8) {
+            size -= 0.5;
             ctx.font = `bold ${size}px ${fontFace}`;
         }
         return size;
     };
 
     if (isNarrow) {
-        // Vertical layout for narrow clips
         const line1Y = clipHeight + (footerHeight * 0.35);
         const line2Y = clipHeight + (footerHeight * 0.75);
         ctx.textAlign = 'left';
@@ -289,22 +281,20 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         let currentX = padding;
         
         if (logoImg) {
-            const logoH = footerHeight * 0.4;
+            const logoH = footerHeight * 0.35;
             let logoW = (logoImg.width / logoImg.height) * logoH;
-            
-            // Constrain width if too wide
-            if (logoW > clipWidth * 0.4) {
-                logoW = clipWidth * 0.4;
+            if (logoW > clipWidth * 0.3) {
+                logoW = clipWidth * 0.3;
                 const newLogoH = (logoImg.height / logoImg.width) * logoW;
                 ctx.drawImage(logoImg, currentX, line1Y - (newLogoH / 2), logoW, newLogoH);
             } else {
                 ctx.drawImage(logoImg, currentX, line1Y - (logoH / 2), logoW, logoH);
             }
-            currentX += logoW + (padding * 0.8);
+            currentX += logoW + (padding * 0.5);
         }
         
         const maxBrandWidth = clipWidth - currentX - padding;
-        const initialSize = footerHeight * fontSizePercent * 0.8;
+        const initialSize = footerHeight * fontSizePercent;
         const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Playfair Display", serif');
         ctx.font = `bold ${brandFontSize}px "Playfair Display", serif`;
         ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
@@ -312,39 +302,36 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         
         const fullDateStr = `CJ NEWSHUB ARCHIVE: ${dateStr}`;
         const maxDateWidth = clipWidth - (padding * 2);
-        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.15, maxDateWidth, '"Inter", sans-serif');
+        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", sans-serif');
         ctx.font = `500 ${dateFontSize}px "Inter", sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.fillText(fullDateStr, padding, line2Y);
         
     } else {
-        // Horizontal layout for standard clips
         const textY = clipHeight + (footerHeight / 2);
         ctx.textBaseline = 'middle';
         let currentX = padding;
         
         if (logoImg) {
-            const logoH = footerHeight * 0.65; // Use 65% of footer height
+            const logoH = footerHeight * 0.6;
             const logoW = (logoImg.width / logoImg.height) * logoH;
             ctx.drawImage(logoImg, currentX, clipHeight + (footerHeight - logoH) / 2, logoW, logoH);
-            currentX += logoW + (padding * 0.8);
+            currentX += logoW + (padding * 0.5);
         }
         
         const fullDateStr = `CJ NEWSHUB GLOBAL ARCHIVE: ${dateStr}`;
-        const baseFontSize = footerHeight * fontSizePercent; // Uses setting
-        
+        const baseFontSize = footerHeight * fontSizePercent;
         const totalAvailableWidth = clipWidth - currentX - (padding * 2);
         
-        // Calculate widths to check fit
         ctx.font = `bold ${baseFontSize}px "Playfair Display", serif`;
         const brandW = ctx.measureText(brandLabel).width;
-        ctx.font = `500 ${baseFontSize * 0.5}px "Inter", sans-serif`;
+        ctx.font = `500 ${baseFontSize * 0.6}px "Inter", sans-serif`;
         const dateW = ctx.measureText(fullDateStr).width;
         
         let fontSize = baseFontSize;
-        if ((brandW + dateW + (padding * 3)) > totalAvailableWidth) {
-            const scale = totalAvailableWidth / (brandW + dateW + (padding * 3));
-            fontSize = Math.max(14, baseFontSize * scale);
+        if ((brandW + dateW + padding) > totalAvailableWidth) {
+            const scale = totalAvailableWidth / (brandW + dateW + padding);
+            fontSize = Math.max(10, baseFontSize * scale);
         }
 
         ctx.font = `bold ${fontSize}px "Playfair Display", serif`;
@@ -352,7 +339,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         ctx.textAlign = 'left';
         ctx.fillText(brandLabel, currentX, textY);
         
-        ctx.font = `500 ${fontSize * 0.5}px "Inter", sans-serif`;
+        ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.textAlign = 'right';
         ctx.fillText(fullDateStr, clipWidth - padding, textY);

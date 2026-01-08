@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, Repeat, PenTool, Stamp, Droplet, CreditCard
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Fingerprint, Printer, QrCode
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -38,7 +38,7 @@ interface EditorDashboardProps {
   onDeleteTag?: (tag: string) => void;
   onAddAdCategory: (category: string) => void;
   onDeleteAdCategory: (category: string) => void;
-  onSaveTaxonomy: () => Promise<void> | void;
+  onSaveTaxonomy: () => Promise<void>;
   onAddClassified: (ad: ClassifiedAd) => void;
   onDeleteClassified: (id: string) => void;
   onAddAdvertisement: (ad: Advertisement) => void;
@@ -82,7 +82,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
   const [modalIsFeatured, setModalIsFeatured] = useState(false);
-  const [modalPublishedAt, setModalPublishedAt] = useState<string>(new Date().toISOString());
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -131,17 +130,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   // ID Cards State
   const [showReporterModal, setShowReporterModal] = useState(false);
   const [activeReporter, setActiveReporter] = useState<Partial<ReporterProfile>>({});
+  const [showCardPreview, setShowCardPreview] = useState(false);
   const [showProfileImageGallery, setShowProfileImageGallery] = useState(false);
-  const [imageSelectorTarget, setImageSelectorTarget] = useState<'photo' | 'signature' | 'stamp' | 'logo' | 'cardWatermark'>('photo');
-  const [cardDisclaimer, setCardDisclaimer] = useState('This press ID is the property of the issuing organization. Unauthorized use of this ID is strictly prohibited. Holder of this ID must comply with journalistic ethics while reporting and is subject to company policies and procedures.');
-  const [showCardBack, setShowCardBack] = useState(false);
+  const [cardDisclaimer, setCardDisclaimer] = useState('This card is the property of CJ NEWSHUB. If found, please return to the nearest bureau. Verification available via QR Code.');
 
   // Settings State
   const [profileName, setProfileName] = useState(userName || '');
   const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [newPassword, setNewPassword] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [watermarkText, setWatermarkText] = useState(watermarkSettings.text);
   const [watermarkLogo, setWatermarkLogo] = useState(watermarkSettings.logoUrl);
   const [watermarkFontSize, setWatermarkFontSize] = useState(watermarkSettings.fontSize || 30);
@@ -186,7 +186,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           alert("Upload failed: " + error.message);
       } finally {
           loader(false);
-          e.target.value = ''; // Reset input to allow re-selection
       }
   };
 
@@ -201,11 +200,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setModalPublishedAt(new Date().toISOString()); setShowArticleModal(true);
+      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setShowArticleModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setModalPublishedAt(article.publishedAt); setShowArticleModal(true);
+      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setShowArticleModal(true);
   };
 
   const handleTranslateTitle = async () => {
@@ -268,7 +267,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           content: modalContent,
           categories: modalCategories.length > 0 ? modalCategories : ['General'],
           imageUrl: modalImageUrl || 'https://picsum.photos/800/400',
-          publishedAt: modalPublishedAt, // Use preserved or new date
+          publishedAt: new Date().toISOString(),
           status: modalStatus,
           isFeatured: modalIsFeatured,
           isEditorsChoice: false,
@@ -387,14 +386,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               joinedAt: activeReporter.joinedAt || new Date().toISOString(),
               validUntil: activeReporter.validUntil || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
               location: activeReporter.location || 'Headquarters',
-              status: activeReporter.status || 'active',
-              cardTemplate: activeReporter.cardTemplate || 'classic',
-              emergencyContact: activeReporter.emergencyContact,
-              officeAddress: activeReporter.officeAddress,
-              signatureUrl: activeReporter.signatureUrl,
-              stampUrl: activeReporter.stampUrl,
-              logoUrl: activeReporter.logoUrl,
-              watermarkUrl: activeReporter.watermarkUrl
+              status: activeReporter.status || 'active'
           };
           onSaveReporter(reporter);
           setShowReporterModal(false);
@@ -410,7 +402,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const handlePrintCard = () => {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
-          const cardHtml = document.getElementById('id-card-preview')?.innerHTML || '';
+          const cardHtml = document.getElementById('id-card-preview')?.innerHTML;
           printWindow.document.write(`
               <html>
                   <head>
@@ -419,11 +411,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       <style>
                           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Playfair+Display:wght@700&display=swap');
                           body { font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fff; }
-                          .print-container { transform: scale(1); }
-                          @media print {
-                              body { background: none; }
-                              .print-container { transform: scale(1); }
-                          }
+                          .print-container { transform: scale(1.5); }
                       </style>
                   </head>
                   <body>
@@ -501,14 +489,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     <ImageGalleryModal 
         isOpen={showProfileImageGallery}
         onClose={() => setShowProfileImageGallery(false)}
-        onSelectImage={(url) => { 
-            if (imageSelectorTarget === 'photo') setActiveReporter({...activeReporter, photoUrl: url});
-            else if (imageSelectorTarget === 'signature') setActiveReporter({...activeReporter, signatureUrl: url});
-            else if (imageSelectorTarget === 'stamp') setActiveReporter({...activeReporter, stampUrl: url});
-            else if (imageSelectorTarget === 'logo') setActiveReporter({...activeReporter, logoUrl: url});
-            else if (imageSelectorTarget === 'cardWatermark') setActiveReporter({...activeReporter, watermarkUrl: url});
-            setShowProfileImageGallery(false); 
-        }}
+        onSelectImage={(url) => { setActiveReporter({...activeReporter, photoUrl: url}); setShowProfileImageGallery(false); }}
         uploadFolder="avatars"
         userId={userId}
     />
@@ -521,8 +502,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     />
 
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+      {/* Optimized Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-          {/* ... Sidebar ... */}
           <div className="flex justify-between items-center p-6 border-b border-gray-800">
               <h1 className="font-serif text-2xl font-bold text-white">Editor<span className="text-news-gold">.</span></h1>
               <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={24} /></button>
@@ -546,6 +527,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           </div>
       </div>
 
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col md:ml-64 h-full overflow-hidden bg-[#f8f9fa]">
            <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40 shadow-sm">
                 <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
@@ -556,9 +538,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
 
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
-              {/* ... Other Tabs ... */}
-              
               {activeTab === 'articles' && (
+                  /* Existing Articles View */
                   <div className="max-w-6xl mx-auto space-y-6">
                       <div className="flex justify-between items-center">
                            <h1 className="font-serif text-2xl font-bold text-gray-900">Article Manager</h1>
@@ -566,6 +547,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                 <Plus size={16} /> New Article
                            </button>
                       </div>
+                      {/* ... Table and cards implementation from previous code ... */}
                       <div className="hidden md:block bg-white rounded border overflow-x-auto shadow-sm">
                           <table className="w-full text-left min-w-[700px]">
                                 <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
@@ -612,8 +594,146 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   </div>
               )}
 
-              {/* ... ID Cards, Ads, Taxonomy, Analytics, Settings ... */}
+              {activeTab === 'idcards' && (
+                  <div className="max-w-7xl mx-auto space-y-8">
+                      <div className="flex justify-between items-center">
+                          <h2 className="font-serif text-2xl font-bold text-gray-900 flex items-center gap-2">
+                              <Fingerprint className="text-news-gold" /> Identity Cards
+                          </h2>
+                          <button onClick={() => { setActiveReporter({}); setShowReporterModal(true); }} className="bg-news-black text-white text-xs font-bold uppercase px-4 py-3 rounded flex items-center gap-2 hover:bg-gray-800">
+                              <Plus size={16} /> Add Reporter
+                          </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                          {/* List of Reporters */}
+                          <div className="lg:col-span-1 space-y-4">
+                              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                                  <div className="p-4 bg-gray-50 border-b border-gray-100">
+                                      <h3 className="font-bold text-sm text-gray-700 uppercase tracking-wide">Staff Directory</h3>
+                                  </div>
+                                  <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+                                      {reporters.map(rep => (
+                                          <div key={rep.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => { setActiveReporter(rep); setShowCardPreview(true); }}>
+                                              <div className="flex items-center gap-3">
+                                                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-100">
+                                                      {rep.photoUrl ? <img src={rep.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-2 text-gray-400 w-full h-full"/>}
+                                                  </div>
+                                                  <div className="flex-1 min-w-0">
+                                                      <h4 className="font-bold text-sm text-gray-900 truncate">{rep.fullName}</h4>
+                                                      <p className="text-[10px] text-gray-500 uppercase tracking-wider truncate">{rep.role}</p>
+                                                  </div>
+                                                  <div className="opacity-0 group-hover:opacity-100 flex gap-2">
+                                                      <button onClick={(e) => { e.stopPropagation(); handleEditReporter(rep); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><PenSquare size={14}/></button>
+                                                      {onDeleteReporter && <button onClick={(e) => { e.stopPropagation(); onDeleteReporter(rep.id); }} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14}/></button>}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      ))}
+                                      {reporters.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No reporters added.</div>}
+                                  </div>
+                              </div>
+                          </div>
+
+                          {/* ID Card Preview */}
+                          <div className="lg:col-span-2">
+                              {activeReporter.fullName ? (
+                                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
+                                      <div className="flex justify-between items-center mb-6">
+                                          <h3 className="font-bold text-lg text-gray-900">Card Preview</h3>
+                                          <div className="flex gap-2">
+                                              <button onClick={handlePrintCard} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800">
+                                                  <Printer size={16} /> Print Card
+                                              </button>
+                                          </div>
+                                      </div>
+
+                                      {/* ID Card HTML Structure */}
+                                      <div className="flex justify-center bg-gray-100 p-8 rounded-lg border border-dashed border-gray-300">
+                                          <div id="id-card-preview" className="w-[350px] h-[550px] bg-white rounded-2xl shadow-xl overflow-hidden relative flex flex-col border border-gray-200">
+                                              {/* Header */}
+                                              <div className="h-24 bg-news-black flex items-center justify-center relative overflow-hidden shrink-0">
+                                                  <div className="absolute inset-0 bg-news-gold/10"></div>
+                                                  <div className="text-center z-10">
+                                                      <h1 className="font-serif text-2xl font-black text-white tracking-tight uppercase italic">CJ <span className="not-italic text-news-gold">NEWSHUB</span></h1>
+                                                      <p className="text-[8px] text-gray-300 font-bold uppercase tracking-[0.4em] mt-1">Press Accreditation</p>
+                                                  </div>
+                                              </div>
+
+                                              {/* Photo */}
+                                              <div className="flex justify-center -mt-10 mb-4 relative z-10">
+                                                  <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-gray-200 overflow-hidden">
+                                                      {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-500"><UserIcon size={40}/></div>}
+                                                  </div>
+                                              </div>
+
+                                              {/* Details */}
+                                              <div className="text-center px-6 flex-1">
+                                                  <h2 className="text-xl font-bold text-gray-900 uppercase leading-none mb-1">{activeReporter.fullName}</h2>
+                                                  <p className="text-news-gold text-xs font-bold uppercase tracking-widest mb-4">{activeReporter.role}</p>
+                                                  
+                                                  <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-left text-[10px] border-t border-gray-100 pt-4">
+                                                      <div>
+                                                          <span className="block font-bold text-gray-400 uppercase tracking-wider">ID Number</span>
+                                                          <span className="font-mono font-bold text-gray-800">{activeReporter.idNumber}</span>
+                                                      </div>
+                                                      <div>
+                                                          <span className="block font-bold text-gray-400 uppercase tracking-wider">Valid Until</span>
+                                                          <span className="font-bold text-gray-800">{activeReporter.validUntil ? format(new Date(activeReporter.validUntil), 'MMM d, yyyy') : 'N/A'}</span>
+                                                      </div>
+                                                      <div>
+                                                          <span className="block font-bold text-gray-400 uppercase tracking-wider">Department</span>
+                                                          <span className="font-bold text-gray-800">{activeReporter.department}</span>
+                                                      </div>
+                                                      <div>
+                                                          <span className="block font-bold text-gray-400 uppercase tracking-wider">Blood Group</span>
+                                                          <span className="font-bold text-gray-800">{activeReporter.bloodGroup || 'N/A'}</span>
+                                                      </div>
+                                                  </div>
+                                              </div>
+
+                                              {/* QR & Footer */}
+                                              <div className="bg-gray-50 p-4 flex items-center justify-between border-t border-gray-100 mt-auto shrink-0">
+                                                  <div className="w-3/4 pr-4">
+                                                      <p className="text-[7px] text-gray-400 leading-tight text-justify">
+                                                          {cardDisclaimer}
+                                                      </p>
+                                                  </div>
+                                                  <div className="w-16 h-16 bg-white p-1 rounded border border-gray-200 shrink-0">
+                                                      {/* Using reliable QR API for static generation without npm deps */}
+                                                      <img 
+                                                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/verify-id/${activeReporter.id}`)}`} 
+                                                          className="w-full h-full object-contain"
+                                                          alt="Verification QR"
+                                                      />
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      </div>
+                                      <div className="mt-4">
+                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Card Disclaimer Text</label>
+                                          <textarea 
+                                              value={cardDisclaimer} 
+                                              onChange={e => setCardDisclaimer(e.target.value)} 
+                                              className="w-full p-3 border rounded-lg text-xs" 
+                                              rows={2}
+                                          />
+                                      </div>
+                                  </div>
+                              ) : (
+                                  <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-12 text-center text-gray-400 h-full flex flex-col items-center justify-center">
+                                      <Fingerprint size={48} className="mb-4 opacity-20" />
+                                      <p className="text-sm font-bold uppercase tracking-wide">Select a reporter to preview ID Card</p>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {/* ... Other Tabs Content (unchanged) ... */}
               {activeTab === 'epaper' && (
+                  /* Existing EPaper Content */
                   <div className="max-w-6xl mx-auto space-y-8">
                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                            <h1 className="font-serif text-2xl font-bold text-gray-900">E-Paper Editions</h1>
@@ -649,87 +769,421 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                        </div>
                   </div>
               )}
-              
-              {/* ... Rest of tabs ... */}
-              {activeTab === 'idcards' && (
-                  <div className="max-w-7xl mx-auto space-y-8">
-                      <div className="flex justify-between items-center">
-                          <h2 className="font-serif text-2xl font-bold text-gray-900 flex items-center gap-2">
-                              <Fingerprint className="text-news-gold" /> Identity Cards
-                          </h2>
-                          <button onClick={() => { setActiveReporter({ cardTemplate: 'official' }); setShowReporterModal(true); setShowCardBack(false); }} className="bg-news-black text-white text-xs font-bold uppercase px-4 py-3 rounded flex items-center gap-2 hover:bg-gray-800">
-                              <Plus size={16} /> Add Reporter
-                          </button>
-                      </div>
 
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-                          <div className="p-4 bg-gray-50 border-b border-gray-100">
-                              <h3 className="font-bold text-sm text-gray-700 uppercase tracking-wide">Staff Directory</h3>
+              {activeTab === 'ads' && (
+                  /* Existing Ads Content */
+                  <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Banners */}
+                      <div className="space-y-6">
+                          <div className="flex justify-between items-center">
+                              <h2 className="font-serif text-xl font-bold">Banner Ads</h2>
+                              <button onClick={() => { setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true, title: '', linkUrl: '' }); setIsCustomSize(false); setEditingAdId(null); setShowAdModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Banner</button>
                           </div>
-                          <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
-                              {reporters.map(rep => (
-                                  <div key={rep.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer group" onClick={() => { setActiveReporter(rep); setShowReporterModal(true); setShowCardBack(false); }}>
-                                      <div className="flex items-center gap-3">
-                                          <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-100">
-                                              {rep.photoUrl ? <img src={rep.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-2 text-gray-400 w-full h-full"/>}
+                          <div className="bg-white rounded border divide-y">
+                              {advertisements.map(ad => (
+                                  <div key={ad.id} className="p-4 flex gap-4 items-center">
+                                      <div className="w-20 h-12 bg-gray-100 rounded shrink-0 overflow-hidden border">
+                                          <img src={ad.imageUrl} className="w-full h-full object-cover" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                          <p className="font-bold text-sm truncate">{ad.title}</p>
+                                          <div className="flex gap-2 text-[10px] text-gray-500 uppercase font-bold mt-1">
+                                              <span>{ad.size}</span>
+                                              <span>•</span>
+                                              <span>{ad.placement}</span>
                                           </div>
-                                          <div className="flex-1 min-w-0">
-                                              <h4 className="font-bold text-sm text-gray-900 truncate">{rep.fullName}</h4>
-                                              <p className="text-[10px] text-gray-500 uppercase tracking-wider truncate">{rep.role}</p>
-                                          </div>
-                                          <div className="opacity-0 group-hover:opacity-100 flex gap-2">
-                                              <button onClick={(e) => { e.stopPropagation(); handleEditReporter(rep); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><PenSquare size={14}/></button>
-                                              {onDeleteReporter && <button onClick={(e) => { e.stopPropagation(); onDeleteReporter(rep.id); }} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14}/></button>}
-                                          </div>
+                                      </div>
+                                      <div className="flex gap-2">
+                                          <button onClick={() => handleEditAd(ad)} className="text-blue-600 p-2 hover:bg-blue-50 rounded"><PenSquare size={16}/></button>
+                                          <button onClick={() => onDeleteAdvertisement(ad.id)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
                                       </div>
                                   </div>
                               ))}
-                              {reporters.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No reporters added.</div>}
+                              {advertisements.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No active banners.</div>}
+                          </div>
+                      </div>
+
+                      {/* Classifieds */}
+                      <div className="space-y-6">
+                          <div className="flex justify-between items-center">
+                              <h2 className="font-serif text-xl font-bold">Classifieds</h2>
+                              <button onClick={() => { setNewClassified({category: adCategories[0] || 'General'}); setShowClassifiedModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Listing</button>
+                          </div>
+                          <div className="bg-white rounded border divide-y">
+                              {classifieds.map(ad => (
+                                  <div key={ad.id} className="p-4">
+                                      <div className="flex justify-between items-start">
+                                          <div>
+                                              <p className="font-bold text-sm">{ad.title}</p>
+                                              <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold uppercase">{ad.category}</span>
+                                          </div>
+                                          <button onClick={() => onDeleteClassified(ad.id)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={14}/></button>
+                                      </div>
+                                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">{ad.content}</p>
+                                  </div>
+                              ))}
+                              {classifieds.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No classifieds posted.</div>}
                           </div>
                       </div>
                   </div>
               )}
-              {activeTab === 'ads' && (/* ... */ <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">{/* ... */}</div>)}
-              {activeTab === 'taxonomy' && (/* ... */ <div className="max-w-6xl mx-auto space-y-8">{/* ... */}</div>)}
+
+              {activeTab === 'taxonomy' && (
+                  /* Existing Taxonomy Content */
+                  <div className="max-w-6xl mx-auto space-y-8">
+                      <div className="flex justify-between items-center">
+                          <h2 className="font-serif text-2xl font-bold">Taxonomy</h2>
+                          <button onClick={handleSaveTaxonomyInternal} disabled={isSavingTaxonomy} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2">
+                              {isSavingTaxonomy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes
+                          </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                          {/* Categories */}
+                          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Categories</h3>
+                              <div className="flex gap-2 mb-4">
+                                  <input type="text" placeholder="New Category" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                  <button onClick={() => { if(newCategory) { onAddCategory(newCategory); setNewCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                  {categories.map(cat => (
+                                      <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                          {cat} <button onClick={() => onDeleteCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                      </span>
+                                  ))}
+                              </div>
+                          </div>
+                          {/* Tags, Ad Cats... */}
+                          {tags && onAddTag && onDeleteTag && (
+                              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Tag size={18}/> Article Tags</h3>
+                                  <div className="flex gap-2 mb-4">
+                                      <input type="text" placeholder="New Tag" value={newTag} onChange={e => setNewTag(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                      <button onClick={() => { if(newTag) { onAddTag(newTag); setNewTag(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                      {tags.map(tag => (
+                                          <span key={tag} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                              #{tag} <button onClick={() => onDeleteTag(tag)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                          </span>
+                                      ))}
+                                  </div>
+                              </div>
+                          )}
+                          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Megaphone size={18}/> Ad Categories</h3>
+                              <div className="flex gap-2 mb-4">
+                                  <input type="text" placeholder="New Section" value={newAdCategory} onChange={e => setNewAdCategory(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                  <button onClick={() => { if(newAdCategory) { onAddAdCategory(newAdCategory); setNewAdCategory(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                  {adCategories.map(cat => (
+                                      <span key={cat} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                          {cat} <button onClick={() => onDeleteAdCategory(cat)} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                      </span>
+                                  ))}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+              
               {activeTab === 'analytics' && <AnalyticsDashboard articles={articles} role={UserRole.EDITOR} activeVisitors={activeVisitors} />}
-              {activeTab === 'settings' && (/* ... */ <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">{/* ... */}</div>)}
+
+              {activeTab === 'settings' && (
+                  /* Existing Settings Content */
+                  <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
+                      {/* ... (Existing settings code) ... */}
+                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Settings className="text-news-gold" /> System Configuration</h2>
+                          
+                          <div className="space-y-6">
+                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                  <div>
+                                      <h3 className="font-bold text-sm text-gray-900">Global Ad Delivery</h3>
+                                      <p className="text-xs text-gray-500 mt-1">Master switch to enable/disable all advertisement slots across the platform.</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                      <input type="checkbox" checked={globalAdsEnabled} onChange={(e) => onToggleGlobalAds(e.target.checked)} className="sr-only peer" />
+                                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-news-black"></div>
+                                  </label>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
            </div>
       </div>
 
-      {/* ... Article Modal ... */}
-      {showArticleModal && (/* ... */ <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">{/* ... */}</div>)}
+      {/* Reporter Modal */}
+      {showReporterModal && (
+          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg w-full max-w-2xl p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-6">
+                      <h3 className="font-bold text-lg">{activeReporter.id ? 'Edit Reporter' : 'Add Reporter'}</h3>
+                      <button onClick={() => setShowReporterModal(false)} className="text-gray-500 hover:text-black"><X size={20}/></button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                          <input type="text" placeholder="Full Name" value={activeReporter.fullName || ''} onChange={e => setActiveReporter({...activeReporter, fullName: e.target.value})} className="w-full p-2 border rounded text-sm" />
+                          <input type="text" placeholder="Role / Designation" value={activeReporter.role || ''} onChange={e => setActiveReporter({...activeReporter, role: e.target.value})} className="w-full p-2 border rounded text-sm" />
+                          <input type="text" placeholder="Department (e.g. Politics)" value={activeReporter.department || ''} onChange={e => setActiveReporter({...activeReporter, department: e.target.value})} className="w-full p-2 border rounded text-sm" />
+                          <input type="text" placeholder="ID Number (Optional)" value={activeReporter.idNumber || ''} onChange={e => setActiveReporter({...activeReporter, idNumber: e.target.value})} className="w-full p-2 border rounded text-sm" />
+                      </div>
+                      <div className="space-y-4">
+                          <input type="text" placeholder="Location" value={activeReporter.location || ''} onChange={e => setActiveReporter({...activeReporter, location: e.target.value})} className="w-full p-2 border rounded text-sm" />
+                          <input type="date" placeholder="Valid Until" value={activeReporter.validUntil?.split('T')[0] || ''} onChange={e => setActiveReporter({...activeReporter, validUntil: e.target.value})} className="w-full p-2 border rounded text-sm" />
+                          <input type="text" placeholder="Phone (Optional)" value={activeReporter.phone || ''} onChange={e => setActiveReporter({...activeReporter, phone: e.target.value})} className="w-full p-2 border rounded text-sm" />
+                          <div className="flex items-center gap-4">
+                              <div className="w-16 h-16 rounded bg-gray-100 overflow-hidden border">
+                                  {activeReporter.photoUrl ? <img src={activeReporter.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="p-2 text-gray-300 w-full h-full"/>}
+                              </div>
+                              <button onClick={() => setShowProfileImageGallery(true)} className="text-xs font-bold text-blue-600 hover:underline">Change Photo</button>
+                          </div>
+                      </div>
+                  </div>
 
-      {/* Add Page Modal */}
-      {showAddPageModal && (
-          <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg p-6 w-full max-w-md animate-in zoom-in-95">
-                  <h3 className="font-bold text-lg mb-4">Upload E-Paper Page</h3>
-                  <div className="space-y-4">
-                      <input type="date" value={newPageDate} onChange={(e) => setNewPageDate(e.target.value)} className="w-full p-2 border rounded" />
-                      <input type="number" min="1" placeholder="Page Number" value={newPageNumber} onChange={(e) => setNewPageNumber(parseInt(e.target.value) || 1)} className="w-full p-2 border rounded" />
-                      <div className="border-2 border-dashed p-4 rounded text-center">
-                          {newPageImage ? <img src={newPageImage} className="h-32 mx-auto object-contain mb-2"/> : <p className="text-gray-400 text-sm mb-2">No image selected</p>}
-                          <label className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded text-xs font-bold cursor-pointer inline-block">
-                              Choose File
-                              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, 'epaper')} />
-                          </label>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                          <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-gray-600 font-bold text-sm">Cancel</button>
-                          <button onClick={handleUploadPage} disabled={isPageUploading} className="px-4 py-2 bg-news-black text-white rounded font-bold text-sm flex items-center gap-2">
-                              {isPageUploading ? <Loader2 className="animate-spin" size={16}/> : <Upload size={16}/>} Upload
-                          </button>
-                      </div>
+                  <div className="flex justify-end gap-2 mt-8 pt-4 border-t border-gray-100">
+                      <button onClick={() => setShowReporterModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
+                      <button onClick={handleSaveReporterInternal} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Save Reporter</button>
                   </div>
               </div>
           </div>
       )}
 
-      {/* ... Reporter Modal ... */}
-      {showReporterModal && (/* ... */ <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">{/* ... */}</div>)}
+      {/* Ad Modal */}
+      {showAdModal && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+             <div className="bg-white rounded-lg w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+                 <h3 className="font-bold text-lg mb-4">{editingAdId ? 'Edit Advertisement' : 'New Advertisement'}</h3>
+                 <div className="space-y-4">
+                     <input type="text" placeholder="Ad Title (Internal Ref)" value={newAd.title || ''} onChange={e => setNewAd({...newAd, title: e.target.value})} className="w-full p-2 border rounded" />
+                     <input type="text" placeholder="Target Link URL (Optional)" value={newAd.linkUrl || ''} onChange={e => setNewAd({...newAd, linkUrl: e.target.value})} className="w-full p-2 border rounded" />
+                     
+                     <div className="grid grid-cols-2 gap-4">
+                         <div>
+                             <label className="text-xs font-bold text-gray-500 block mb-1">Size</label>
+                             <select value={newAd.size} onChange={e => setNewAd({...newAd, size: e.target.value as AdSize})} className="w-full p-2 border rounded text-sm">
+                                 <option value="BILLBOARD">Billboard (970x250)</option>
+                                 <option value="LEADERBOARD">Leaderboard (728x90)</option>
+                                 <option value="RECTANGLE">Rectangle (300x250)</option>
+                                 <option value="HALF_PAGE">Half Page (300x600)</option>
+                                 <option value="MOBILE_BANNER">Mobile (320x50)</option>
+                             </select>
+                         </div>
+                         <div>
+                             <label className="text-xs font-bold text-gray-500 block mb-1">Placement</label>
+                             <select value={newAd.placement} onChange={e => setNewAd({...newAd, placement: e.target.value as AdPlacement})} className="w-full p-2 border rounded text-sm">
+                                 <option value="GLOBAL">Global (All Pages)</option>
+                                 <option value="HOME">Home Page</option>
+                                 <option value="ARTICLE">Article Pages</option>
+                                 <option value="EPAPER">E-Paper</option>
+                                 <option value="CATEGORY">Specific Category</option>
+                             </select>
+                         </div>
+                     </div>
 
-      {/* ... Ad Modal ... */}
-      {showAdModal && (/* ... */ <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">{/* ... */}</div>)}
+                     {newAd.placement === 'CATEGORY' && (
+                         <select value={newAd.targetCategory} onChange={e => setNewAd({...newAd, targetCategory: e.target.value})} className="w-full p-2 border rounded text-sm">
+                             <option value="">Select Category...</option>
+                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                         </select>
+                     )}
+
+                     <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative">
+                         {newAd.imageUrl ? (
+                             <img src={newAd.imageUrl} className="max-h-32 mx-auto object-contain mb-2" />
+                         ) : <p className="text-gray-400 text-xs">No banner image</p>}
+                         <button onClick={() => setShowAdImageGallery(true)} className="bg-gray-200 px-3 py-1 rounded text-xs font-bold">Select from Gallery</button>
+                     </div>
+
+                     <div className="flex items-center gap-2">
+                         <input type="checkbox" checked={newAd.isActive} onChange={e => setNewAd({...newAd, isActive: e.target.checked})} id="adActive" />
+                         <label htmlFor="adActive" className="text-sm font-bold">Active</label>
+                     </div>
+
+                     <div className="flex justify-end gap-2 pt-2">
+                         <button onClick={() => setShowAdModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
+                         <button onClick={handleSaveAd} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Save Ad</button>
+                     </div>
+                 </div>
+             </div>
+        </div>
+      )}
+
+      {/* Classified Modal, Article Modal, Page Modal logic remains same ... */}
+      {/* (Abbreviated existing modals for brevity, assumes they exist in file logic above) */}
+      {showArticleModal && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+             <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                <h3 className="font-bold text-gray-900">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
+                <button onClick={() => setShowArticleModal(false)} className="p-2 -mr-2 text-gray-500 hover:text-black"><X size={20}/></button>
+            </div>
+             <div className="p-4 md:p-6 overflow-y-auto space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 space-y-4">
+                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Article Headline"/>
+                        
+                         <div className="flex items-center gap-2">
+                            <input 
+                                type="text" 
+                                value={modalEnglishTitle} 
+                                onChange={(e) => setModalEnglishTitle(e.target.value)} 
+                                className="w-full p-2 border rounded text-sm placeholder:text-gray-300" 
+                                placeholder="English Title (for SEO & URL)" 
+                            />
+                            <button 
+                                onClick={handleTranslateTitle} 
+                                disabled={isTranslating} 
+                                className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors flex items-center gap-1" 
+                                title="Auto Translate (Requires API Key)"
+                            >
+                                {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                            </button>
+                        </div>
+
+                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
+                            <button onClick={() => setShowCategorySelector(true)} className="w-full p-2 border rounded text-sm bg-white text-left flex justify-between items-center">
+                                <span className={modalCategories.length === 0 ? 'text-gray-400' : ''}>
+                                    {modalCategories.length === 0 ? 'Select Categories' : `${modalCategories.length} Selected`}
+                                </span>
+                                <ChevronDown size={14} />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                             <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</label>
+                                <select 
+                                    value={modalStatus} 
+                                    onChange={(e) => setModalStatus(e.target.value as ArticleStatus)} 
+                                    className="w-full p-2 border rounded text-sm bg-white"
+                                >
+                                    <option value={ArticleStatus.DRAFT}>Draft</option>
+                                    <option value={ArticleStatus.PENDING}>Pending Review</option>
+                                    <option value={ArticleStatus.PUBLISHED}>Published</option>
+                                </select>
+                             </div>
+                             <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tags</label>
+                                <input type="text" placeholder="Add tags..." className="w-full p-2 border rounded text-sm" />
+                             </div>
+                        </div>
+                    </div>
+                     <div className="md:col-span-1">
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-[200px] flex flex-col justify-between">
+                            {modalImageUrl ? (
+                                <div className="relative group w-full h-full">
+                                    <img src={modalImageUrl} className="w-full h-full object-cover rounded shadow" />
+                                    <button onClick={() => setModalImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="py-4 text-gray-400 flex flex-col items-center justify-center h-full">
+                                    <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
+                                    <p className="text-xs font-bold uppercase">Featured Image</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-2">
+                            <button type="button" onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                                <Library size={14} />
+                                <span>Select from Gallery</span>
+                            </button>
+                        </div>
+                        <div className="mt-4 space-y-2">
+                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
+                                <label className="flex items-center gap-2 cursor-pointer w-full">
+                                    <input type="checkbox" checked={modalIsFeatured} onChange={e => setModalIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
+                                    <div className="flex items-center gap-2">
+                                        <Star size={12} className={modalIsFeatured ? "text-news-accent fill-news-accent" : "text-gray-400"} />
+                                        <span className="text-xs font-bold uppercase">Featured</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                 <div className="relative">
+                  <RichTextEditor 
+                    content={modalContent} 
+                    onChange={setModalContent} 
+                    className="min-h-[300px] md:min-h-[400px]" 
+                    onImageUpload={handleContentImageUpload} 
+                    userId={userId}
+                  />
+                </div>
+             </div>
+             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
+                <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold text-gray-600">Cancel</button>
+                <button onClick={handleSaveArticleInternal} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">
+                  Save Article
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {showAddPageModal && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+             <div className="bg-white rounded-lg w-full max-w-md p-6 animate-in zoom-in-95">
+                 <h3 className="font-bold text-lg mb-4">Upload E-Paper Page</h3>
+                 <div className="space-y-4">
+                     <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full p-2 border rounded" />
+                     <input type="number" min="1" value={newPageNumber} onChange={e => setNewPageNumber(parseInt(e.target.value))} className="w-full p-2 border rounded" placeholder="Page Number" />
+                     
+                     <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center">
+                         {newPageImage ? (
+                             <img src={newPageImage} className="max-h-48 mx-auto object-contain mb-2" />
+                         ) : <p className="text-gray-400 text-xs">No image selected</p>}
+                         <label className="block mt-2">
+                             <span className="bg-gray-200 px-3 py-1 rounded text-xs font-bold cursor-pointer">Choose Image</span>
+                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, 'epaper')} />
+                         </label>
+                         {isPageUploading && <p className="text-xs text-blue-500 mt-2">Uploading...</p>}
+                     </div>
+
+                     <div className="flex justify-end gap-2 pt-2">
+                         <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
+                         <button onClick={handleUploadPage} disabled={isPageUploading} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Upload</button>
+                     </div>
+                 </div>
+             </div>
+        </div>
+      )}
+
+      {showClassifiedModal && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+             <div className="bg-white rounded-lg w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+                 <h3 className="font-bold text-lg mb-4">Post Classified Ad</h3>
+                 <div className="space-y-4">
+                     <input type="text" placeholder="Ad Title" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-2 border rounded" />
+                     <textarea placeholder="Ad Content..." value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-2 border rounded min-h-[100px]" />
+                     
+                     <div className="grid grid-cols-2 gap-4">
+                         <select value={newClassified.category} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="w-full p-2 border rounded">
+                             {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                         </select>
+                         <input type="text" placeholder="Price (Optional)" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="w-full p-2 border rounded" />
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-4">
+                         <input type="text" placeholder="Location" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="w-full p-2 border rounded" />
+                         <input type="text" placeholder="Contact Info" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="w-full p-2 border rounded" />
+                     </div>
+
+                     <div className="flex justify-end gap-2 pt-2">
+                         <button onClick={() => setShowClassifiedModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
+                         <button onClick={handleAddClassified} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Post Ad</button>
+                     </div>
+                 </div>
+             </div>
+        </div>
+      )}
 
     </div>
     </>

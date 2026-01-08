@@ -1,5 +1,4 @@
 
-
 export enum UserRole {
   READER = 'READER',
   WRITER = 'WRITER',
@@ -40,13 +39,6 @@ export interface ReporterProfile {
   validUntil: string;
   location: string;
   status: 'active' | 'suspended';
-  cardTemplate?: 'classic' | 'modern' | 'agency' | 'official'; // New field for ID card design preference
-  emergencyContact?: string; // New field for official ID
-  officeAddress?: string; // New field for official ID
-  signatureUrl?: string; // Uploaded authorized signature
-  stampUrl?: string; // Uploaded official stamp
-  logoUrl?: string; // Uploaded custom logo
-  watermarkUrl?: string; // Uploaded watermark
 }
 
 export interface Article {
