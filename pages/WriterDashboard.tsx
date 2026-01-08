@@ -41,6 +41,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [imageUrl, setImageUrl] = useState('');
   const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
   const [isFeatured, setIsFeatured] = useState(false);
+  const [publishedAt, setPublishedAt] = useState<string>(new Date().toISOString());
   const [wordCount, setWordCount] = useState(0);
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -177,7 +178,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
       content, 
       categories: selectedCategories.length > 0 ? selectedCategories : ['General'],
       imageUrl: imageUrl || 'https://picsum.photos/800/400',
-      publishedAt: new Date().toISOString(),
+      publishedAt: publishedAt, // Preserve original timestamp
       status: status,
       isFeatured: isFeatured,
       isEditorsChoice: false, // Removed from UI, default false
@@ -194,11 +195,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setActiveArticleId(null); setTitle(''); setEnglishTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setShowEditorModal(true);
+      setActiveArticleId(null); setTitle(''); setEnglishTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setPublishedAt(new Date().toISOString()); setShowEditorModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setActiveArticleId(article.id); setTitle(article.title); setEnglishTitle(article.englishTitle || ''); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setShowEditorModal(true);
+      setActiveArticleId(article.id); setTitle(article.title); setEnglishTitle(article.englishTitle || ''); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setPublishedAt(article.publishedAt); setShowEditorModal(true);
   };
 
   const handleSelectFromGallery = (url: string) => {

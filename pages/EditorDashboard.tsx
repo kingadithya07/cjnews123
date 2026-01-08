@@ -82,6 +82,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
   const [modalIsFeatured, setModalIsFeatured] = useState(false);
+  const [modalPublishedAt, setModalPublishedAt] = useState<string>(new Date().toISOString());
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -200,11 +201,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setShowArticleModal(true);
+      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setModalPublishedAt(new Date().toISOString()); setShowArticleModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setShowArticleModal(true);
+      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setModalPublishedAt(article.publishedAt); setShowArticleModal(true);
   };
 
   const handleTranslateTitle = async () => {
@@ -267,7 +268,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           content: modalContent,
           categories: modalCategories.length > 0 ? modalCategories : ['General'],
           imageUrl: modalImageUrl || 'https://picsum.photos/800/400',
-          publishedAt: new Date().toISOString(),
+          publishedAt: modalPublishedAt, // Use preserved or new date
           status: modalStatus,
           isFeatured: modalIsFeatured,
           isEditorsChoice: false,
@@ -298,7 +299,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       }
   };
 
-  // ... (Other internal handlers retained) ...
   const handleSaveTaxonomyInternal = async () => {
       setIsSavingTaxonomy(true);
       try {
@@ -522,6 +522,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+          {/* ... Sidebar ... */}
           <div className="flex justify-between items-center p-6 border-b border-gray-800">
               <h1 className="font-serif text-2xl font-bold text-white">Editor<span className="text-news-gold">.</span></h1>
               <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={24} /></button>
@@ -555,7 +556,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
 
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
-              {/* ... (Previous Tabs Content) ... */}
+              {/* ... Other Tabs ... */}
+              
               {activeTab === 'articles' && (
                   <div className="max-w-6xl mx-auto space-y-6">
                       <div className="flex justify-between items-center">
@@ -610,7 +612,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   </div>
               )}
 
-              {/* ... (Other Tabs Content: idcards, epaper, etc.) ... */}
+              {/* ... ID Cards, Ads, Taxonomy, Analytics, Settings ... */}
               {activeTab === 'epaper' && (
                   <div className="max-w-6xl mx-auto space-y-8">
                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -647,10 +649,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                        </div>
                   </div>
               )}
-
-              {/* ... (Ads, Taxonomy, Analytics, Settings, ID Cards sections) ... */}
+              
+              {/* ... Rest of tabs ... */}
               {activeTab === 'idcards' && (
-                  /* ID Cards Section Logic */
                   <div className="max-w-7xl mx-auto space-y-8">
                       <div className="flex justify-between items-center">
                           <h2 className="font-serif text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -695,8 +696,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
       </div>
 
+      {/* ... Article Modal ... */}
       {showArticleModal && (/* ... */ <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">{/* ... */}</div>)}
 
+      {/* Add Page Modal */}
       {showAddPageModal && (
           <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
               <div className="bg-white rounded-lg p-6 w-full max-w-md animate-in zoom-in-95">
@@ -722,7 +725,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           </div>
       )}
 
+      {/* ... Reporter Modal ... */}
       {showReporterModal && (/* ... */ <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">{/* ... */}</div>)}
+
+      {/* ... Ad Modal ... */}
       {showAdModal && (/* ... */ <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">{/* ... */}</div>)}
 
     </div>
