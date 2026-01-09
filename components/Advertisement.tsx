@@ -20,60 +20,17 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
       // 1. Exact enum match
       if (slotSize === ad.size) return true;
       
-      // 2. Custom Dimensions Logic
-      // Since some mobile sizes are saved as CUSTOM in DB to avoid enum errors,
-      // we must check if their dimensions match the slot's expected dimensions.
-      if (ad.size === 'CUSTOM' && ad.customWidth && ad.customHeight) {
-          const w = ad.customWidth;
-          const h = ad.customHeight;
-
-          // Mobile Mappings
-          if (slotSize === 'LARGE_MOBILE_BANNER' && w === 320 && h === 100) return true;
-          if (slotSize === 'MOBILE_SMALL_BANNER' && w === 300 && h === 50) return true;
-          if (slotSize === 'SQUARE' && w === 250 && h === 250) return true;
-          if (slotSize === 'SMALL_SQUARE' && w === 200 && h === 200) return true;
-          
-          // Cross-compatibility for custom sizes in standard slots
-          if (slotSize === 'RECTANGLE' && w <= 300 && h <= 250) return true;
-          if (slotSize === 'MOBILE_BANNER' && w === 320 && h === 50) return true;
-          
-          // Exact dimension match fallback for any slot
-          // (e.g. if slot is BILLBOARD and user made a Custom 970x250)
-          // Note: slotSize enum doesn't inherently have dims here without a map, 
-          // but we handled the critical missing enum cases above.
-      }
+      // 2. Universal Compatibility (RECTANGLE works almost everywhere content is constrained)
+      if (slotSize === 'RECTANGLE' && ad.size === 'RECTANGLE') return true;
 
       // 3. Desktop Compatibility Fallbacks
-      // Allow LEADERBOARD (728x90) in BILLBOARD (970x250) or LARGE_LEADERBOARD (970x90)
-      if ((slotSize === 'BILLBOARD' || slotSize === 'LARGE_LEADERBOARD') && ad.size === 'LEADERBOARD') return true;
+      // Allow LEADERBOARD (728x90) in BILLBOARD (970x250)
+      if (slotSize === 'BILLBOARD' && ad.size === 'LEADERBOARD') return true;
       
-      // Allow LARGE_LEADERBOARD in BILLBOARD
-      if (slotSize === 'BILLBOARD' && ad.size === 'LARGE_LEADERBOARD') return true;
+      // 4. Mobile Compatibility
+      // Allow MOBILE_BANNER (320x50) in bigger mobile slots if we had them, or RECTANGLE slots on mobile
+      if (slotSize === 'RECTANGLE' && ad.size === 'MOBILE_BANNER') return true;
 
-      // Allow RECTANGLE (300x250) in LARGE_RECTANGLE (336x280)
-      if (slotSize === 'LARGE_RECTANGLE' && ad.size === 'RECTANGLE') return true;
-
-      // 4. Mobile Compatibility Fallbacks
-      // Allow MOBILE_BANNER (320x50) in LARGE_MOBILE_BANNER (320x100) or RECTANGLE (300x250)
-      if ((slotSize === 'LARGE_MOBILE_BANNER' || slotSize === 'RECTANGLE') && ad.size === 'MOBILE_BANNER') return true;
-
-      // Allow MOBILE_SMALL_BANNER (300x50) in MOBILE_BANNER (320x50) slots and larger
-      // Note: check both enum and dimension-based custom equivalents
-      const isMobileSmall = ad.size === 'MOBILE_SMALL_BANNER' || (ad.size === 'CUSTOM' && ad.customWidth === 300 && ad.customHeight === 50);
-      if ((slotSize === 'MOBILE_BANNER' || slotSize === 'LARGE_MOBILE_BANNER' || slotSize === 'RECTANGLE') && isMobileSmall) return true;
-
-      // Allow SQUARE & SMALL_SQUARE in RECTANGLE
-      const isSquare = ad.size === 'SQUARE' || (ad.size === 'CUSTOM' && ad.customWidth === 250 && ad.customHeight === 250);
-      const isSmallSquare = ad.size === 'SMALL_SQUARE' || (ad.size === 'CUSTOM' && ad.customWidth === 200 && ad.customHeight === 200);
-      
-      if (slotSize === 'RECTANGLE' && (isSquare || isSmallSquare)) return true;
-
-      // Allow SMALL_SQUARE in SQUARE
-      if (slotSize === 'SQUARE' && isSmallSquare) return true;
-
-      // 5. Cross-Device Fallbacks (for GLOBAL placement mostly)
-      if (slotSize === 'LEADERBOARD' && (ad.size === 'BILLBOARD' || ad.size === 'LARGE_LEADERBOARD')) return true;
-      
       return false;
   };
 
@@ -107,59 +64,36 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
   const ad = availableAds[Math.floor(Math.random() * availableAds.length)];
 
   // 5. Determine styles based on the AD's size (not the slot size, to maintain aspect ratio)
-  const getSizeStyles = (s: AdSize, customW?: number, customH?: number) => {
-    // Priority: Custom Dimensions (if provided)
-    if (customW && customH) {
-        return {
-            width: '100%',
-            maxWidth: `${customW}px`,
-            aspectRatio: `${customW}/${customH}`,
-            height: 'auto'
-        };
-    }
-
+  const getSizeStyles = (s: AdSize) => {
     // Default classes for standard sizes
     switch (s) {
       // Desktop Sizes
       case 'BILLBOARD': return { maxWidth: '970px', aspectRatio: '97/25' };
-      case 'LARGE_LEADERBOARD': return { maxWidth: '970px', aspectRatio: '97/9' };
       case 'LEADERBOARD': return { maxWidth: '728px', aspectRatio: '728/90' };
       case 'HALF_PAGE': return { maxWidth: '300px', aspectRatio: '300/600' };
       case 'SKYSCRAPER': return { maxWidth: '160px', aspectRatio: '160/600' };
-      case 'LARGE_RECTANGLE': return { maxWidth: '336px', aspectRatio: '336/280' };
       
       // Mobile Sizes
       case 'MOBILE_BANNER': return { maxWidth: '320px', aspectRatio: '32/5' };
-      case 'LARGE_MOBILE_BANNER': return { maxWidth: '320px', aspectRatio: '32/10' };
-      case 'MOBILE_SMALL_BANNER': return { maxWidth: '300px', aspectRatio: '300/50' };
       
-      // Universal / Squares
-      case 'SQUARE': return { maxWidth: '250px', aspectRatio: '1/1' };
-      case 'SMALL_SQUARE': return { maxWidth: '200px', aspectRatio: '1/1' };
-      
+      // Universal
       case 'RECTANGLE': default: return { maxWidth: '300px', aspectRatio: '300/250' };
     }
   };
 
-  const styles = getSizeStyles(ad.size, ad.customWidth, ad.customHeight);
+  const styles = getSizeStyles(ad.size);
   
   // Responsive Visibility Logic based on SLOT TYPE (size prop)
   // This ensures Billboards don't crush mobile layouts, and Mobile Banners don't appear on desktop.
   let visibilityClasses = '';
   switch (size) {
       case 'MOBILE_BANNER':
-      case 'LARGE_MOBILE_BANNER':
-      case 'MOBILE_SMALL_BANNER':
-      case 'SQUARE':
-      case 'SMALL_SQUARE':
           visibilityClasses = 'block md:hidden'; // Strict Mobile
           break;
       case 'BILLBOARD':
       case 'LEADERBOARD':
-      case 'LARGE_LEADERBOARD':
       case 'SKYSCRAPER':
       case 'HALF_PAGE':
-      case 'LARGE_RECTANGLE':
           visibilityClasses = 'hidden md:flex'; // Strict Desktop
           break;
       case 'RECTANGLE':

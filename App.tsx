@@ -515,28 +515,6 @@ function App() {
     fetchData(true); 
   }
 
-  // --- AD SAVE HELPERS ---
-  // Helper to map new ad sizes to CUSTOM with dimensions for Supabase compatibility
-  // This is required because the DB Enum doesn't support the new values yet.
-  const prepareAdForDb = (ad: Advertisement) => {
-      const newSizes: Record<string, { w: number, h: number }> = {
-          'LARGE_MOBILE_BANNER': { w: 320, h: 100 },
-          'MOBILE_SMALL_BANNER': { w: 300, h: 50 },
-          'SQUARE': { w: 250, h: 250 },
-          'SMALL_SQUARE': { w: 200, h: 200 }
-      };
-
-      if (newSizes[ad.size]) {
-          return {
-              ...ad,
-              size: 'CUSTOM' as AdSize,
-              customWidth: newSizes[ad.size].w,
-              customHeight: newSizes[ad.size].h
-          };
-      }
-      return ad;
-  };
-
   const isDeviceAuthorized = () => {
     if (!userId) return false;
     const currentDeviceId = getDeviceId();
@@ -594,35 +572,30 @@ function App() {
         onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} 
         onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
         onAddAdvertisement={async (ad) => { 
-            const preparedAd = prepareAdForDb(ad);
+            // Save standard ad properties
             const dbAd = {
-                id: preparedAd.id,
-                title: preparedAd.title,
-                image_url: preparedAd.imageUrl,
-                link_url: preparedAd.linkUrl,
-                size: preparedAd.size,
-                customWidth: preparedAd.customWidth,
-                customHeight: preparedAd.customHeight,
-                placement: preparedAd.placement,
-                targetCategory: preparedAd.targetCategory,
-                is_active: preparedAd.isActive
+                id: ad.id,
+                title: ad.title,
+                image_url: ad.imageUrl,
+                link_url: ad.linkUrl,
+                size: ad.size,
+                placement: ad.placement,
+                targetCategory: ad.targetCategory,
+                is_active: ad.isActive
             };
             const { error } = await supabase.from('advertisements').insert(dbAd); 
             if (error) alert("Error saving banner: " + error.message);
             else fetchData(true); 
         }} 
         onUpdateAdvertisement={async (ad) => {
-            const preparedAd = prepareAdForDb(ad);
             const dbAd = {
-                title: preparedAd.title,
-                image_url: preparedAd.imageUrl,
-                link_url: preparedAd.linkUrl,
-                size: preparedAd.size,
-                customWidth: preparedAd.customWidth,
-                customHeight: preparedAd.customHeight,
-                placement: preparedAd.placement,
-                targetCategory: preparedAd.targetCategory,
-                is_active: preparedAd.isActive
+                title: ad.title,
+                image_url: ad.imageUrl,
+                link_url: ad.linkUrl,
+                size: ad.size,
+                placement: ad.placement,
+                targetCategory: ad.targetCategory,
+                is_active: ad.isActive
             };
             const { error } = await supabase.from('advertisements').update(dbAd).eq('id', ad.id);
             if (error) alert("Error updating banner: " + error.message);

@@ -112,7 +112,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   // Classifieds & Ads Forms
   const [showAdModal, setShowAdModal] = useState(false);
   const [newAd, setNewAd] = useState<Partial<Advertisement>>({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true });
-  const [isCustomSize, setIsCustomSize] = useState(false);
   const [showClassifiedModal, setShowClassifiedModal] = useState(false);
   const [newClassified, setNewClassified] = useState<Partial<ClassifiedAd>>({});
   const [showAdImageGallery, setShowAdImageGallery] = useState(false);
@@ -319,8 +318,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           imageUrl: newAd.imageUrl!,
           linkUrl: newAd.linkUrl,
           size: newAd.size as AdSize,
-          customWidth: isCustomSize ? newAd.customWidth : undefined,
-          customHeight: isCustomSize ? newAd.customHeight : undefined,
+          // Removed custom width/height properties as we are using standard sizes
           placement: newAd.placement as AdPlacement,
           targetCategory: newAd.targetCategory,
           isActive: newAd.isActive !== undefined ? newAd.isActive : true
@@ -335,7 +333,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setShowAdModal(false);
       setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true });
       setEditingAdId(null);
-      setIsCustomSize(false);
   };
 
   const handleEditAd = (ad: Advertisement) => {
@@ -343,7 +340,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           ...ad
       });
       setEditingAdId(ad.id);
-      setIsCustomSize(!!(ad.customWidth || ad.customHeight));
       setShowAdModal(true);
   };
 
@@ -617,7 +613,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       <div className="space-y-6">
                           <div className="flex justify-between items-center">
                               <h2 className="font-serif text-xl font-bold">Banner Ads</h2>
-                              <button onClick={() => { setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true, title: '', linkUrl: '' }); setIsCustomSize(false); setEditingAdId(null); setShowAdModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Banner</button>
+                              <button onClick={() => { setNewAd({ size: 'RECTANGLE', placement: 'GLOBAL', isActive: true, title: '', linkUrl: '' }); setEditingAdId(null); setShowAdModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Banner</button>
                           </div>
                           <div className="bg-white rounded border divide-y">
                               {advertisements.map(ad => (
@@ -668,6 +664,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   </div>
               )}
 
+              {/* ... Rest of tabs ... */}
+              {/* ... (Existing code for Taxonomy, Analytics, Settings remains) ... */}
               {activeTab === 'taxonomy' && (
                   /* Existing Taxonomy Content */
                   <div className="max-w-6xl mx-auto space-y-8">
@@ -1084,11 +1082,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                  <option value="LEADERBOARD">Leaderboard (728x90)</option>
                                  <option value="RECTANGLE">Rectangle (300x250)</option>
                                  <option value="HALF_PAGE">Half Page (300x600)</option>
+                                 <option value="SKYSCRAPER">Skyscraper (160x600)</option>
                                  <option value="MOBILE_BANNER">Mobile Banner (320x50)</option>
-                                 <option value="LARGE_MOBILE_BANNER">Large Mobile Banner (320x100)</option>
-                                 <option value="MOBILE_SMALL_BANNER">Small Mobile Banner (300x50)</option>
-                                 <option value="SQUARE">Square (250x250)</option>
-                                 <option value="SMALL_SQUARE">Small Square (200x200)</option>
                              </select>
                          </div>
                          <div>
