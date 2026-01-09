@@ -16,37 +16,63 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
   if (!globalAdsEnabled) return null;
 
   // Helper: Check if ad size is compatible with the slot size
-  const isSizeCompatible = (slotSize: AdSize, adSize: AdSize) => {
-      // Exact match
-      if (slotSize === adSize) return true;
+  const isAdCompatible = (slotSize: AdSize, ad: Advertisement) => {
+      // 1. Exact enum match
+      if (slotSize === ad.size) return true;
       
-      // --- Desktop Compatibility ---
+      // 2. Custom Dimensions Logic
+      // Since some mobile sizes are saved as CUSTOM in DB to avoid enum errors,
+      // we must check if their dimensions match the slot's expected dimensions.
+      if (ad.size === 'CUSTOM' && ad.customWidth && ad.customHeight) {
+          const w = ad.customWidth;
+          const h = ad.customHeight;
+
+          // Mobile Mappings
+          if (slotSize === 'LARGE_MOBILE_BANNER' && w === 320 && h === 100) return true;
+          if (slotSize === 'MOBILE_SMALL_BANNER' && w === 300 && h === 50) return true;
+          if (slotSize === 'SQUARE' && w === 250 && h === 250) return true;
+          if (slotSize === 'SMALL_SQUARE' && w === 200 && h === 200) return true;
+          
+          // Cross-compatibility for custom sizes in standard slots
+          if (slotSize === 'RECTANGLE' && w <= 300 && h <= 250) return true;
+          if (slotSize === 'MOBILE_BANNER' && w === 320 && h === 50) return true;
+          
+          // Exact dimension match fallback for any slot
+          // (e.g. if slot is BILLBOARD and user made a Custom 970x250)
+          // Note: slotSize enum doesn't inherently have dims here without a map, 
+          // but we handled the critical missing enum cases above.
+      }
+
+      // 3. Desktop Compatibility Fallbacks
       // Allow LEADERBOARD (728x90) in BILLBOARD (970x250) or LARGE_LEADERBOARD (970x90)
-      if ((slotSize === 'BILLBOARD' || slotSize === 'LARGE_LEADERBOARD') && adSize === 'LEADERBOARD') return true;
+      if ((slotSize === 'BILLBOARD' || slotSize === 'LARGE_LEADERBOARD') && ad.size === 'LEADERBOARD') return true;
       
-      // Allow BILLBOARD in LARGE_LEADERBOARD? No, height issue.
-      // Allow LARGE_LEADERBOARD in BILLBOARD? Yes.
-      if (slotSize === 'BILLBOARD' && adSize === 'LARGE_LEADERBOARD') return true;
+      // Allow LARGE_LEADERBOARD in BILLBOARD
+      if (slotSize === 'BILLBOARD' && ad.size === 'LARGE_LEADERBOARD') return true;
 
       // Allow RECTANGLE (300x250) in LARGE_RECTANGLE (336x280)
-      if (slotSize === 'LARGE_RECTANGLE' && adSize === 'RECTANGLE') return true;
+      if (slotSize === 'LARGE_RECTANGLE' && ad.size === 'RECTANGLE') return true;
 
-      // --- Mobile Compatibility ---
+      // 4. Mobile Compatibility Fallbacks
       // Allow MOBILE_BANNER (320x50) in LARGE_MOBILE_BANNER (320x100) or RECTANGLE (300x250)
-      if ((slotSize === 'LARGE_MOBILE_BANNER' || slotSize === 'RECTANGLE') && adSize === 'MOBILE_BANNER') return true;
+      if ((slotSize === 'LARGE_MOBILE_BANNER' || slotSize === 'RECTANGLE') && ad.size === 'MOBILE_BANNER') return true;
 
       // Allow MOBILE_SMALL_BANNER (300x50) in MOBILE_BANNER (320x50) slots and larger
-      if ((slotSize === 'MOBILE_BANNER' || slotSize === 'LARGE_MOBILE_BANNER' || slotSize === 'RECTANGLE') && adSize === 'MOBILE_SMALL_BANNER') return true;
+      // Note: check both enum and dimension-based custom equivalents
+      const isMobileSmall = ad.size === 'MOBILE_SMALL_BANNER' || (ad.size === 'CUSTOM' && ad.customWidth === 300 && ad.customHeight === 50);
+      if ((slotSize === 'MOBILE_BANNER' || slotSize === 'LARGE_MOBILE_BANNER' || slotSize === 'RECTANGLE') && isMobileSmall) return true;
 
-      // Allow SQUARE (250x250) & SMALL_SQUARE (200x200) in RECTANGLE (300x250)
-      if (slotSize === 'RECTANGLE' && (adSize === 'SQUARE' || adSize === 'SMALL_SQUARE')) return true;
+      // Allow SQUARE & SMALL_SQUARE in RECTANGLE
+      const isSquare = ad.size === 'SQUARE' || (ad.size === 'CUSTOM' && ad.customWidth === 250 && ad.customHeight === 250);
+      const isSmallSquare = ad.size === 'SMALL_SQUARE' || (ad.size === 'CUSTOM' && ad.customWidth === 200 && ad.customHeight === 200);
+      
+      if (slotSize === 'RECTANGLE' && (isSquare || isSmallSquare)) return true;
 
-      // Allow SMALL_SQUARE (200x200) in SQUARE (250x250)
-      if (slotSize === 'SQUARE' && adSize === 'SMALL_SQUARE') return true;
+      // Allow SMALL_SQUARE in SQUARE
+      if (slotSize === 'SQUARE' && isSmallSquare) return true;
 
-      // --- Cross-Device Fallbacks (for GLOBAL placement mostly) ---
-      // Allow BILLBOARD/LEADERBOARD in the other's slot (scaled)
-      if (slotSize === 'LEADERBOARD' && (adSize === 'BILLBOARD' || adSize === 'LARGE_LEADERBOARD')) return true;
+      // 5. Cross-Device Fallbacks (for GLOBAL placement mostly)
+      if (slotSize === 'LEADERBOARD' && (ad.size === 'BILLBOARD' || ad.size === 'LARGE_LEADERBOARD')) return true;
       
       return false;
   };
@@ -56,8 +82,8 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
     // Basic checks
     if (!ad.isActive) return false;
     
-    // Check Size Compatibility
-    if (!isSizeCompatible(size, ad.size)) return false;
+    // Check Size Compatibility using updated function
+    if (!isAdCompatible(size, ad)) return false;
 
     // Global ads run everywhere (Short-circuit)
     if (ad.placement === 'GLOBAL') return true;
