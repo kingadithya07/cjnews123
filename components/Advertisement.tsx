@@ -35,6 +35,15 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
       // Allow MOBILE_BANNER (320x50) in LARGE_MOBILE_BANNER (320x100) or RECTANGLE (300x250)
       if ((slotSize === 'LARGE_MOBILE_BANNER' || slotSize === 'RECTANGLE') && adSize === 'MOBILE_BANNER') return true;
 
+      // Allow MOBILE_SMALL_BANNER (300x50) in MOBILE_BANNER (320x50) slots and larger
+      if ((slotSize === 'MOBILE_BANNER' || slotSize === 'LARGE_MOBILE_BANNER' || slotSize === 'RECTANGLE') && adSize === 'MOBILE_SMALL_BANNER') return true;
+
+      // Allow SQUARE (250x250) & SMALL_SQUARE (200x200) in RECTANGLE (300x250)
+      if (slotSize === 'RECTANGLE' && (adSize === 'SQUARE' || adSize === 'SMALL_SQUARE')) return true;
+
+      // Allow SMALL_SQUARE (200x200) in SQUARE (250x250)
+      if (slotSize === 'SQUARE' && adSize === 'SMALL_SQUARE') return true;
+
       // --- Cross-Device Fallbacks (for GLOBAL placement mostly) ---
       // Allow BILLBOARD/LEADERBOARD in the other's slot (scaled)
       if (slotSize === 'LEADERBOARD' && (adSize === 'BILLBOARD' || adSize === 'LARGE_LEADERBOARD')) return true;
@@ -96,8 +105,12 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
       // Mobile Sizes
       case 'MOBILE_BANNER': return { maxWidth: '320px', aspectRatio: '32/5' };
       case 'LARGE_MOBILE_BANNER': return { maxWidth: '320px', aspectRatio: '32/10' };
+      case 'MOBILE_SMALL_BANNER': return { maxWidth: '300px', aspectRatio: '300/50' };
       
-      // Universal
+      // Universal / Squares
+      case 'SQUARE': return { maxWidth: '250px', aspectRatio: '1/1' };
+      case 'SMALL_SQUARE': return { maxWidth: '200px', aspectRatio: '1/1' };
+      
       case 'RECTANGLE': default: return { maxWidth: '300px', aspectRatio: '300/250' };
     }
   };
@@ -110,6 +123,9 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
   switch (size) {
       case 'MOBILE_BANNER':
       case 'LARGE_MOBILE_BANNER':
+      case 'MOBILE_SMALL_BANNER':
+      case 'SQUARE':
+      case 'SMALL_SQUARE':
           visibilityClasses = 'block md:hidden'; // Strict Mobile
           break;
       case 'BILLBOARD':

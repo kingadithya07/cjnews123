@@ -282,6 +282,9 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                 </figcaption>
             </figure>
 
+            {/* Mobile-only ad slot under featured image */}
+            <AdvertisementBanner ads={advertisements} size="RECTANGLE" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} className="md:hidden mb-8" />
+
             <article 
               className="prose prose-slate max-w-none w-full font-serif text-gray-800 !leading-snug md:!leading-loose !text-left hyphens-auto [&_*]:!text-left [&_p]:!mb-4 md:[&_p]:!mb-6 [&_p]:!mt-0 [&_h1]:!mt-4 md:[&_h1]:!mt-8 [&_h2]:!mt-4 md:[&_h2]:!mt-8 [&_h3]:!mt-3 md:[&_h3]:!mt-6 [&_h4]:!mt-3 md:[&_h4]:!mt-6 prose-p:text-[17px] md:prose-p:text-[18px] prose-li:text-[17px] md:prose-li:text-[18px] prose-headings:font-serif break-words mb-8 md:mb-12" 
               dangerouslySetInnerHTML={{ __html: article.content || '<p>Detailed report pending...</p>' }} 
@@ -297,7 +300,12 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                 </div>
             </div>
             
-             <AdvertisementBanner ads={advertisements} size="LEADERBOARD" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} />
+             <div className="my-8">
+                 {/* Desktop: Leaderboard */}
+                 <AdvertisementBanner ads={advertisements} size="LEADERBOARD" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} className="hidden md:flex" />
+                 {/* Mobile: Rectangle (Fallback if leaderboard hidden) */}
+                 <AdvertisementBanner ads={advertisements} size="RECTANGLE" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} className="md:hidden" />
+             </div>
         </div>
 
         <div className="hidden md:block w-[300px] flex-shrink-0 space-y-8 mt-16">

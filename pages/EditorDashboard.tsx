@@ -1084,7 +1084,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                  <option value="LEADERBOARD">Leaderboard (728x90)</option>
                                  <option value="RECTANGLE">Rectangle (300x250)</option>
                                  <option value="HALF_PAGE">Half Page (300x600)</option>
-                                 <option value="MOBILE_BANNER">Mobile (320x50)</option>
+                                 <option value="MOBILE_BANNER">Mobile Banner (320x50)</option>
+                                 <option value="LARGE_MOBILE_BANNER">Large Mobile Banner (320x100)</option>
+                                 <option value="MOBILE_SMALL_BANNER">Small Mobile Banner (300x50)</option>
+                                 <option value="SQUARE">Square (250x250)</option>
+                                 <option value="SMALL_SQUARE">Small Square (200x200)</option>
                              </select>
                          </div>
                          <div>

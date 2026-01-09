@@ -1,6 +1,4 @@
 
-
-
 export enum UserRole {
   READER = 'READER',
   WRITER = 'WRITER',
@@ -93,6 +91,9 @@ export type AdSize =
   | 'SKYSCRAPER'          // 160x600 (Desktop)
   | 'MOBILE_BANNER'       // 320x50 (Mobile)
   | 'LARGE_MOBILE_BANNER' // 320x100 (Mobile)
+  | 'MOBILE_SMALL_BANNER' // 300x50 (Mobile)
+  | 'SQUARE'              // 250x250 (Mobile/Desktop)
+  | 'SMALL_SQUARE'        // 200x200 (Mobile/Desktop)
   | 'CUSTOM';             // User defined
 
 export type AdPlacement = 'GLOBAL' | 'HOME' | 'ARTICLE' | 'EPAPER' | 'EDITORIAL' | 'CLASSIFIEDS' | 'CATEGORY';
