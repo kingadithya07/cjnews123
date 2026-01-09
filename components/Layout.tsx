@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { UserRole, Article } from '../types';
 import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard, ChevronDown, Handshake } from 'lucide-react';
 import { APP_NAME } from '../constants';
@@ -52,6 +52,28 @@ const NavItem: React.FC<NavItemProps> = ({
     to={to}
     onNavigate={onNavigate}
     onClick={onClick}
+    className={`text-[10px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-3 transition-colors duration-200 py-3 border-b border-gray-100 w-full ${
+      isActive ? 'text-news-blue border-news-blue' : 'text-gray-500 hover:text-news-blue hover:bg-gray-50'
+    }`}
+  >
+    {Icon && <Icon size={14} />}
+    {label}
+  </Link>
+);
+
+// Desktop Nav Item (styled differently)
+const DesktopNavItem: React.FC<NavItemProps> = ({ 
+  to, 
+  label, 
+  icon: Icon, 
+  onClick, 
+  isActive, 
+  onNavigate 
+}) => (
+  <Link
+    to={to}
+    onNavigate={onNavigate}
+    onClick={onClick}
     className={`text-[9px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-colors duration-200 h-full border-b-2 ${
       isActive ? 'text-news-blue border-news-blue' : 'text-gray-500 hover:text-news-blue border-transparent'
     }`}
@@ -89,6 +111,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   const MAX_VISIBLE_CATS = 6;
   const visibleCats = categories.slice(0, MAX_VISIBLE_CATS);
   const hiddenCats = categories.slice(MAX_VISIBLE_CATS);
+
+  // Filter Breaking News: Last 5 Days Only, Sorted Newest First
+  const breakingNews = useMemo(() => {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 5);
+      
+      return articles
+          .filter(a => new Date(a.publishedAt) >= cutoffDate)
+          .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  }, [articles]);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -263,13 +295,13 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       {/* DESKTOP NAVIGATION */}
       <nav className="hidden md:block bg-white border-b border-gray-200 sticky top-0 z-50">
          <div className="max-w-7xl mx-auto px-6 h-12 flex justify-center items-center gap-6 overflow-visible">
-             <NavItem to="/" label="HOME" isActive={isActive('/')} onNavigate={onNavigate} />
-             <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} isActive={isActive('/epaper')} onNavigate={onNavigate} />
+             <DesktopNavItem to="/" label="HOME" isActive={isActive('/')} onNavigate={onNavigate} />
+             <DesktopNavItem to="/epaper" label="E-PAPER" icon={Newspaper} isActive={isActive('/epaper')} onNavigate={onNavigate} />
              
              {/* Dynamic Categories */}
              <div className="h-3 w-[1px] bg-gray-200 mx-2"></div>
              {visibleCats.map(cat => (
-                 <NavItem key={cat} to={`/category/${cat}`} label={cat} isActive={isActive(`/category/${cat}`)} onNavigate={onNavigate} />
+                 <DesktopNavItem key={cat} to={`/category/${cat}`} label={cat} isActive={isActive(`/category/${cat}`)} onNavigate={onNavigate} />
              ))}
 
              {/* More Dropdown */}
@@ -297,20 +329,23 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          </div>
       </nav>
 
-      {/* MOBILE NAVIGATION MENU */}
+      {/* MOBILE NAVIGATION MENU (HAMBURGER) */}
       {isMobileMenuOpen && (
-        <div className="md:hidden bg-white border-b border-gray-200 p-6 animate-in slide-in-from-top-2 shadow-lg">
-             <div className="flex flex-col gap-6">
-                 {/* Dashboard Access removed from here as it is now in top bar */}
-                 <NavItem to="/" label="HOME" onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/')} onNavigate={onNavigate} />
-                 <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/epaper')} onNavigate={onNavigate} />
-                 <NavItem to="/classifieds" label="CLASSIFIEDS" icon={Megaphone} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/classifieds')} onNavigate={onNavigate} />
-                 <div className="h-[1px] bg-gray-100 w-full my-1"></div>
+        <div className="md:hidden bg-white border-b border-gray-200 p-6 animate-in slide-in-from-top-2 shadow-lg h-auto max-h-[80vh] overflow-y-auto">
+             <div className="flex flex-col gap-1">
+                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Sections</h3>
                  {categories.map(cat => (
-                     <NavItem key={cat} to={`/category/${cat}`} label={cat} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive(`/category/${cat}`)} onNavigate={onNavigate} />
+                     <NavItem 
+                        key={cat} 
+                        to={`/category/${cat}`} 
+                        label={cat} 
+                        onClick={() => setIsMobileMenuOpen(false)} 
+                        isActive={isActive(`/category/${cat}`)} 
+                        onNavigate={onNavigate} 
+                     />
                  ))}
-                 <div className="h-[1px] bg-gray-100 w-full my-1"></div>
-                 <button className="bg-news-accent text-white w-full py-3 rounded text-xs font-black uppercase tracking-widest shadow-lg">
+                 <div className="h-[1px] bg-gray-100 w-full my-4"></div>
+                 <button className="bg-news-accent text-white w-full py-4 rounded text-xs font-black uppercase tracking-widest shadow-lg">
                     SUBSCRIBE NOW
                  </button>
              </div>
@@ -324,7 +359,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
           </div>
           <div className="flex-1 whitespace-nowrap overflow-hidden flex items-center">
               <div className="animate-marquee inline-flex items-center">
-                  {articles.length > 0 ? articles.map((a, i) => (
+                  {breakingNews.length > 0 ? breakingNews.map((a, i) => (
                       <Link 
                           key={a.id} 
                           to={`/article/${a.slug || a.id}`} 
@@ -336,7 +371,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                           </span>
                           <span className="text-[11px] font-bold text-gray-200 mr-8 uppercase group-hover:text-white group-hover:underline decoration-news-gold underline-offset-4">{a.title} <span className="text-gray-500 ml-2 no-underline">+++</span></span>
                       </Link>
-                  )) : <span className="mx-8 text-[11px] font-bold text-gray-400 uppercase">Awaiting dispatches from our global news bureaus...</span>}
+                  )) : <span className="mx-8 text-[11px] font-bold text-gray-400 uppercase">No recent dispatches in the last 5 days...</span>}
               </div>
           </div>
       </div>
