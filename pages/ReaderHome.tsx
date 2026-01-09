@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, EPaperPage, Advertisement } from '../types';
-import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, ArrowLeft } from 'lucide-react';
+import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, ArrowLeft, Newspaper } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
@@ -52,6 +52,10 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
   // 4. Category Sections (Only on Homepage when no category selected)
   // Display all categories except 'General' to avoid redundancy if used as default
   const homeCategorySections = !selectedCategory ? categories.filter(c => c !== 'General') : [];
+
+  // 5. E-Paper Preview (Latest Page 1)
+  // Assumes ePaperPages is sorted by date desc, pageNumber asc from App.tsx
+  const latestEPaper = ePaperPages.find(p => p.pageNumber === 1) || ePaperPages[0];
 
   const [mobileTab, setMobileTab] = useState<'latest' | 'trending'>('latest');
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -150,95 +154,142 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
         globalAdsEnabled={globalAdsEnabled}
       />
 
-      {/* --- TOP SECTION: SLIDER (Full Width) --- */}
+      {/* --- TOP SECTION: SLIDER & E-PAPER PREVIEW --- */}
       <div className="max-w-7xl mx-auto px-4 md:px-0">
-          <div className="w-full h-[400px] md:h-[500px] relative rounded-2xl overflow-hidden shadow-2xl bg-news-black group border border-gray-800"
-               onMouseEnter={() => setIsPaused(true)}
-               onMouseLeave={() => setIsPaused(false)}
-          >
-              {sliderArticles.length > 0 ? (
-              <>
-                  <div 
-                      className="flex h-full transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]" 
-                      style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-                  >
-                      {sliderArticles.map((article) => {
-                          const [authorName] = article.author.split(',');
-                          const avatarUrl = article.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=bfa17b&color=1a1a1a&bold=true`;
-                          const plainText = article.subline || article.content.replace(/<[^>]*>/g, '').substring(0, 120) + '...';
-                          
-                          return (
-                          <div key={`slide-${article.id}`} className="w-full shrink-0 relative h-full bg-[#050505]">
-                              {/* Layer 1: Blurred Background */}
-                              <div className="absolute inset-0 overflow-hidden">
-                                  <img 
-                                    src={article.imageUrl} 
-                                    alt="" 
-                                    className="w-full h-full object-cover opacity-50 blur-2xl scale-110"
-                                  />
-                                  <div className="absolute inset-0 bg-black/30"></div>
-                              </div>
-
-                              {/* Layer 2: Main Image (Full View) */}
-                              <img 
-                                src={article.imageUrl} 
-                                alt={article.title} 
-                                className="absolute inset-0 w-full h-full object-contain relative z-10 transition-transform duration-[4s] group-hover:scale-105"
-                              />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[500px]">
+              
+              {/* SLIDER COLUMN (2/3 width on desktop) */}
+              <div className="lg:col-span-2 w-full h-[400px] md:h-[500px] lg:h-full relative rounded-2xl overflow-hidden shadow-2xl bg-news-black group border border-gray-800"
+                   onMouseEnter={() => setIsPaused(true)}
+                   onMouseLeave={() => setIsPaused(false)}
+              >
+                  {sliderArticles.length > 0 ? (
+                  <>
+                      <div 
+                          className="flex h-full transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]" 
+                          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+                      >
+                          {sliderArticles.map((article) => {
+                              const [authorName] = article.author.split(',');
+                              const avatarUrl = article.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=bfa17b&color=1a1a1a&bold=true`;
+                              const plainText = article.subline || article.content.replace(/<[^>]*>/g, '').substring(0, 120) + '...';
                               
-                              <div className="absolute top-5 left-5 md:top-8 md:left-8 z-30 pointer-events-none flex flex-col gap-2">
-                                  <span className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-[7px] md:text-[8px] font-black px-2 py-1 md:px-3 md:py-1 uppercase tracking-[0.2em] shadow-lg inline-flex items-center gap-2 rounded-sm w-fit">
-                                      <Star size={8} fill="currentColor" /> {article.categories[0]}
-                                  </span>
-                              </div>
-
-                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 md:p-10 pt-24 flex flex-col justify-end items-start z-20">
-                                  <div className="flex items-center gap-3 mb-2 md:mb-3">
-                                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-full border border-white/20 overflow-hidden bg-gray-800 shrink-0">
-                                          <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
-                                      </div>
-                                      <div className="flex flex-col justify-center">
-                                          <span className="text-gray-200 text-[8px] md:text-[9px] font-bold uppercase tracking-widest leading-none mb-0.5">
-                                              {authorName}
-                                          </span>
-                                          <span className="text-news-gold text-[7px] md:text-[8px] font-bold uppercase leading-none tracking-widest">
-                                              {safeFormat(article.publishedAt, 'MMM dd')}
-                                          </span>
-                                      </div>
+                              return (
+                              <div key={`slide-${article.id}`} className="w-full shrink-0 relative h-full bg-[#050505]">
+                                  {/* Layer 1: Blurred Background */}
+                                  <div className="absolute inset-0 overflow-hidden">
+                                      <img 
+                                        src={article.imageUrl} 
+                                        alt="" 
+                                        className="w-full h-full object-cover opacity-50 blur-2xl scale-110"
+                                      />
+                                      <div className="absolute inset-0 bg-black/30"></div>
                                   </div>
 
-                                  <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-xl md:max-w-2xl">
-                                      <h2 className="text-base md:text-3xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg">
-                                          {article.title}
-                                      </h2>
-                                  </Link>
+                                  {/* Layer 2: Main Image (Full View) */}
+                                  <img 
+                                    src={article.imageUrl} 
+                                    alt={article.title} 
+                                    className="absolute inset-0 w-full h-full object-contain relative z-10 transition-transform duration-[4s] group-hover:scale-105"
+                                  />
+                                  
+                                  <div className="absolute top-5 left-5 md:top-8 md:left-8 z-30 pointer-events-none flex flex-col gap-2">
+                                      <span className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-[7px] md:text-[8px] font-black px-2 py-1 md:px-3 md:py-1 uppercase tracking-[0.2em] shadow-lg inline-flex items-center gap-2 rounded-sm w-fit">
+                                          <Star size={8} fill="currentColor" /> {article.categories[0]}
+                                      </span>
+                                  </div>
 
-                                  <p className="hidden sm:block text-gray-300 font-sans text-[10px] md:text-xs font-medium mb-3 md:mb-5 line-clamp-2 max-w-lg leading-relaxed drop-shadow-md">
-                                      {plainText}
-                                  </p>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 md:p-10 pt-24 flex flex-col justify-end items-start z-20">
+                                      <div className="flex items-center gap-3 mb-2 md:mb-3">
+                                          <div className="w-5 h-5 md:w-6 md:h-6 rounded-full border border-white/20 overflow-hidden bg-gray-800 shrink-0">
+                                              <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
+                                          </div>
+                                          <div className="flex flex-col justify-center">
+                                              <span className="text-gray-200 text-[8px] md:text-[9px] font-bold uppercase tracking-widest leading-none mb-0.5">
+                                                  {authorName}
+                                              </span>
+                                              <span className="text-news-gold text-[7px] md:text-[8px] font-bold uppercase leading-none tracking-widest">
+                                                  {safeFormat(article.publishedAt, 'MMM dd')}
+                                              </span>
+                                          </div>
+                                      </div>
 
-                                  <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="flex items-center gap-2 text-white font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em] hover:text-news-gold transition-all group/btn pb-1 border-b border-white/20 hover:border-news-gold">
-                                      Read Story <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform"/>
-                                  </Link>
+                                      <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-xl md:max-w-2xl">
+                                          <h2 className="text-base md:text-3xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg">
+                                              {article.title}
+                                          </h2>
+                                      </Link>
+
+                                      <p className="hidden sm:block text-gray-300 font-sans text-[10px] md:text-xs font-medium mb-3 md:mb-5 line-clamp-2 max-w-lg leading-relaxed drop-shadow-md">
+                                          {plainText}
+                                      </p>
+
+                                      <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="flex items-center gap-2 text-white font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em] hover:text-news-gold transition-all group/btn pb-1 border-b border-white/20 hover:border-news-gold">
+                                          Read Story <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform"/>
+                                      </Link>
+                                  </div>
+                              </div>
+                          )})}
+                      </div>
+
+                      <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronLeft size={20} /></button>
+                      <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
+
+                      <div className="absolute bottom-6 right-6 flex gap-2 z-30">
+                          {sliderArticles.map((_, idx) => (
+                              <button key={idx} onClick={() => setCurrentSlide(idx)} className={`transition-all duration-300 rounded-full ${currentSlide === idx ? 'bg-news-gold w-6 h-1' : 'bg-white/30 hover:bg-white/50 w-2 h-1'}`} />
+                          ))}
+                      </div>
+                  </>
+                  ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-2xl text-gray-400 border border-gray-200">
+                          <p className="text-[10px] font-black uppercase tracking-widest">Bureau Dispatches Awaited</p>
+                      </div>
+                  )}
+              </div>
+
+              {/* E-PAPER COLUMN (1/3 width on desktop) */}
+              <div className="lg:col-span-1 hidden lg:flex flex-col h-full bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden relative group/epaper">
+                  {latestEPaper ? (
+                      <Link to="/epaper" onNavigate={onNavigate} className="flex-1 flex flex-col h-full relative">
+                          <div className="flex-1 bg-gray-100 p-6 flex items-center justify-center relative overflow-hidden">
+                               {/* Paper Preview */}
+                               <div className="relative shadow-2xl transform group-hover/epaper:scale-105 transition-transform duration-500 origin-bottom">
+                                   <img 
+                                      src={latestEPaper.imageUrl} 
+                                      alt={`E-Paper ${latestEPaper.date}`} 
+                                      className="max-h-[320px] w-auto object-contain rounded-sm"
+                                   />
+                                   {/* Shine effect */}
+                                   <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover/epaper:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                               </div>
+                          </div>
+                          
+                          <div className="bg-white p-6 border-t border-gray-100 z-10">
+                              <div className="flex justify-between items-center mb-2">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-news-accent flex items-center gap-1.5">
+                                      <Newspaper size={12}/> Digital Edition
+                                  </span>
+                                  <span className="text-[10px] font-bold text-gray-400 uppercase bg-gray-50 px-2 py-1 rounded">
+                                      {safeFormat(latestEPaper.date, 'MMM dd, yyyy')}
+                                  </span>
+                              </div>
+                              <h3 className="font-serif font-bold text-2xl text-gray-900 leading-tight mb-3">Today's E-Paper</h3>
+                              <p className="text-xs text-gray-500 mb-4 line-clamp-2">Read the full digital replica of today's print edition. Access archives and interactive clips.</p>
+                              
+                              <div className="w-full bg-news-black text-white text-xs font-black uppercase tracking-widest py-3 rounded text-center group-hover/epaper:bg-news-gold group-hover/epaper:text-black transition-colors shadow-lg">
+                                  Read Full Edition
                               </div>
                           </div>
-                      )})}
-                  </div>
-
-                  <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronLeft size={20} /></button>
-                  <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
-
-                  <div className="absolute bottom-6 right-6 flex gap-2 z-30">
-                      {sliderArticles.map((_, idx) => (
-                          <button key={idx} onClick={() => setCurrentSlide(idx)} className={`transition-all duration-300 rounded-full ${currentSlide === idx ? 'bg-news-gold w-6 h-1' : 'bg-white/30 hover:bg-white/50 w-2 h-1'}`} />
-                      ))}
-                  </div>
-              </>
-              ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-2xl text-gray-400 border border-gray-200">
-                      <p className="text-[10px] font-black uppercase tracking-widest">Bureau Dispatches Awaited</p>
-                  </div>
-              )}
+                      </Link>
+                  ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center bg-gray-50">
+                          <Newspaper size={48} className="mb-4 opacity-20" />
+                          <p className="font-serif text-lg text-gray-500 font-bold">Edition Unavailable</p>
+                          <p className="text-[10px] mt-2 uppercase tracking-widest text-gray-400">Please check back later</p>
+                      </div>
+                  )}
+              </div>
           </div>
       </div>
 
