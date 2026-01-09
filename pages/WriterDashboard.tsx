@@ -666,6 +666,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                     className="min-h-[300px] md:min-h-[400px]" 
                     onImageUpload={handleContentImageUpload} 
                     userId={userId} // Pass ID for isolation in editor gallery
+                    uploadFolder="articles" // Use articles folder to match featured images
                   />
                   <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded pointer-events-none">
                       {wordCount} Words

@@ -17,6 +17,7 @@ interface RichTextEditorProps {
   placeholder?: string;
   className?: string;
   userId?: string | null; // Pass userId for isolated gallery
+  uploadFolder?: string; // Allow specifying folder (e.g. 'articles' to match featured images)
 }
 
 const rgbToHex = (color: string) => {
@@ -29,7 +30,7 @@ const rgbToHex = (color: string) => {
     return '#000000';
 };
 
-const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onImageUpload, placeholder, className, userId }) => {
+const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onImageUpload, placeholder, className, userId, uploadFolder = 'gallery' }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
@@ -296,6 +297,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
           onClose={() => setShowGallery(false)}
           onSelectImage={handleGallerySelect}
           userId={userId} 
+          uploadFolder={uploadFolder}
       />
       <div ref={wrapperRef} className={`relative flex flex-col border border-gray-300 rounded-lg bg-white ${className}`}>
         

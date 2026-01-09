@@ -1024,6 +1024,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                     className="min-h-[300px] md:min-h-[400px]" 
                     onImageUpload={handleContentImageUpload} 
                     userId={userId}
+                    uploadFolder="articles"
                   />
                 </div>
              </div>
@@ -1052,7 +1053,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                          ) : <p className="text-gray-400 text-xs">No image selected</p>}
                          <label className="block mt-2">
                              <span className="bg-gray-200 px-3 py-1 rounded text-xs font-bold cursor-pointer">Choose Image</span>
-                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, 'epaper')} />
+                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, `epaper/${newPageDate}`)} />
                          </label>
                          {isPageUploading && <p className="text-xs text-blue-500 mt-2 flex items-center justify-center gap-1"><Loader2 size={12} className="animate-spin" /> Uploading...</p>}
                      </div>
