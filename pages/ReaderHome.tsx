@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, EPaperPage, Advertisement } from '../types';
-import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, ArrowLeft, Newspaper } from 'lucide-react';
+import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, ArrowLeft, Newspaper, Calendar, X, Filter } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
@@ -60,6 +60,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
   const [mobileTab, setMobileTab] = useState<'latest' | 'trending'>('latest');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [dateFilter, setDateFilter] = useState('');
 
   useEffect(() => {
     if (isPaused) return;
@@ -68,6 +69,10 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
     }, 6000);
     return () => clearInterval(timer);
   }, [isPaused, sliderArticles.length]);
+
+  useEffect(() => {
+      setDateFilter('');
+  }, [selectedCategory]);
 
   const nextSlide = (e?: React.MouseEvent) => {
       e?.preventDefault();
@@ -83,16 +88,20 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
   // --- CATEGORY VIEW RENDER ---
   if (selectedCategory) {
+      const filteredCategoryArticles = dateFilter 
+          ? displayArticles.filter(a => a.publishedAt.startsWith(dateFilter))
+          : displayArticles;
+
       return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-12 max-w-7xl mx-auto px-4 md:px-0">
             {/* Back Button */}
-            <div className="pt-6">
+            <div className="pt-6 flex justify-between items-center">
                 <button onClick={() => onNavigate('/')} className="flex items-center gap-2 text-gray-500 hover:text-news-black transition-colors text-xs font-bold uppercase tracking-widest group">
                     <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Home
                 </button>
             </div>
 
-            <div className="bg-news-black text-white py-12 px-6 rounded-lg mb-8 shadow-xl relative overflow-hidden">
+            <div className="bg-news-black text-white py-12 px-6 rounded-lg shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
                     <Star size={200} />
                 </div>
@@ -104,6 +113,36 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                 </p>
             </div>
 
+            {/* Date Filter Bar */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-2 text-gray-500">
+                    <Filter size={16} />
+                    <span className="text-xs font-bold uppercase tracking-widest">{filteredCategoryArticles.length} Articles Found</span>
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="relative flex items-center w-full md:w-auto">
+                        <div className="absolute left-3 text-gray-400 pointer-events-none">
+                            <Calendar size={16} />
+                        </div>
+                        <input 
+                            type="date" 
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            className="pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm font-bold text-gray-700 uppercase outline-none focus:border-news-black w-full"
+                        />
+                    </div>
+                    {dateFilter && (
+                        <button 
+                            onClick={() => setDateFilter('')}
+                            className="p-2 bg-red-50 text-red-500 rounded-md hover:bg-red-100 transition-colors"
+                            title="Clear Filter"
+                        >
+                            <X size={18} />
+                        </button>
+                    )}
+                </div>
+            </div>
+
             <AdvertisementBanner 
                 ads={advertisements} 
                 size="LEADERBOARD" 
@@ -113,10 +152,16 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {displayArticles.length === 0 ? (
-                    <div className="col-span-full text-center py-20 text-gray-400">No articles found in this section.</div>
+                {filteredCategoryArticles.length === 0 ? (
+                    <div className="col-span-full py-20 text-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                        <div className="flex flex-col items-center justify-center text-gray-400">
+                            <Newspaper size={48} className="mb-4 opacity-20"/>
+                            <p className="font-serif text-lg mb-2">No articles found.</p>
+                            {dateFilter && <p className="text-xs font-bold uppercase tracking-widest">Try selecting a different date.</p>}
+                        </div>
+                    </div>
                 ) : (
-                    displayArticles.map(article => (
+                    filteredCategoryArticles.map(article => (
                         <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
                             <div className="aspect-video relative overflow-hidden">
                                 <img src={article.imageUrl} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={article.title} />
