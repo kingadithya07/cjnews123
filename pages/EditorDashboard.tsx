@@ -280,8 +280,14 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               regions: []
           };
           onAddPage(page);
+          
+          // Switch view to the new page's date so it appears immediately
+          setEpaperFilterDate(newPageDate);
+          
           setShowAddPageModal(false);
           setNewPageImage('');
+          // Auto-increment page number for the next upload
+          setNewPageNumber(prev => prev + 1);
       } catch (e) {
           alert("Error adding page");
       } finally {
@@ -1048,12 +1054,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                              <span className="bg-gray-200 px-3 py-1 rounded text-xs font-bold cursor-pointer">Choose Image</span>
                              <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, 'epaper')} />
                          </label>
-                         {isPageUploading && <p className="text-xs text-blue-500 mt-2">Uploading...</p>}
+                         {isPageUploading && <p className="text-xs text-blue-500 mt-2 flex items-center justify-center gap-1"><Loader2 size={12} className="animate-spin" /> Uploading...</p>}
                      </div>
 
                      <div className="flex justify-end gap-2 pt-2">
                          <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
-                         <button onClick={handleUploadPage} disabled={isPageUploading} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Upload</button>
+                         <button onClick={handleUploadPage} disabled={isPageUploading} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold disabled:opacity-50">Upload</button>
                      </div>
                  </div>
              </div>

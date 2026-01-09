@@ -304,6 +304,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                  {/* Dashboard Access removed from here as it is now in top bar */}
                  <NavItem to="/" label="HOME" onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/')} onNavigate={onNavigate} />
                  <NavItem to="/epaper" label="E-PAPER" icon={Newspaper} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/epaper')} onNavigate={onNavigate} />
+                 <NavItem to="/classifieds" label="CLASSIFIEDS" icon={Megaphone} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive('/classifieds')} onNavigate={onNavigate} />
                  <div className="h-[1px] bg-gray-100 w-full my-1"></div>
                  {categories.map(cat => (
                      <NavItem key={cat} to={`/category/${cat}`} label={cat} onClick={() => setIsMobileMenuOpen(false)} isActive={isActive(`/category/${cat}`)} onNavigate={onNavigate} />
@@ -338,6 +339,30 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                   )) : <span className="mx-8 text-[11px] font-bold text-gray-400 uppercase">Awaiting dispatches from our global news bureaus...</span>}
               </div>
           </div>
+      </div>
+
+      {/* MOBILE ICON NAVIGATION BAR */}
+      <div className="md:hidden bg-white border-b border-gray-200 py-3 flex justify-around items-center shadow-sm relative z-30">
+          <Link to="/" onNavigate={onNavigate} className={`flex flex-col items-center gap-1.5 min-w-[60px] ${isActive('/') ? 'text-news-blue' : 'text-gray-400 hover:text-gray-600'}`}>
+              <Home size={18} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Home</span>
+          </Link>
+          <Link to="/epaper" onNavigate={onNavigate} className={`flex flex-col items-center gap-1.5 min-w-[60px] ${isActive('/epaper') ? 'text-news-blue' : 'text-gray-400 hover:text-gray-600'}`}>
+              <Newspaper size={18} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">E-Paper</span>
+          </Link>
+          <Link to="/classifieds" onNavigate={onNavigate} className={`flex flex-col items-center gap-1.5 min-w-[60px] ${isActive('/classifieds') ? 'text-news-blue' : 'text-gray-400 hover:text-gray-600'}`}>
+              <Megaphone size={18} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Classifieds</span>
+          </Link>
+          <Link 
+            to={userName ? (currentRole === UserRole.WRITER ? '/writer' : currentRole === UserRole.READER ? '/' : '/editor') : '/login'} 
+            onNavigate={onNavigate} 
+            className={`flex flex-col items-center gap-1.5 min-w-[60px] ${(isActive('/login') || isActive('/writer') || isActive('/editor')) ? 'text-news-blue' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+              <User size={18} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Profile</span>
+          </Link>
       </div>
 
       <main className="flex-grow max-w-7xl mx-auto px-4 md:px-6 py-10">
