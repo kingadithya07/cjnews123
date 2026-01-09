@@ -134,17 +134,41 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
   };
   
   const changeFontSize = (size: number) => {
-      // Robust way to set specific pixel font size in contentEditable
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+
+      // Generate a unique marker string for this operation
+      const marker = `fs-${Date.now()}`;
+      
+      // Apply the marker as a font family to wrap the selection
       document.execCommand('styleWithCSS', false, 'true');
-      document.execCommand('fontSize', false, '7'); // Max size as marker
+      document.execCommand('fontName', false, marker);
       document.execCommand('styleWithCSS', false, 'false');
       
       if (editorRef.current) {
-          const fontElements = editorRef.current.querySelectorAll('font[size="7"], span[style*="font-size: -webkit-xxx-large"], span[style*="font-size: xxx-large"]');
-          fontElements.forEach((el) => {
-              el.removeAttribute('size');
-              (el as HTMLElement).style.fontSize = `${size}px`;
+          // Find all elements that had this marker applied
+          // Matches font[face="marker"] or span[style*="font-family: marker"]
+          const elements = editorRef.current.querySelectorAll(`[style*="${marker}"], font[face="${marker}"]`);
+          
+          elements.forEach((el) => {
+              const htmlEl = el as HTMLElement;
+              
+              // Remove the marker font-family
+              if (htmlEl.tagName.toLowerCase() === 'font') {
+                  htmlEl.removeAttribute('face');
+              } else {
+                  htmlEl.style.fontFamily = '';
+              }
+              
+              // Apply the desired exact pixel size
+              htmlEl.style.fontSize = `${size}px`;
+              
+              // Cleanup empty style attributes
+              if (htmlEl.getAttribute('style') === '') {
+                  htmlEl.removeAttribute('style');
+              }
           });
+          
           onChange(editorRef.current.innerHTML);
       }
       setShowFontSizeMenu(false);
@@ -175,15 +199,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, onIm
     }
 
     if (isFormatPainting && copiedStyle) {
-        const selection = window.getSelection();
-        if (selection && !selection.isCollapsed) {
-             if (copiedStyle.bold) exec('bold');
-             if (copiedStyle.italic) exec('italic');
-             if (copiedStyle.underline) exec('underline');
-             if (copiedStyle.color) exec('foreColor', copiedStyle.color);
-             setIsFormatPainting(false);
-             setCopiedStyle(null);
-        }
+         // Force apply the styles (don't toggle)
+         const currentBold = document.queryCommandState('bold');
+         const currentItalic = document.queryCommandState('italic');
+         const currentUnderline = document.queryCommandState('underline');
+         
+         if (copiedStyle.bold !== currentBold) exec('bold');
+         if (copiedStyle.italic !== currentItalic) exec('italic');
+         if (copiedStyle.underline !== currentUnderline) exec('underline');
+         if (copiedStyle.color) exec('foreColor', copiedStyle.color);
+         
+         setIsFormatPainting(false);
+         setCopiedStyle(null);
     }
     updateActiveFormats();
   };

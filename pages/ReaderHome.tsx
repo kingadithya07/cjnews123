@@ -119,7 +119,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                     displayArticles.map(article => (
                         <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
                             <div className="aspect-video relative overflow-hidden">
-                                <img src={article.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={article.title} />
+                                <img src={article.imageUrl} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={article.title} />
                                 <div className="absolute top-2 left-2 flex flex-col gap-1">
                                     <span className="bg-white/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 uppercase tracking-widest rounded-sm w-fit shadow-sm flex items-center gap-1">
                                         <Star size={8} fill="currentColor" /> {article.categories[0]}
@@ -304,7 +304,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                {trendingArticles.map((article, idx) => (
                    <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group flex gap-4 items-start p-4 bg-white rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-all h-full">
                        <div className="w-20 h-20 shrink-0 rounded-md overflow-hidden bg-gray-200 relative border border-gray-100">
-                           <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+                           <img src={article.imageUrl} loading="lazy" alt={article.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
                        </div>
                        <div className="flex-1 min-w-0 flex flex-col h-full">
                            <div className="flex items-center gap-2 mb-1">
@@ -339,7 +339,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                {mainFeedArticles.map(article => (
                    <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block flex flex-col h-full">
                        <div className="overflow-hidden mb-4 relative shadow-sm rounded-lg">
-                            <img src={article.imageUrl} alt={article.title} className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700 aspect-video object-cover"/>
+                            <img src={article.imageUrl} loading="lazy" alt={article.title} className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700 aspect-video object-cover"/>
                             <div className="absolute top-2 left-2 flex flex-col gap-1">
                                 <span className="bg-white/90 backdrop-blur text-black text-[9px] font-black px-2 py-1 uppercase tracking-widest rounded-sm w-fit shadow-sm flex items-center gap-1">
                                     <Star size={8} fill="currentColor" /> {article.categories[0]}
@@ -389,7 +389,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                       {categoryArticles.map(article => (
                           <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block">
                               <div className="aspect-[3/2] overflow-hidden rounded-lg mb-3 relative bg-gray-100">
-                                  <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                  <img src={article.imageUrl} loading="lazy" alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                   <span className="absolute bottom-2 left-2 bg-black/60 backdrop-blur text-white text-[8px] font-bold px-2 py-1 rounded-sm uppercase tracking-widest flex items-center gap-1">
                                       <Star size={8} fill="currentColor"/> {article.categories[0]}
                                   </span>
