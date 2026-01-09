@@ -159,7 +159,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[500px]">
               
               {/* SLIDER COLUMN (2/3 width on desktop) */}
-              <div className="lg:col-span-2 w-full h-[400px] md:h-[500px] lg:h-full relative rounded-2xl overflow-hidden shadow-2xl bg-news-black group border border-gray-800"
+              <div className="lg:col-span-2 w-full h-[250px] sm:h-[350px] md:h-[500px] lg:h-full relative rounded-2xl overflow-hidden shadow-2xl bg-news-black group border border-gray-800"
                    onMouseEnter={() => setIsPaused(true)}
                    onMouseLeave={() => setIsPaused(false)}
               >
@@ -193,14 +193,14 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                     className="absolute inset-0 w-full h-full object-contain relative z-10 transition-transform duration-[4s] group-hover:scale-105"
                                   />
                                   
-                                  <div className="absolute top-5 left-5 md:top-8 md:left-8 z-30 pointer-events-none flex flex-col gap-2">
+                                  <div className="absolute top-3 left-3 md:top-8 md:left-8 z-30 pointer-events-none flex flex-col gap-2">
                                       <span className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-[7px] md:text-[8px] font-black px-2 py-1 md:px-3 md:py-1 uppercase tracking-[0.2em] shadow-lg inline-flex items-center gap-2 rounded-sm w-fit">
                                           <Star size={8} fill="currentColor" /> {article.categories[0]}
                                       </span>
                                   </div>
 
-                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 md:p-10 pt-24 flex flex-col justify-end items-start z-20">
-                                      <div className="flex items-center gap-3 mb-2 md:mb-3">
+                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 md:p-10 pt-20 md:pt-24 flex flex-col justify-end items-start z-20">
+                                      <div className="flex items-center gap-3 mb-1.5 md:mb-3">
                                           <div className="w-5 h-5 md:w-6 md:h-6 rounded-full border border-white/20 overflow-hidden bg-gray-800 shrink-0">
                                               <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
                                           </div>
@@ -215,7 +215,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                       </div>
 
                                       <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-xl md:max-w-2xl">
-                                          <h2 className="text-base md:text-3xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg">
+                                          <h2 className="text-lg md:text-3xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg line-clamp-2 md:line-clamp-none">
                                               {article.title}
                                           </h2>
                                       </Link>
