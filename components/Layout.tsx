@@ -6,6 +6,7 @@ import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
 import { supabase } from '../supabaseClient';
+import SearchModal from './SearchModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -85,6 +86,7 @@ const DesktopNavItem: React.FC<NavItemProps> = ({
 
 const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, onForceSync, lastSync, articles = [], categories = [] }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [time, setTime] = useState(new Date());
   
   const [weatherState, setWeatherState] = useState<WeatherState>(() => {
@@ -224,7 +226,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
              
              {/* LEFT: SPACER (Formerly Search) - Keeps layout balanced on desktop */}
              <div className="hidden md:block w-1/4">
-                 {/* Search Removed */}
+                 {/* Empty spacer for balance */}
              </div>
 
              {/* CENTER: LOGO - Left on Mobile, Center on Desktop */}
@@ -245,6 +247,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
              {/* RIGHT: WEATHER & SUBSCRIBE & MOBILE MENU */}
              <div className="w-auto md:w-1/4 flex justify-end items-center gap-3 md:gap-6 shrink-0">
                  
+                 {/* Mobile Search - Visible on small screens */}
+                 <button 
+                    onClick={() => setIsSearchOpen(true)} 
+                    className="md:hidden text-gray-500 hover:text-news-blue p-2 -mr-1"
+                 >
+                    <Search size={20} />
+                 </button>
+
                  {/* Mobile Weather Widget (Compact) - Visible on small screens */}
                  <button onClick={() => setIsWeatherModalOpen(true)} className="flex md:hidden items-center gap-1.5 text-right group border-r border-gray-100 pr-2 mr-1">
                     <div className="flex flex-col items-end gap-0.5">
@@ -295,6 +305,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       {/* DESKTOP NAVIGATION */}
       <nav className="hidden md:block bg-white border-b border-gray-200 sticky top-0 z-50">
          <div className="max-w-7xl mx-auto px-6 h-12 flex justify-center items-center gap-6 overflow-visible">
+             {/* Desktop Search Trigger - Left of Home */}
+             <button 
+                onClick={() => setIsSearchOpen(true)}
+                className="text-[9px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-colors duration-200 h-full border-b-2 border-transparent text-gray-500 hover:text-news-blue"
+             >
+                 <Search size={14} /> SEARCH
+             </button>
+
              <DesktopNavItem to="/" label="HOME" isActive={isActive('/')} onNavigate={onNavigate} />
              <DesktopNavItem to="/epaper" label="E-PAPER" icon={Newspaper} isActive={isActive('/epaper')} onNavigate={onNavigate} />
              
@@ -435,6 +453,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
             </div>
         </div>
       )}
+
+      {/* Global Search Modal */}
+      <SearchModal 
+        isOpen={isSearchOpen} 
+        onClose={() => setIsSearchOpen(false)} 
+        articles={articles || []}
+        onNavigate={onNavigate}
+      />
     </div>
   );
 };
