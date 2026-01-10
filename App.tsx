@@ -50,6 +50,43 @@ function App() {
     textColor: '#bfa17b'
   });
 
+  // --- ROUTING LOGIC ---
+  const getPathFromHash = () => {
+     const hash = window.location.hash;
+     if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('error=')) return '/auth-callback'; 
+     if (!hash || hash === '#') return '/';
+     return hash.startsWith('#') ? hash.slice(1) : hash;
+  };
+
+  const [currentPath, setCurrentPath] = useState(getPathFromHash());
+  
+  const navigate = (path: string) => {
+    window.location.hash = path;
+    setCurrentPath(path);
+    window.scrollTo(0, 0);
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+        const newPath = getPathFromHash();
+        if (newPath !== '/auth-callback') setCurrentPath(newPath);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // --- SAFETY LOADING TIMEOUT ---
+  // Ensures the app never gets stuck on the loading spinner
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.warn("Forcing loading completion due to timeout.");
+        setLoading(false);
+      }
+    }, 4000); // 4 seconds max wait time
+    return () => clearTimeout(timer);
+  }, [loading]);
+
   // --- REAL-TIME VISITOR TRACKING (PRESENCE) ---
   useEffect(() => {
     // Unique channel name for the app
@@ -79,9 +116,10 @@ function App() {
   }, [userRole]);
 
   // --- DEVICE MANAGEMENT (DB TABLE) ---
-  const fetchDevices = async () => {
-      if (!userId) return;
-      // Fetch from 'trusted_devices' table instead of metadata
+  const fetchDevices = async (uid?: string) => {
+      const targetId = uid || userId;
+      if (!targetId) return;
+      
       const { data, error } = await supabase.from('trusted_devices').select('*');
       if (data) {
           const currentId = getDeviceId();
@@ -168,22 +206,27 @@ function App() {
           } catch (e) { console.error("Failed to parse global settings", e); }
       }
 
-      // 2. Articles - use snake_case for DB columns in order()
-      // PERFORMANCE: Limit to 100 recent articles to prevent crashing
-      let { data: artData } = await supabase
+      // 2. Articles 
+      // PERFORMANCE: Limit to 100 recent articles. Use 'created_at' as reliable fallback sort.
+      let { data: artData, error: artError } = await supabase
         .from('articles')
         .select('*')
         .neq('id', GLOBAL_SETTINGS_ID)
-        .order('published_at', { ascending: false })
-        .limit(100); 
+        .order('created_at', { ascending: false }) // Fallback to created_at to avoid column name issues
+        .limit(100);
       
-      // 3. E-Paper - use snake_case for DB columns
-      // PERFORMANCE: Limit to 50 recent pages
+      if (artError) {
+          console.warn("Article fetch failed, retrying without sort order...", artError);
+          // Retry without sort if column missing
+          const retry = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).limit(50);
+          artData = retry.data;
+      }
+      
+      // 3. E-Paper
       let { data: pageData } = await supabase
         .from('epaper_pages')
         .select('*')
         .order('date', { ascending: false })
-        .order('page_number', { ascending: true })
         .limit(50);
 
       // 4. Classifieds & Ads
@@ -209,7 +252,7 @@ function App() {
           content: a.content,
           categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
           imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
-          publishedAt: a.publishedAt || a.published_at || new Date().toISOString(),
+          publishedAt: a.publishedAt || a.published_at || a.created_at || new Date().toISOString(),
           status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
           summary: a.summary,
           isPremium: a.isPremium || a.is_premium || false,
@@ -283,34 +326,14 @@ function App() {
     };
   }, [userId]);
 
-  // --- ROUTING LOGIC ---
-  const getPathFromHash = () => {
-     const hash = window.location.hash;
-     if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('error=')) return '/auth-callback'; 
-     if (!hash || hash === '#') return '/';
-     return hash.startsWith('#') ? hash.slice(1) : hash;
-  };
-
-  const [currentPath, setCurrentPath] = useState(getPathFromHash());
-  
-  const navigate = (path: string) => {
-    window.location.hash = path;
-    setCurrentPath(path);
-    window.scrollTo(0, 0);
-  };
-
-  useEffect(() => {
-    const handleHashChange = () => {
-        const newPath = getPathFromHash();
-        if (newPath !== '/auth-callback') setCurrentPath(newPath);
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
   const getProfile = async (uid: string) => {
-    const { data } = await supabase.from('profiles').select('role, full_name, avatar_url').eq('id', uid).single();
-    return data;
+    try {
+      const { data } = await supabase.from('profiles').select('role, full_name, avatar_url').eq('id', uid).maybeSingle();
+      return data;
+    } catch (e) {
+      console.warn("Profile fetch error", e);
+      return null;
+    }
   };
 
   useEffect(() => {
@@ -319,17 +342,15 @@ function App() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           const { user } = session;
-          // Fetch secure profile
           const profile = await getProfile(user.id);
           const meta = user.user_metadata;
 
           setUserId(user.id);
-          // Prefer profile data, fallback to metadata
           setUserName(profile?.full_name || meta.full_name || 'Staff');
           setUserRole((profile?.role as UserRole) || meta.role || UserRole.READER);
           setUserAvatar(profile?.avatar_url || meta.avatar_url || null);
           
-          await fetchDevices();
+          await fetchDevices(user.id);
         }
       } catch (err) {
         console.warn("Auth check failed:", err);
@@ -349,7 +370,13 @@ function App() {
         setUserName(profile?.full_name || meta.full_name || 'Staff');
         setUserRole((profile?.role as UserRole) || meta.role || UserRole.READER);
         setUserAvatar(profile?.avatar_url || meta.avatar_url || null);
-        fetchDevices(); 
+        fetchDevices(user.id);
+        
+        // Critical: Handle redirect if stuck on auth callback
+        const currentHash = window.location.hash;
+        if (currentHash.includes('access_token') || currentHash.includes('type=recovery')) {
+             navigate('/'); 
+        }
       } else {
         setUserId(null);
         setUserName(null);
