@@ -14,6 +14,7 @@ import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertiseme
 import { MOCK_ARTICLES, MOCK_EPAPER, APP_NAME } from './constants';
 import { generateId, getDeviceId, createSlug, getDeviceMetadata, getPublicIP } from './utils';
 import { supabase } from './supabaseClient';
+import { ShieldAlert, Smartphone, Monitor, Check, MapPin, Tablet } from 'lucide-react';
 
 // Use a fixed UUID for global settings to ensure compatibility with UUID columns in Supabase
 const GLOBAL_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
@@ -673,6 +674,13 @@ function App() {
       );
   }
 
+  // Calculate Primary Device Status for Global Popup
+  const currentDeviceId = getDeviceId();
+  const currentDeviceEntry = devices.find(d => d.id === currentDeviceId);
+  const isPrimary = currentDeviceEntry?.isPrimary ?? false;
+  // Get FIRST pending device only
+  const pendingDevice = devices.find(d => d.status === 'pending');
+
   const path = currentPath.toLowerCase();
   let content;
   
@@ -798,6 +806,7 @@ function App() {
   }
 
   return (
+    <>
     <Layout 
       currentRole={userRole} 
       onRoleChange={setUserRole} 
@@ -812,6 +821,55 @@ function App() {
     >
       {content}
     </Layout>
+
+    {/* GLOBAL SECURITY ALERT POPUP (PRIMARY DEVICE ONLY) */}
+    {isPrimary && pendingDevice && (
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-red-100">
+              <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
+                 <div className="p-2 bg-white/20 rounded-full animate-pulse"><ShieldAlert className="text-white" size={24} /></div>
+                 <div>
+                    <h3 className="text-white font-black uppercase tracking-widest text-sm">Security Alert</h3>
+                    <p className="text-red-100 text-xs">New Device Access Request</p>
+                 </div>
+              </div>
+              <div className="p-6">
+                 <div className="space-y-6">
+                      <div className="text-center">
+                         <p className="text-gray-600 text-sm">A new device is attempting to access your <b>{userRole}</b> workspace.</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
+                          <div className="flex items-center gap-3">
+                              <div className="bg-white p-2 rounded-full border border-gray-200 text-gray-500">
+                                 {pendingDevice.deviceType === 'mobile' ? <Smartphone size={20}/> : pendingDevice.deviceType === 'tablet' ? <Tablet size={20}/> : <Monitor size={20}/>}
+                              </div>
+                              <div>
+                                  <p className="font-bold text-gray-900 text-sm">{pendingDevice.deviceName}</p>
+                                  <p className="text-xs text-gray-500">{pendingDevice.browser}</p>
+                              </div>
+                          </div>
+                          <div className="border-t border-gray-200 pt-3 flex items-center gap-2 text-xs text-gray-500">
+                              <MapPin size={14}/> {pendingDevice.location}
+                          </div>
+                          <div className="text-[10px] text-gray-400 font-mono pt-1">ID: {pendingDevice.id.substring(0,8)}...</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                          <button onClick={() => handleRevokeDevice(pendingDevice.id)} className="py-3 rounded-lg border border-red-200 text-red-600 font-bold uppercase text-xs hover:bg-red-50 transition-colors">
+                              Block Access
+                          </button>
+                          <button onClick={() => handleUpdateDeviceStatus(pendingDevice.id, 'approved')} className="py-3 rounded-lg bg-green-600 text-white font-bold uppercase text-xs hover:bg-green-700 shadow-lg transition-colors flex items-center justify-center gap-2">
+                              <Check size={16}/> Approve
+                          </button>
+                      </div>
+                 </div>
+                 {devices.filter(d => d.status === 'pending').length > 1 && (
+                     <p className="text-center text-[10px] text-gray-400 mt-4">Queue: {devices.filter(d => d.status === 'pending').length} pending requests</p>
+                 )}
+              </div>
+           </div>
+        </div>
+    )}
+    </>
   );
 }
 

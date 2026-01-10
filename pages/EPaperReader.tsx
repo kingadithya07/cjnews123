@@ -505,23 +505,23 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                       </div>
                   </div>
                   
-                  {/* MOBILE SIDE-BY-SIDE SLIDER / DESKTOP GRID */}
-                  <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 overflow-x-auto md:overflow-visible gap-4 md:gap-10 pb-8 md:pb-20 snap-x snap-mandatory md:snap-none hide-scrollbar">
+                  {/* MOBILE: 2-COLUMN GRID | DESKTOP: 4-COLUMN GRID */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 pb-10">
                       {currentEditionPages.map((page, idx) => (
-                          <div key={page.id} onClick={() => { setActivePageIndex(idx); setViewMode('reader'); }} className="group cursor-pointer space-y-4 min-w-[85vw] md:min-w-0 snap-center shrink-0">
-                              <div className="relative aspect-[1/1.4] overflow-hidden rounded-xl border border-gray-200 shadow-sm transition-all duration-500 group-hover:scale-[1.03] group-hover:shadow-2xl bg-white">
+                          <div key={page.id} onClick={() => { setActivePageIndex(idx); setViewMode('reader'); }} className="group cursor-pointer space-y-2 md:space-y-4">
+                              <div className="relative aspect-[1/1.4] overflow-hidden rounded-lg md:rounded-xl border border-gray-200 shadow-sm transition-all duration-500 group-hover:scale-[1.03] group-hover:shadow-2xl bg-white">
                                   <img src={page.imageUrl} className="w-full h-full object-cover object-top transition-all duration-700" alt={`P${page.pageNumber}`} />
                                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                      <div className="bg-news-black text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 shadow-2xl">
-                                          <Maximize size={24} />
+                                      <div className="bg-news-black text-white p-3 md:p-4 rounded-full opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 shadow-2xl">
+                                          <Maximize size={20} className="md:w-6 md:h-6" />
                                       </div>
                                   </div>
-                                  <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm border border-gray-100 text-[10px] font-black px-2 py-1 rounded shadow-sm text-gray-600">
+                                  <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-white/90 backdrop-blur-sm border border-gray-100 text-[8px] md:text-[10px] font-black px-1.5 py-0.5 md:px-2 md:py-1 rounded shadow-sm text-gray-600">
                                       P. {page.pageNumber}
                                   </div>
                               </div>
                               <div className="text-center">
-                                <p className="text-[10px] font-black tracking-[0.3em] text-gray-400 group-hover:text-news-accent transition-colors uppercase">Page {page.pageNumber}</p>
+                                <p className="text-[8px] md:text-[10px] font-black tracking-[0.3em] text-gray-400 group-hover:text-news-accent transition-colors uppercase">Page {page.pageNumber}</p>
                               </div>
                           </div>
                       ))}
