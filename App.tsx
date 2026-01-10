@@ -206,20 +206,47 @@ function App() {
           } catch (e) { console.error("Failed to parse global settings", e); }
       }
 
-      // 2. Articles 
-      // PERFORMANCE: Limit to 100 recent articles. Use 'created_at' as reliable fallback sort.
-      let { data: artData, error: artError } = await supabase
+      // 2. Articles - Robust Fetch Strategy with Fallbacks
+      let artData: any[] | null = null;
+      let artError: any = null;
+
+      // Attempt 1: Sort by published_at (Preferred)
+      const res1 = await supabase
         .from('articles')
         .select('*')
         .neq('id', GLOBAL_SETTINGS_ID)
-        .order('created_at', { ascending: false }) // Fallback to created_at to avoid column name issues
+        .order('published_at', { ascending: false })
         .limit(100);
       
-      if (artError) {
-          console.warn("Article fetch failed, retrying without sort order...", artError);
-          // Retry without sort if column missing
-          const retry = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).limit(50);
-          artData = retry.data;
+      if (!res1.error) {
+          artData = res1.data;
+      } else {
+          console.warn("Fetch (published_at) failed, trying created_at...", res1.error);
+          // Attempt 2: Sort by created_at (System default)
+          const res2 = await supabase
+            .from('articles')
+            .select('*')
+            .neq('id', GLOBAL_SETTINGS_ID)
+            .order('created_at', { ascending: false })
+            .limit(100);
+            
+          if (!res2.error) {
+              artData = res2.data;
+          } else {
+              console.warn("Fetch (created_at) failed, trying raw...", res2.error);
+              // Attempt 3: Raw fetch (No sort)
+              const res3 = await supabase
+                .from('articles')
+                .select('*')
+                .neq('id', GLOBAL_SETTINGS_ID)
+                .limit(50);
+              
+              if (!res3.error) {
+                  artData = res3.data;
+              } else {
+                  console.error("CRITICAL: All article fetch attempts failed.", res3.error);
+              }
+          }
       }
       
       // 3. E-Paper
@@ -239,64 +266,77 @@ function App() {
       }
 
       // --- MAPPING LAYER ---
+      // Robustly map data handling potential variations in column naming (snake_case vs camelCase)
       if (artData) {
-        setArticles(artData.map(a => ({
-          id: a.id,
-          userId: a.user_id, // Map database column to type
-          slug: a.slug, // Map slug
-          title: a.title,
-          englishTitle: a.english_title || undefined, // Map English Title
-          subline: a.subline,
-          author: a.author || 'Unknown', // Safe fallback
-          authorAvatar: a.authorAvatar || a.author_avatar,
-          content: a.content,
-          categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
-          imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
-          publishedAt: a.publishedAt || a.published_at || a.created_at || new Date().toISOString(),
-          status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
-          summary: a.summary,
-          isPremium: a.isPremium || a.is_premium || false,
-          isFeatured: a.isFeatured || a.is_featured || false,
-          isEditorsChoice: a.isEditorsChoice || a.is_editors_choice || false,
-          views: a.views || 0 // Map views from DB
-        })) as Article[]);
+        setArticles(artData.map((a: any) => {
+            // Categories: Handle array, comma-separated string, or undefined
+            let catArray: string[] = ['General'];
+            const rawCat = a.categories || a.category;
+            
+            if (Array.isArray(rawCat)) {
+                catArray = rawCat;
+            } else if (typeof rawCat === 'string') {
+                catArray = rawCat.split(',').map(s => s.trim()).filter(Boolean);
+            }
+
+            return {
+              id: a.id,
+              userId: a.user_id || a.userId, 
+              slug: a.slug,
+              title: a.title,
+              englishTitle: a.english_title || a.englishTitle,
+              subline: a.subline,
+              author: a.author || 'Unknown',
+              authorAvatar: a.author_avatar || a.authorAvatar,
+              content: a.content || '',
+              categories: catArray.length > 0 ? catArray : ['General'],
+              imageUrl: a.image_url || a.imageUrl || 'https://placehold.co/800x400?text=No+Image',
+              publishedAt: a.published_at || a.publishedAt || a.created_at || new Date().toISOString(),
+              status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
+              summary: a.summary,
+              isPremium: a.is_premium || a.isPremium || false,
+              isFeatured: a.is_featured || a.isFeatured || false,
+              isEditorsChoice: a.is_editors_choice || a.isEditorsChoice || false,
+              views: a.views || 0
+            };
+        }) as Article[]);
       }
 
       if (pageData) {
-        setEPaperPages(pageData.map(p => ({
+        setEPaperPages(pageData.map((p: any) => ({
           id: p.id,
           date: p.date,
-          pageNumber: p.pageNumber !== undefined ? p.pageNumber : (p.page_number !== undefined ? p.page_number : 1),
-          imageUrl: p.imageUrl || p.image_url || 'https://placehold.co/600x800?text=No+Scan',
+          pageNumber: p.page_number !== undefined ? p.page_number : (p.pageNumber !== undefined ? p.pageNumber : 1),
+          imageUrl: p.image_url || p.imageUrl || 'https://placehold.co/600x800?text=No+Scan',
           regions: []
         })) as EPaperPage[]);
       }
 
       if (clsData) {
-        setClassifieds(clsData.map(c => ({
+        setClassifieds(clsData.map((c: any) => ({
           id: c.id,
           title: c.title,
           category: c.category,
           content: c.content,
           price: c.price,
           location: c.location,
-          contactInfo: c.contactInfo || c.contact_info,
-          postedAt: c.postedAt || c.posted_at || new Date().toISOString()
+          contactInfo: c.contact_info || c.contactInfo,
+          postedAt: c.posted_at || c.postedAt || new Date().toISOString()
         })) as ClassifiedAd[]);
       }
 
       if (adData) {
-        setAdvertisements(adData.map(ad => ({
+        setAdvertisements(adData.map((ad: any) => ({
           id: ad.id,
-          imageUrl: ad.imageUrl || ad.image_url,
-          linkUrl: ad.linkUrl || ad.link_url,
+          imageUrl: ad.image_url || ad.imageUrl,
+          linkUrl: ad.link_url || ad.linkUrl,
           title: ad.title,
           size: ad.size,
           customWidth: ad.customWidth, 
           customHeight: ad.customHeight,
           placement: ad.placement,
           targetCategory: ad.targetCategory,
-          isActive: ad.isActive !== undefined ? ad.isActive : (ad.is_active !== undefined ? ad.is_active : true)
+          isActive: ad.is_active !== undefined ? ad.is_active : (ad.isActive !== undefined ? ad.isActive : true)
         })) as Advertisement[]);
       }
 

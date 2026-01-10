@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, EPaperPage, Advertisement } from '../types';
-import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, ArrowLeft, Newspaper, Calendar, X, Filter } from 'lucide-react';
+import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, ArrowLeft, Newspaper, Calendar, X, Filter, AlertTriangle } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
@@ -199,7 +199,27 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
         globalAdsEnabled={globalAdsEnabled}
       />
 
+      {/* --- EMPTY STATE HANDLER --- */}
+      {articles.length === 0 && (
+          <div className="max-w-7xl mx-auto px-4 md:px-0 py-20 text-center">
+              <div className="inline-flex items-center justify-center p-6 bg-yellow-50 rounded-full mb-6">
+                  <AlertTriangle size={48} className="text-yellow-600 opacity-80" />
+              </div>
+              <h2 className="text-2xl font-serif font-bold text-gray-900 mb-2">Newsroom Offline</h2>
+              <p className="text-gray-500 max-w-md mx-auto text-sm mb-8">
+                  We are unable to retrieve the latest dispatches from the database. This may be due to a network connection issue or system maintenance.
+              </p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="bg-news-black text-white px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors shadow-lg"
+              >
+                  Retry Connection
+              </button>
+          </div>
+      )}
+
       {/* --- TOP SECTION: SLIDER & E-PAPER PREVIEW --- */}
+      {articles.length > 0 && (
       <div className="max-w-7xl mx-auto px-4 md:px-0">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[500px]">
               
@@ -337,8 +357,10 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
               </div>
           </div>
       </div>
+      )}
 
       {/* --- TRENDING / LATEST NEWS SECTION (Downside of Slider) --- */}
+      {articles.length > 0 && (
       <div className="max-w-7xl mx-auto px-4 md:px-0">
            <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-3">
                <TrendingUp className="text-news-accent" size={20}/>
@@ -367,14 +389,18 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                ))}
            </div>
       </div>
+      )}
 
+      {articles.length > 0 && (
       <AdvertisementBanner 
         ads={advertisements} 
         size="BILLBOARD" 
         placement="HOME" 
         globalAdsEnabled={globalAdsEnabled}
       />
+      )}
 
+      {articles.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 px-4 md:px-0 max-w-7xl mx-auto">
         
         {/* LEFT COLUMN (Main Feed) */}
@@ -405,6 +431,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
              <AdvertisementBanner ads={advertisements} size="RECTANGLE" placement="HOME" globalAdsEnabled={globalAdsEnabled} className="!my-0"/>
         </div>
       </div>
+      )}
 
       {/* --- CATEGORY SECTIONS (Below Main Fold) --- */}
       {homeCategorySections.map(category => {
