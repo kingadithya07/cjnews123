@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, KeyRound, Copy, RotateCw } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, KeyRound, Copy, RotateCw, Eye, EyeOff } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
 import { getDeviceId, getDeviceMetadata } from '../utils';
@@ -23,6 +23,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.READER);
   const [avatar, setAvatar] = useState<string | null>(null);
@@ -332,12 +333,19 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                     <div className="relative">
                         <Lock className="absolute left-3 top-3.5 text-gray-400" size={16}/>
                         <input 
-                            type="password" 
+                            type={showPassword ? "text" : "password"} 
                             required 
                             value={password} 
                             onChange={e => setPassword(e.target.value)} 
-                            className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
+                            className="w-full pl-10 pr-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
                         />
+                        <button 
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-3.5 text-gray-400 hover:text-news-black transition-colors"
+                        >
+                            {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
+                        </button>
                     </div>
                  </div>
 

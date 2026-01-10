@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Mail
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, EyeOff, Mail
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -127,6 +127,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [profileName, setProfileName] = useState(userName || '');
   const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isSavingBranding, setIsSavingBranding] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
@@ -848,12 +849,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       <div className="relative">
                                           <Key className="absolute left-3 top-3.5 text-gray-400" size={16} />
                                           <input 
-                                              type="password" 
+                                              type={showPassword ? "text" : "password"} 
                                               value={newPassword} 
                                               onChange={e => setNewPassword(e.target.value)} 
-                                              className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all font-bold" 
+                                              className="w-full pl-10 pr-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all font-bold" 
                                               placeholder="Enter New Master Password" 
                                           />
+                                          <button 
+                                              onClick={() => setShowPassword(!showPassword)} 
+                                              className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                                          >
+                                              {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
+                                          </button>
                                       </div>
                                   </div>
                                   <button 

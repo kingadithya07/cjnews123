@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles, Key } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, EyeOff, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles, Key } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -50,6 +50,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [profileName, setProfileName] = useState(userName || '');
   const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [isSavingDevices, setIsSavingDevices] = useState(false);
@@ -487,7 +488,19 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Change Password</label>
                                     <div className="relative">
                                         <Lock className="absolute left-3 top-3.5 text-gray-400" size={16} />
-                                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" placeholder="New Password" />
+                                        <input 
+                                            type={showPassword ? "text" : "password"} 
+                                            value={newPassword} 
+                                            onChange={e => setNewPassword(e.target.value)} 
+                                            className="w-full pl-10 pr-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" 
+                                            placeholder="New Password" 
+                                        />
+                                        <button 
+                                            onClick={() => setShowPassword(!showPassword)} 
+                                            className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                                        >
+                                            {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
+                                        </button>
                                     </div>
                                 </div>
                                 <div className="pt-6">
@@ -531,6 +544,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                                   <div className="flex items-center gap-2 flex-wrap">
                                                       <span className="font-bold text-sm text-gray-900 truncate">{device.deviceName}</span>
                                                       {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">THIS DEVICE</span>}
+                                                      {device.isPrimary && <span className="bg-green-100 text-green-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PRIMARY DEVICE</span>}
                                                       {device.status === 'pending' && <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PENDING</span>}
                                                   </div>
                                                   <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 items-center">

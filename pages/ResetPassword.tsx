@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, Mail, RefreshCw, Smartphone, ShieldAlert } from 'lucide-react';
+import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, Mail, RefreshCw, Smartphone, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { TrustedDevice } from '../types';
 import { getDeviceId } from '../utils';
 
@@ -16,6 +16,10 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [inputCode, setInputCode] = useState('');
+    
+    // Visibility Toggles
+    const [showPass, setShowPass] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -260,21 +264,29 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                 </div>
                                 
                                 <div className="border-t border-gray-100 pt-5 mt-5">
-                                    <div>
+                                    <div className="relative">
                                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">New Secure Password</label>
                                         <input 
-                                            type="password" required value={password} onChange={e => setPassword(e.target.value)}
-                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
+                                            type={showPass ? "text" : "password"} 
+                                            required value={password} onChange={e => setPassword(e.target.value)}
+                                            className="w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
                                             placeholder="••••••••"
                                         />
+                                        <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-8 text-gray-400 hover:text-gray-600">
+                                            {showPass ? <EyeOff size={18}/> : <Eye size={18}/>}
+                                        </button>
                                     </div>
-                                    <div className="mt-4">
+                                    <div className="mt-4 relative">
                                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Confirm Password</label>
                                         <input 
-                                            type="password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
+                                            type={showConfirm ? "text" : "password"} 
+                                            required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                                            className="w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
                                             placeholder="••••••••"
                                         />
+                                        <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-8 text-gray-400 hover:text-gray-600">
+                                            {showConfirm ? <EyeOff size={18}/> : <Eye size={18}/>}
+                                        </button>
                                     </div>
                                 </div>
                                 
@@ -311,21 +323,29 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                      </div>
                                 </div>
 
-                                <div>
+                                <div className="relative">
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">New Secure Password</label>
                                     <input 
-                                        type="password" required value={password} onChange={e => setPassword(e.target.value)}
-                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
+                                        type={showPass ? "text" : "password"}
+                                        required value={password} onChange={e => setPassword(e.target.value)}
+                                        className="w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
                                         placeholder="••••••••"
                                     />
+                                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-8 text-gray-400 hover:text-gray-600">
+                                        {showPass ? <EyeOff size={18}/> : <Eye size={18}/>}
+                                    </button>
                                 </div>
-                                <div className="mt-4">
+                                <div className="mt-4 relative">
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Confirm Password</label>
                                     <input 
-                                        type="password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
+                                        type={showConfirm ? "text" : "password"}
+                                        required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                                        className="w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"
                                         placeholder="••••••••"
                                     />
+                                    <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-8 text-gray-400 hover:text-gray-600">
+                                        {showConfirm ? <EyeOff size={18}/> : <Eye size={18}/>}
+                                    </button>
                                 </div>
                                 
                                 <button 

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Shield, Feather, Lock, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, RotateCw, Mail, Server } from 'lucide-react';
+import { Shield, Feather, Lock, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, RotateCw, Mail, Server, Eye, EyeOff } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
 import { getDeviceId, getDeviceMetadata } from '../utils';
@@ -21,6 +21,7 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<string | null>(null);
   const [otp, setOtp] = useState('');
@@ -293,7 +294,21 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-4.5 text-gray-500" size={18}/>
-                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" placeholder="Station Key" />
+                <input 
+                    type={showPassword ? "text" : "password"} 
+                    required 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-12 focus:border-news-gold outline-none transition-all" 
+                    placeholder="Station Key" 
+                />
+                <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-4.5 text-gray-500 hover:text-white transition-colors"
+                >
+                    {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+                </button>
               </div>
               <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${activeTab === 'admin' ? 'bg-red-600 text-white' : activeTab === 'editor' ? 'bg-news-gold text-black' : 'bg-blue-600 text-white'}`}>
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'INITIATE ENROLLMENT' : 'STAFF HANDSHAKE'} <ArrowRight size={18}/></>}
