@@ -42,12 +42,21 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
         }
     };
     checkExistingSession();
-  }, [existingDevices]);
+  }, [existingDevices]); // Keep dependency for re-trigger if props change, though we fetch fresh data inside
 
-  const handleSessionFound = (session: any) => {
+  const handleSessionFound = async (session: any) => {
     const currentId = getDeviceId();
-    const userDevices = existingDevices.filter(d => d.userId === session.user.id);
-    const thisDevice = userDevices.find(d => d.id === currentId);
+    
+    // CRITICAL FIX: Fetch fresh device list for this specific user directly from DB.
+    // Do not rely solely on 'existingDevices' prop as it might be stale or empty on first load.
+    const { data: freshDevices, error } = await supabase
+        .from('trusted_devices')
+        .select('*')
+        .eq('user_id', session.user.id);
+
+    // If DB fetch fails, fall back to props, but prefer fresh data
+    const userDevices = freshDevices || existingDevices.filter(d => d.userId === session.user.id);
+    const thisDevice = userDevices.find((d: any) => d.id === currentId);
 
     if (userDevices.length > 0) {
         if (thisDevice && thisDevice.status === 'approved') {
@@ -56,6 +65,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
             setPendingUser(session.user);
             setMode('awaiting_approval');
         } else {
+            // User has devices, but THIS one is new -> It is SECONDARY (Pending)
             const meta = getDeviceMetadata();
             onAddDevice({
                 id: currentId,
@@ -73,6 +83,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
             setMode('awaiting_approval');
         }
     } else {
+        // No devices found for this user in DB -> This is the FIRST device -> PRIMARY
         const meta = getDeviceMetadata();
         onAddDevice({
             id: currentId,

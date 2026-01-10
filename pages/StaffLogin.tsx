@@ -51,10 +51,17 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
     return () => clearInterval(interval);
   }, [isAwaitingApproval, existingDevices, pendingUser]);
 
-  const handleSessionFound = (session: any) => {
+  const handleSessionFound = async (session: any) => {
     const currentId = getDeviceId();
-    const userDevices = existingDevices.filter(d => d.userId === session.user.id);
-    const thisDevice = userDevices.find(d => d.id === currentId);
+    
+    // Fetch fresh device list directly from DB for accurate Primary determination
+    const { data: freshDevices, error } = await supabase
+        .from('trusted_devices')
+        .select('*')
+        .eq('user_id', session.user.id);
+
+    const userDevices = freshDevices || existingDevices.filter((d: any) => d.userId === session.user.id);
+    const thisDevice = userDevices.find((d: any) => d.id === currentId);
 
     if (userDevices.length > 0) {
         if (thisDevice && thisDevice.status === 'approved') {
@@ -100,6 +107,7 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
   const checkApprovalStatus = () => {
     if (!pendingUser) return;
     const currentId = getDeviceId();
+    // Re-check prop for updates (handled by parent polling/subscription)
     const approved = existingDevices.find(d => d.id === currentId && d.userId === pendingUser.id && d.status === 'approved');
     if (approved) {
         finalizeLogin(pendingUser);
