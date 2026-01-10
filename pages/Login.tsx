@@ -48,8 +48,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   const handleSessionFound = async (session: any) => {
     const currentId = getDeviceId();
     
-    // CRITICAL FIX: Fetch fresh device list for this specific user directly from DB.
-    // Do not rely solely on 'existingDevices' prop as it might be stale or empty on first load.
+    // Fetch fresh device list for this specific user directly from DB.
     const { data: freshDevices, error } = await supabase
         .from('trusted_devices')
         .select('*')
@@ -60,35 +59,27 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     const thisDevice = userDevices.find((d: any) => d.id === currentId);
 
     if (userDevices.length > 0) {
-        if (thisDevice && thisDevice.status === 'approved') {
-            finalizeLogin(session.user);
-        } else if (thisDevice && thisDevice.status === 'pending') {
-            setPendingUser(session.user);
-            setMode('awaiting_approval');
-        } else {
-            // User has devices, but THIS one is new -> It is SECONDARY (Pending)
-            const meta = getDeviceMetadata();
-            try {
-                await onAddDevice({
-                    id: currentId,
-                    userId: session.user.id,
-                    deviceName: meta.name,
-                    deviceType: meta.type,
-                    location: 'New Detected Station',
-                    lastActive: 'Just Now',
-                    isCurrent: true,
-                    isPrimary: false,
-                    status: 'pending',
-                    browser: meta.browser
-                });
-            } catch (e) {
-                console.error("Failed to register device", e);
+        // User has at least one device registered.
+        
+        if (thisDevice) {
+            // This device is known. Check status.
+            if (thisDevice.status === 'approved') {
+                finalizeLogin(session.user);
+            } else {
+                // Device exists but is pending or blocked
+                setPendingUser(session.user);
+                setMode('awaiting_approval');
             }
-            setPendingUser(session.user);
-            setMode('awaiting_approval');
+        } else {
+            // CRITICAL CHANGE: This is an unknown device (Secondary).
+            // Do NOT automatically add it to the database. 
+            // Allow login (Ephemeral Session) but do not list as trusted.
+            // Verification happened via Email/Password (Primary Account credentials).
+            finalizeLogin(session.user);
         }
     } else {
         // No devices found for this user in DB -> This is the FIRST device -> PRIMARY
+        // Only the very first device is auto-registered as Trusted/Primary.
         const meta = getDeviceMetadata();
         try {
             await onAddDevice({

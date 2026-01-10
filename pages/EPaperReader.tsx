@@ -162,9 +162,18 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
   const handleTouchStart = (e: React.TouchEvent) => {
       isTouchInteraction.current = true;
-      if (e.touches.length === 1 && scale > 1) {
-          touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, originX: position.x, originY: position.y, dist: 0, initialScale: scale };
+      if (e.touches.length === 1) {
+          // Track single touch start for both Panning (if scale > 1) AND Swiping (if scale == 1)
+          touchStartRef.current = { 
+              x: e.touches[0].clientX, 
+              y: e.touches[0].clientY, 
+              originX: position.x, 
+              originY: position.y, 
+              dist: 0, 
+              initialScale: scale 
+          };
       } else if (e.touches.length === 2) {
+          // Pinch Zoom
           const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
           touchStartRef.current = { x: 0, y: 0, originX: position.x, originY: position.y, dist: dist, initialScale: scale };
       }
@@ -172,6 +181,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
   const handleTouchMove = (e: React.TouchEvent) => {
       if (!touchStartRef.current) return;
+      
+      // Pinch Zoom Logic
       if (e.touches.length === 2) {
           e.preventDefault();
           const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -180,6 +191,8 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
           setScale(newScale);
           return;
       }
+
+      // Pan Logic (Only if zoomed in)
       if (e.touches.length === 1 && scale > 1) {
            if (e.cancelable) e.preventDefault(); 
            const deltaX = e.touches[0].clientX - touchStartRef.current.x;
@@ -190,7 +203,24 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
       }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+      // Swipe Navigation Logic (Only if NOT zoomed)
+      if (touchStartRef.current && scale === 1) {
+          const endX = e.changedTouches[0].clientX;
+          const diff = endX - touchStartRef.current.x;
+          
+          // Threshold for swipe (e.g., 50px)
+          if (Math.abs(diff) > 50) {
+              if (diff > 0) {
+                  // Swipe Right -> Prev Page
+                  setActivePageIndex(prev => Math.max(0, prev - 1));
+              } else {
+                  // Swipe Left -> Next Page
+                  setActivePageIndex(prev => Math.min(currentEditionPages.length - 1, prev + 1));
+              }
+          }
+      }
+
       touchStartRef.current = null;
       setTimeout(() => { isTouchInteraction.current = false; }, 500);
   };
@@ -466,9 +496,11 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                           />
                       </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 pb-20">
+                  
+                  {/* MOBILE SIDE-BY-SIDE SLIDER / DESKTOP GRID */}
+                  <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 overflow-x-auto md:overflow-visible gap-4 md:gap-10 pb-8 md:pb-20 snap-x snap-mandatory md:snap-none hide-scrollbar">
                       {currentEditionPages.map((page, idx) => (
-                          <div key={page.id} onClick={() => { setActivePageIndex(idx); setViewMode('reader'); }} className="group cursor-pointer space-y-4">
+                          <div key={page.id} onClick={() => { setActivePageIndex(idx); setViewMode('reader'); }} className="group cursor-pointer space-y-4 min-w-[85vw] md:min-w-0 snap-center shrink-0">
                               <div className="relative aspect-[1/1.4] overflow-hidden rounded-xl border border-gray-200 shadow-sm transition-all duration-500 group-hover:scale-[1.03] group-hover:shadow-2xl bg-white">
                                   <img src={page.imageUrl} className="w-full h-full object-cover object-top transition-all duration-700" alt={`P${page.pageNumber}`} />
                                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">

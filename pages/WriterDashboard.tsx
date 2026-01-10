@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, EyeOff, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles, Key, Mail } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, EyeOff, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles, Key, Mail, ShieldAlert } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -60,6 +60,10 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   // Custom API State
   const [customApiKey, setCustomApiKey] = useState('');
   const [showKeyInput, setShowKeyInput] = useState(false);
+
+  // Identify Current Device & Status
+  const currentDevice = devices.find(d => d.isCurrent);
+  const isPrimaryDevice = currentDevice?.isPrimary || false;
 
   // Load custom key on mount
   useEffect(() => {
@@ -315,6 +319,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
 
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
               {activeTab === 'articles' && (
+                  /* Articles List - Same as before */
                   <div className="max-w-6xl mx-auto">
                       <div className="flex justify-between items-center mb-6">
                            <h1 className="font-serif text-2xl md:text-3xl font-bold text-gray-900 hidden md:block">My Articles</h1>
@@ -329,51 +334,28 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                            {myArticles.map(article => (
                                <div key={article.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col">
                                    <div className="flex p-3 gap-3">
-                                       {/* Thumbnail */}
                                        <div className="w-20 h-20 bg-gray-100 rounded-md shrink-0 overflow-hidden relative">
                                            <img src={article.imageUrl} className="w-full h-full object-cover" alt={article.title} />
-                                           {article.isFeatured && (
-                                              <div className="absolute top-0 right-0 bg-news-accent text-white p-0.5 rounded-bl-md shadow-sm">
-                                                  <Star size={10} fill="currentColor" />
-                                              </div>
-                                           )}
+                                           {article.isFeatured && <div className="absolute top-0 right-0 bg-news-accent text-white p-0.5 rounded-bl-md shadow-sm"><Star size={10} fill="currentColor" /></div>}
                                        </div>
-                                       
-                                       {/* Content */}
                                        <div className="flex-1 min-w-0 flex flex-col justify-between">
                                            <div>
                                                <div className="flex items-center gap-2 mb-1">
-                                                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                       {article.status}
-                                                   </span>
+                                                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{article.status}</span>
                                                    <span className="text-[10px] text-gray-400 font-bold uppercase truncate">{article.categories[0]}</span>
                                                </div>
                                                <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{article.title}</h3>
                                            </div>
-                                           <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                                               <Clock size={10} /> {new Date(article.publishedAt).toLocaleDateString()}
-                                           </div>
+                                           <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-1"><Clock size={10} /> {new Date(article.publishedAt).toLocaleDateString()}</div>
                                        </div>
                                    </div>
-
-                                   {/* Actions */}
                                    <div className="grid grid-cols-2 border-t border-gray-100 divide-x divide-gray-100">
-                                       <button onClick={() => openEditArticle(article)} className="py-2.5 text-center text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2">
-                                           <PenSquare size={14}/> Edit
-                                       </button>
-                                       {onDelete && (
-                                           <button onClick={() => handleDelete(article.id)} className="py-2.5 text-center text-xs font-bold text-red-500 hover:bg-red-50 flex items-center justify-center gap-2">
-                                               <Trash2 size={14}/> Delete
-                                           </button>
-                                       )}
+                                       <button onClick={() => openEditArticle(article)} className="py-2.5 text-center text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"><PenSquare size={14}/> Edit</button>
+                                       {onDelete && <button onClick={() => handleDelete(article.id)} className="py-2.5 text-center text-xs font-bold text-red-500 hover:bg-red-50 flex items-center justify-center gap-2"><Trash2 size={14}/> Delete</button>}
                                    </div>
                                </div>
                            ))}
-                           {myArticles.length === 0 && (
-                               <div className="text-center py-10 text-gray-400 bg-white rounded border border-dashed">
-                                   <p className="text-sm">No articles found in your workspace.</p>
-                               </div>
-                           )}
+                           {myArticles.length === 0 && <div className="text-center py-10 text-gray-400 bg-white rounded border border-dashed"><p className="text-sm">No articles found in your workspace.</p></div>}
                       </div>
 
                       {/* Desktop Table View */}
@@ -410,18 +392,12 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-3">
                                                     <button onClick={() => openEditArticle(article)} className="text-blue-600 font-bold text-xs uppercase hover:text-blue-800">Edit</button>
-                                                    {onDelete && (
-                                                        <button onClick={() => handleDelete(article.id)} className="text-red-500 font-bold text-xs uppercase hover:text-red-700">Delete</button>
-                                                    )}
+                                                    {onDelete && <button onClick={() => handleDelete(article.id)} className="text-red-500 font-bold text-xs uppercase hover:text-red-700">Delete</button>}
                                                 </div>
                                             </td>
                                         </tr>
                                     ))}
-                                    {myArticles.length === 0 && (
-                                        <tr>
-                                            <td colSpan={4} className="px-6 py-10 text-center text-gray-400">No articles yet. Click "Add New" to start writing.</td>
-                                        </tr>
-                                    )}
+                                    {myArticles.length === 0 && <tr><td colSpan={4} className="px-6 py-10 text-center text-gray-400">No articles yet. Click "Add New" to start writing.</td></tr>}
                                 </tbody>
                           </table>
                       </div>
@@ -508,7 +484,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                     <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-xs text-gray-500 outline-none" placeholder="Or paste image URL..." />
                                 </div>
                              </div>
-                             <div className="space-y-4">
+                             <div className={`space-y-4 ${!isPrimaryDevice ? 'opacity-50 pointer-events-none' : ''}`}>
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Change Password</label>
                                     <div className="relative">
@@ -519,14 +495,21 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                             onChange={e => setNewPassword(e.target.value)} 
                                             className="w-full pl-10 pr-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" 
                                             placeholder="New Password" 
+                                            disabled={!isPrimaryDevice}
                                         />
                                         <button 
                                             onClick={() => setShowPassword(!showPassword)} 
                                             className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                                            disabled={!isPrimaryDevice}
                                         >
                                             {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
                                         </button>
                                     </div>
+                                    {!isPrimaryDevice && (
+                                        <p className="text-[10px] text-red-500 mt-2 flex items-center gap-1 font-bold">
+                                            <ShieldAlert size={12}/> Security Restricted: Primary Device Only
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="pt-6">
                                     <button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full bg-news-black text-news-gold py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg">
@@ -582,7 +565,8 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                               </div>
                                           </div>
                                           <div className="w-full md:w-auto flex justify-end gap-2">
-                                              {device.status === 'approved' && onRevokeDevice && (
+                                              {/* Only Primary Device can delete other trusted devices */}
+                                              {isPrimaryDevice && device.status === 'approved' && !device.isCurrent && onRevokeDevice && (
                                                   <button 
                                                     onClick={() => onRevokeDevice(device.id)} 
                                                     className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"

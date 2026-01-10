@@ -65,33 +65,24 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
     const thisDevice = userDevices.find((d: any) => d.id === currentId);
 
     if (userDevices.length > 0) {
-        if (thisDevice && thisDevice.status === 'approved') {
-            finalizeLogin(session.user);
-        } else if (thisDevice && thisDevice.status === 'pending') {
-            setPendingUser(session.user);
-            setIsAwaitingApproval(true);
-        } else {
-            const meta = getDeviceMetadata();
-            try {
-                await onAddDevice({
-                    id: currentId,
-                    userId: session.user.id,
-                    deviceName: meta.name,
-                    deviceType: meta.type,
-                    location: 'Remote Station',
-                    lastActive: 'Just Now',
-                    isCurrent: true,
-                    isPrimary: false, 
-                    status: 'pending',
-                    browser: meta.browser
-                });
-            } catch (e) {
-                console.error("Failed to register staff device", e);
+        // User has registered devices
+        if (thisDevice) {
+            // Known device
+            if (thisDevice.status === 'approved') {
+                finalizeLogin(session.user);
+            } else {
+                // Known but blocked/pending
+                setPendingUser(session.user);
+                setIsAwaitingApproval(true);
             }
-            setPendingUser(session.user);
-            setIsAwaitingApproval(true);
+        } else {
+            // UNKNOWN DEVICE (SECONDARY).
+            // Do NOT automatically register. 
+            // Allow login because user has credentials, but do not trust the device.
+            finalizeLogin(session.user);
         }
     } else {
+        // First device ever -> Register as Primary
         const meta = getDeviceMetadata();
         try {
             await onAddDevice({

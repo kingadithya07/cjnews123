@@ -11,7 +11,7 @@ interface ResetPasswordProps {
 }
 
 const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] }) => {
-    const [step, setStep] = useState<'check' | 'identify' | 'verify' | 'reset'>('check');
+    const [step, setStep] = useState<'identify' | 'verify' | 'reset'>('identify');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,29 +27,16 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
     
     // Check device trust on mount
     useEffect(() => {
-        const checkDeviceTrust = async () => {
+        const checkSession = async () => {
              const { data: { session } } = await supabase.auth.getSession();
              if (session) {
                  // If already logged in via magic link, skip check
                  setStep('reset');
                  setEmail(session.user.email || '');
-                 return;
-             }
-
-             const currentDeviceId = getDeviceId();
-             // Check if this device is approved for ANY user (proxy check since we don't know user ID yet)
-             // In a real app, you'd identify user first, then check device. 
-             // Here we enforce that the device must be known to the system.
-             const isDeviceKnownAndApproved = devices.some(d => d.id === currentDeviceId && d.status === 'approved');
-
-             if (isDeviceKnownAndApproved) {
-                 setStep('identify');
-             } else {
-                 setStep('check'); // Stays on check/block screen
              }
         };
-        checkDeviceTrust();
-    }, [devices]);
+        checkSession();
+    }, []);
 
     const handleSendResetCode = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -176,29 +163,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                             </div>
                         )}
 
-                        {step === 'check' && (
-                             <div className="text-center space-y-6">
-                                <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
-                                    <ShieldAlert size={40} className="mx-auto text-red-500 mb-4" />
-                                    <h3 className="font-bold text-red-900 mb-2">Device Not Trusted</h3>
-                                    <p className="text-xs text-red-700 leading-relaxed">
-                                        You are attempting to reset a password from an unauthorized device. Security protocols require you to approve this device from your <b>Primary Device</b> first.
-                                    </p>
-                                </div>
-                                
-                                <button 
-                                    onClick={() => onNavigate('/login')}
-                                    className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 shadow-xl transition-all flex items-center justify-center gap-3"
-                                >
-                                    Log In to Register Device <ArrowRight size={18} />
-                                </button>
-                                
-                                <p className="text-[10px] text-gray-400">
-                                    Once logged in (even if password fails, device registers), ask your Primary Device admin to approve this session.
-                                </p>
-                             </div>
-                        )}
-
                         {step === 'identify' && (
                             <form onSubmit={handleSendResetCode} className="space-y-6 animate-in fade-in">
                                 <div>
@@ -213,7 +177,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                         />
                                     </div>
                                     <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
-                                        Enter your registered email address. We will send a verification code or link to reset your password.
+                                        Enter your registered email address. Verification will be sent to your <b>Primary Account</b>.
                                     </p>
                                 </div>
                                 
@@ -222,7 +186,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                     disabled={loading}
                                     className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 disabled:opacity-30 shadow-xl transition-all flex items-center justify-center gap-3"
                                 >
-                                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Send Reset Link / Code"}
+                                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Send Verification to Primary"}
                                     {!loading && <ArrowRight size={18} />}
                                 </button>
                                 
@@ -244,9 +208,9 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3 items-start">
                                      <div className="bg-blue-100 p-2 rounded-full text-blue-600 mt-1"><Mail size={16} /></div>
                                      <div>
-                                        <p className="text-xs text-blue-900 font-bold mb-1">Check your email</p>
+                                        <p className="text-xs text-blue-900 font-bold mb-1">Check Primary Account</p>
                                         <p className="text-[10px] text-blue-700 leading-relaxed">
-                                            We've sent a 6-digit verification code to <b>{email}</b>. Enter it below to proceed.
+                                            We've sent a 6-digit verification code to <b>{email}</b>. Approval from the primary account is required to reset on this device.
                                         </p>
                                      </div>
                                 </div>
