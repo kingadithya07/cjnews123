@@ -28,6 +28,9 @@ function App() {
   const [isRecovering, setIsRecovering] = useState(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
   
+  // Keep a ref to userId to avoid stale closures in event listeners/effects
+  const userIdRef = useRef<string | null>(null);
+  
   // Real-time Analytics State
   const [activeVisitors, setActiveVisitors] = useState<number>(1);
 
@@ -50,6 +53,11 @@ function App() {
     backgroundColor: '#1a1a1a',
     textColor: '#bfa17b'
   });
+
+  // Sync state to ref
+  useEffect(() => {
+      userIdRef.current = userId;
+  }, [userId]);
 
   // --- REAL-TIME VISITOR TRACKING (PRESENCE) ---
   useEffect(() => {
@@ -80,10 +88,27 @@ function App() {
   }, [userRole]);
 
   // --- DEVICE MANAGEMENT (DB TABLE) ---
-  const fetchDevices = async () => {
-      if (!userId) return;
+  const fetchDevices = async (uidOverride?: string) => {
+      const targetUserId = uidOverride || userIdRef.current;
+      
+      if (!targetUserId) {
+          // If no user ID, ensure devices list is empty
+          setDevices([]);
+          return;
+      }
+
       // Fetch from 'trusted_devices' table instead of metadata
-      const { data, error } = await supabase.from('trusted_devices').select('*');
+      // Explicitly filter by user_id to ensure we get the right data even if RLS is lax
+      const { data, error } = await supabase
+        .from('trusted_devices')
+        .select('*')
+        .eq('user_id', targetUserId);
+        
+      if (error) {
+          console.error("Error fetching devices:", error);
+          return;
+      }
+
       if (data) {
           const currentId = getDeviceId();
           const mappedDevices: TrustedDevice[] = data.map((d: any) => ({
@@ -106,7 +131,11 @@ function App() {
 
   const handleAddDevice = async (device: TrustedDevice) => {
       // Optimistic Update
-      setDevices(prev => [...prev, { ...device, isCurrent: true }]); // Local is always current initially
+      setDevices(prev => {
+          // Avoid duplicates in optimistic update
+          if (prev.some(d => d.id === device.id)) return prev;
+          return [...prev, { ...device, isCurrent: true }];
+      });
 
       const dbDevice = {
           id: device.id,
@@ -124,7 +153,7 @@ function App() {
       const { error } = await supabase.from('trusted_devices').upsert(dbDevice);
       if (error) {
           console.error("Device add failed", error);
-          fetchDevices(); // Revert on error
+          fetchDevices(device.userId); // Revert on error
       }
   };
 
@@ -180,8 +209,9 @@ function App() {
       const { data: adData } = await supabase.from('advertisements').select('*');
 
       // 5. Trusted Devices (Only if logged in)
-      if (userId) {
-          await fetchDevices();
+      // Use ref to access current ID in case of stale closure during subscription events
+      if (userIdRef.current) {
+          await fetchDevices(userIdRef.current);
       }
 
       // --- MAPPING LAYER ---
@@ -279,6 +309,7 @@ function App() {
 
   // --- REAL-TIME SUBSCRIPTION & AUTH STATE ---
   useEffect(() => {
+    // Initial fetch
     fetchData();
 
     const channel = supabase
@@ -288,7 +319,8 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, () => {
-          if (userId) fetchDevices(); // Refresh devices on change
+          // If devices change, re-fetch specifically for current user
+          if (userIdRef.current) fetchDevices(userIdRef.current);
       })
       .subscribe();
 
@@ -298,13 +330,15 @@ function App() {
         if (session) {
           const profile = session.user.user_metadata;
           setUserId(session.user.id);
+          userIdRef.current = session.user.id; // Immediate ref update for downstream calls
+          
           setUserName(profile.full_name || 'Staff');
           setUserEmail(session.user.email || null);
           setUserRole(profile.role || UserRole.READER);
           setUserAvatar(profile.avatar_url || null);
           
-          // Trigger device fetch after login
-          await fetchDevices();
+          // Trigger device fetch after login, explicitly passing ID to avoid closure staleness
+          await fetchDevices(session.user.id);
         }
       } catch (err) {
         console.warn("Auth check failed:", err);
@@ -324,13 +358,18 @@ function App() {
       if (session) {
         const profile = session.user.user_metadata;
         setUserId(session.user.id);
+        userIdRef.current = session.user.id; // Sync ref immediately
+        
         setUserName(profile.full_name || 'Staff');
         setUserEmail(session.user.email || null);
         setUserRole(profile.role || UserRole.READER);
         setUserAvatar(profile.avatar_url || null);
-        fetchDevices(); // Fetch when session becomes active
+        
+        // Pass ID explicitly
+        fetchDevices(session.user.id); 
       } else {
         setUserId(null);
+        userIdRef.current = null;
         setUserName(null);
         setUserEmail(null);
         setUserRole(UserRole.READER);
@@ -343,7 +382,7 @@ function App() {
       supabase.removeChannel(channel);
       subscription.unsubscribe();
     };
-  }, []); // Note: Removed userId dep from here to avoid recreation loop, userId is handled inside
+  }, []); // Empty dep array: runs once on mount.
 
   // Check device approval AFTER fetching devices
   useEffect(() => {
