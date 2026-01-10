@@ -94,9 +94,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
       await supabase.auth.refreshSession();
   };
 
-  const finalizeLogin = (user: any) => {
-    const role = user.user_metadata.role || UserRole.READER;
-    onLogin(role as UserRole, user.user_metadata.full_name, user.user_metadata.avatar_url);
+  const finalizeLogin = async (user: any) => {
+    // Fetch secure profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, full_name, avatar_url')
+        .eq('id', user.id)
+        .single();
+    
+    const meta = user.user_metadata;
+    // Prefer profile data if available (secure), fallback to metadata
+    const role = (profile?.role as UserRole) || meta.role || UserRole.READER;
+    const fullName = profile?.full_name || meta.full_name;
+    const avatarUrl = profile?.avatar_url || meta.avatar_url;
+
+    onLogin(role, fullName, avatarUrl);
+    
     if (role === UserRole.EDITOR || role === UserRole.ADMIN) onNavigate('/editor');
     else if (role === UserRole.WRITER) onNavigate('/writer');
     else onNavigate('/');
