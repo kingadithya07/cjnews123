@@ -158,8 +158,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     setWatermarkFontSize(watermarkSettings.fontSize || 30);
   }, [watermarkSettings]);
 
-  const pendingDevicesCount = devices.filter(d => d.status === 'pending').length;
-
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void, folder: string = 'gallery') => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -398,14 +396,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       }
   };
 
-  const SidebarItem = ({ id, label, icon: Icon, badge }: { id: typeof activeTab, label: string, icon: any, badge?: number }) => (
+  const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
     <button 
         onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
         className={`w-full flex items-center gap-4 px-6 py-4 transition-colors ${activeTab === id ? 'text-white border-l-4 border-news-gold bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-4 border-transparent'}`}
     >
         <Icon size={18} />
-        <span className="text-xs font-bold uppercase tracking-widest flex-1 text-left">{label}</span>
-        {badge ? <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{badge}</span> : null}
+        <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
     </button>
   );
 
@@ -446,7 +443,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
               <SidebarItem id="ads" label="Ads & Classifieds" icon={Megaphone} />
               <SidebarItem id="taxonomy" label="Categories & Tags" icon={Tag} />
               <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
-              <SidebarItem id="settings" label="System Settings" icon={Settings} badge={pendingDevicesCount} />
+              <SidebarItem id="settings" label="System Settings" icon={Settings} />
           </div>
           <div className="p-6 border-t border-gray-800">
               <button onClick={() => onNavigate('/')} className="flex items-center gap-3 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-widest w-full px-4 py-3 border border-gray-700 rounded transition-colors justify-center mb-2">
@@ -922,7 +919,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
       </div>
 
-      {/* Modals ... (Rest of component remains identical) ... */}
+      {/* Modals */}
       {showArticleModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
@@ -930,6 +927,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                 <h3 className="font-bold text-gray-900">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
                 <button onClick={() => setShowArticleModal(false)} className="p-2 -mr-2 text-gray-500 hover:text-black"><X size={20}/></button>
             </div>
+            {/* ... Article Form Inputs similar to WriterDashboard but using modal state ... */}
              <div className="p-4 md:p-6 overflow-y-auto space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">

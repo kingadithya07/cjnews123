@@ -18,34 +18,6 @@ import { supabase } from './supabaseClient';
 // Use a fixed UUID for global settings to ensure compatibility with UUID columns in Supabase
 const GLOBAL_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
 
-const SETUP_ARTICLE: Article = {
-    id: 'system-setup-guide',
-    title: 'Welcome to CJ NEWSHUB',
-    englishTitle: 'System Setup Guide',
-    subline: 'Your digital newsroom is ready. Connect your database to see real content.',
-    author: 'System Admin',
-    content: `
-      <h2>Getting Started</h2>
-      <p>Your <strong>Digital Newsroom</strong> frontend is successfully running.</p>
-      <hr />
-      <h3>Status Report</h3>
-      <p>If you are seeing this article, one of the following is true:</p>
-      <ol>
-        <li><strong>Database Empty:</strong> You haven't published any articles yet. Log in to the <a href="#/login">Writer Dashboard</a> to create your first story.</li>
-        <li><strong>RLS Policy Required:</strong> Supabase requires a Row Level Security policy to allow public read access. Go to <em>Authentication > Policies</em> in your Supabase dashboard and enable read access for the <code>articles</code> table.</li>
-        <li><strong>Connection Issue:</strong> The application could not fetch data. Check your browser console for error details.</li>
-      </ol>
-      <h3>Next Steps</h3>
-      <p>Log in as an Editor or Writer to start populating your news feed. The system is designed to show this placeholder until real data is available.</p>
-    `,
-    categories: ['System'],
-    imageUrl: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=2940&auto=format&fit=crop',
-    publishedAt: new Date().toISOString(),
-    status: ArticleStatus.PUBLISHED,
-    isFeatured: true,
-    views: 0
-};
-
 function App() {
   const [userRole, setUserRole] = useState<UserRole>(UserRole.READER);
   const [userName, setUserName] = useState<string | null>(null); 
@@ -78,44 +50,6 @@ function App() {
     textColor: '#bfa17b'
   });
 
-  // --- ROUTING LOGIC ---
-  const getPathFromHash = () => {
-     const hash = window.location.hash;
-     if (hash.includes('type=recovery')) return '/auth-callback-recovery'; // Specific marker for recovery to prevent auto-redirect
-     if (hash.includes('access_token') || hash.includes('error=')) return '/auth-callback'; 
-     if (!hash || hash === '#') return '/';
-     return hash.startsWith('#') ? hash.slice(1) : hash;
-  };
-
-  const [currentPath, setCurrentPath] = useState(getPathFromHash());
-  
-  const navigate = (path: string) => {
-    window.location.hash = path;
-    setCurrentPath(path);
-    window.scrollTo(0, 0);
-  };
-
-  useEffect(() => {
-    const handleHashChange = () => {
-        const newPath = getPathFromHash();
-        if (!newPath.startsWith('/auth-callback')) setCurrentPath(newPath);
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  // --- SAFETY LOADING TIMEOUT ---
-  // Ensures the app never gets stuck on the loading spinner
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (loading) {
-        console.warn("Forcing loading completion due to timeout.");
-        setLoading(false);
-      }
-    }, 4000); // 4 seconds max wait time
-    return () => clearTimeout(timer);
-  }, [loading]);
-
   // --- REAL-TIME VISITOR TRACKING (PRESENCE) ---
   useEffect(() => {
     // Unique channel name for the app
@@ -145,10 +79,9 @@ function App() {
   }, [userRole]);
 
   // --- DEVICE MANAGEMENT (DB TABLE) ---
-  const fetchDevices = async (uid?: string) => {
-      const targetId = uid || userId;
-      if (!targetId) return;
-      
+  const fetchDevices = async () => {
+      if (!userId) return;
+      // Fetch from 'trusted_devices' table instead of metadata
       const { data, error } = await supabase.from('trusted_devices').select('*');
       if (data) {
           const currentId = getDeviceId();
@@ -214,14 +147,6 @@ function App() {
       }
   };
 
-  const handleEmergencyReset = () => {
-      if (confirm("This will reset your local device identity. You may need to request approval again. Continue?")) {
-          localStorage.removeItem('dn_device_id');
-          localStorage.removeItem('dn_temp_device_id');
-          window.location.reload();
-      }
-  };
-
   // --- DATA SYNC FROM SUPABASE ---
   const fetchData = async (force: boolean = false) => {
     try {
@@ -243,59 +168,14 @@ function App() {
           } catch (e) { console.error("Failed to parse global settings", e); }
       }
 
-      // 2. Articles - Robust Fetch Strategy with Fallbacks
-      let artData: any[] | null = null;
-      let artError: any = null;
-
-      // Attempt 1: Sort by published_at (Preferred)
-      const res1 = await supabase
-        .from('articles')
-        .select('*')
-        .neq('id', GLOBAL_SETTINGS_ID)
-        .order('published_at', { ascending: false })
-        .limit(100);
-      
-      if (!res1.error) {
-          artData = res1.data;
-      } else {
-          console.warn("Fetch (published_at) failed, trying created_at...", res1.error);
-          // Attempt 2: Sort by created_at (System default)
-          const res2 = await supabase
-            .from('articles')
-            .select('*')
-            .neq('id', GLOBAL_SETTINGS_ID)
-            .order('created_at', { ascending: false })
-            .limit(100);
-            
-          if (!res2.error) {
-              artData = res2.data;
-          } else {
-              console.warn("Fetch (created_at) failed, trying raw...", res2.error);
-              // Attempt 3: Raw fetch (No sort)
-              const res3 = await supabase
-                .from('articles')
-                .select('*')
-                .neq('id', GLOBAL_SETTINGS_ID)
-                .limit(50);
-              
-              if (!res3.error) {
-                  artData = res3.data;
-              } else {
-                  console.error("CRITICAL: All article fetch attempts failed.", res3.error);
-                  artError = res3.error;
-              }
-          }
-      }
+      // 2. Articles
+      let { data: artData } = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).order('publishedAt', { ascending: false });
       
       // 3. E-Paper
-      let { data: pageData } = await supabase
-        .from('epaper_pages')
-        .select('*')
-        .order('date', { ascending: false })
-        .limit(50);
+      let { data: pageData } = await supabase.from('epaper_pages').select('*').order('date', { ascending: false }).order('pageNumber', { ascending: true });
 
       // 4. Classifieds & Ads
-      const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false }).limit(50);
+      const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
 
       // 5. Trusted Devices (Only if logged in)
@@ -304,105 +184,70 @@ function App() {
       }
 
       // --- MAPPING LAYER ---
-      // Robustly map data handling potential variations in column naming (snake_case vs camelCase)
-      if (artData && artData.length > 0) {
-        setArticles(artData.map((a: any) => {
-            // Categories: Handle array, comma-separated string, or undefined
-            let catArray: string[] = ['General'];
-            const rawCat = a.categories || a.category;
-            
-            if (Array.isArray(rawCat)) {
-                catArray = rawCat;
-            } else if (typeof rawCat === 'string') {
-                catArray = rawCat.split(',').map(s => s.trim()).filter(Boolean);
-            }
-
-            return {
-              id: a.id,
-              userId: a.user_id || a.userId, 
-              slug: a.slug,
-              title: a.title,
-              englishTitle: a.english_title || a.englishTitle,
-              subline: a.subline,
-              author: a.author || 'Unknown',
-              authorAvatar: a.author_avatar || a.authorAvatar,
-              content: a.content || '',
-              categories: catArray.length > 0 ? catArray : ['General'],
-              imageUrl: a.image_url || a.imageUrl || 'https://placehold.co/800x400?text=No+Image',
-              publishedAt: a.published_at || a.publishedAt || a.created_at || new Date().toISOString(),
-              status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
-              summary: a.summary,
-              isPremium: a.is_premium || a.isPremium || false,
-              isFeatured: a.is_featured || a.isFeatured || false,
-              isEditorsChoice: a.is_editors_choice || a.isEditorsChoice || false,
-              views: a.views || 0
-            };
-        }) as Article[]);
-      } else {
-          // DATABASE EMPTY OR ERROR - ALWAYS INJECT FALLBACK
-          // This ensures the site never looks broken/empty on first load or error
-          console.warn("Database empty or connection error. Injecting system guide.", artError);
-          
-          const fallbackArticle = { ...SETUP_ARTICLE };
-          
-          if (artError) {
-              fallbackArticle.title = "System Alert: Connection Issue";
-              fallbackArticle.content = `
-                <h2>Database Connection Failed</h2>
-                <p>The application encountered an error while fetching content.</p>
-                <div style="background:#fee2e2; border:1px solid #ef4444; color:#991b1b; padding:10px; border-radius:4px; margin: 10px 0;">
-                    <strong>Error:</strong> ${artError.message || JSON.stringify(artError)}
-                </div>
-                <p>This may be due to missing database tables or Row Level Security (RLS) policies. Please check your Supabase dashboard.</p>
-              `;
-          }
-          
-          setArticles([fallbackArticle]);
+      if (artData) {
+        setArticles(artData.map(a => ({
+          id: a.id,
+          userId: a.user_id, // Map database column to type
+          slug: a.slug, // Map slug
+          title: a.title,
+          englishTitle: a.english_title || undefined, // Map English Title
+          subline: a.subline,
+          author: a.author,
+          authorAvatar: a.authorAvatar || a.author_avatar,
+          content: a.content,
+          categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
+          imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
+          publishedAt: a.publishedAt || a.published_at || new Date().toISOString(),
+          status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
+          summary: a.summary,
+          isPremium: a.isPremium || a.is_premium || false,
+          isFeatured: a.isFeatured || a.is_featured || false,
+          isEditorsChoice: a.isEditorsChoice || a.is_editors_choice || false,
+          views: a.views || 0 // Map views from DB
+        })) as Article[]);
       }
 
       if (pageData) {
-        setEPaperPages(pageData.map((p: any) => ({
+        setEPaperPages(pageData.map(p => ({
           id: p.id,
           date: p.date,
-          pageNumber: p.page_number !== undefined ? p.page_number : (p.pageNumber !== undefined ? p.pageNumber : 1),
-          imageUrl: p.image_url || p.imageUrl || 'https://placehold.co/600x800?text=No+Scan',
+          pageNumber: p.pageNumber !== undefined ? p.pageNumber : (p.page_number !== undefined ? p.page_number : 1),
+          imageUrl: p.imageUrl || p.image_url || 'https://placehold.co/600x800?text=No+Scan',
           regions: []
         })) as EPaperPage[]);
       }
 
       if (clsData) {
-        setClassifieds(clsData.map((c: any) => ({
+        setClassifieds(clsData.map(c => ({
           id: c.id,
           title: c.title,
           category: c.category,
           content: c.content,
           price: c.price,
           location: c.location,
-          contactInfo: c.contact_info || c.contactInfo,
-          postedAt: c.posted_at || c.postedAt || new Date().toISOString()
+          contactInfo: c.contactInfo || c.contact_info,
+          postedAt: c.postedAt || c.posted_at || new Date().toISOString()
         })) as ClassifiedAd[]);
       }
 
       if (adData) {
-        setAdvertisements(adData.map((ad: any) => ({
+        setAdvertisements(adData.map(ad => ({
           id: ad.id,
-          imageUrl: ad.image_url || ad.imageUrl,
-          linkUrl: ad.link_url || ad.linkUrl,
+          imageUrl: ad.imageUrl || ad.image_url,
+          linkUrl: ad.linkUrl || ad.link_url,
           title: ad.title,
           size: ad.size,
           customWidth: ad.customWidth, 
           customHeight: ad.customHeight,
           placement: ad.placement,
           targetCategory: ad.targetCategory,
-          isActive: ad.is_active !== undefined ? ad.is_active : (ad.isActive !== undefined ? ad.isActive : true)
+          isActive: ad.isActive !== undefined ? ad.isActive : (ad.is_active !== undefined ? ad.is_active : true)
         })) as Advertisement[]);
       }
 
       setLastSync(new Date());
     } catch (err) {
       console.error("Critical error in fetchData:", err);
-      // Even in catch block, inject setup article to prevent white screen
-      setArticles([SETUP_ARTICLE]);
     }
   };
 
@@ -426,14 +271,34 @@ function App() {
     };
   }, [userId]);
 
+  // --- ROUTING LOGIC ---
+  const getPathFromHash = () => {
+     const hash = window.location.hash;
+     if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('error=')) return '/auth-callback'; 
+     if (!hash || hash === '#') return '/';
+     return hash.startsWith('#') ? hash.slice(1) : hash;
+  };
+
+  const [currentPath, setCurrentPath] = useState(getPathFromHash());
+  
+  const navigate = (path: string) => {
+    window.location.hash = path;
+    setCurrentPath(path);
+    window.scrollTo(0, 0);
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+        const newPath = getPathFromHash();
+        if (newPath !== '/auth-callback') setCurrentPath(newPath);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const getProfile = async (uid: string) => {
-    try {
-      const { data } = await supabase.from('profiles').select('role, full_name, avatar_url').eq('id', uid).maybeSingle();
-      return data;
-    } catch (e) {
-      console.warn("Profile fetch error", e);
-      return null;
-    }
+    const { data } = await supabase.from('profiles').select('role, full_name, avatar_url').eq('id', uid).single();
+    return data;
   };
 
   useEffect(() => {
@@ -442,15 +307,17 @@ function App() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           const { user } = session;
+          // Fetch secure profile
           const profile = await getProfile(user.id);
           const meta = user.user_metadata;
 
           setUserId(user.id);
+          // Prefer profile data, fallback to metadata
           setUserName(profile?.full_name || meta.full_name || 'Staff');
           setUserRole((profile?.role as UserRole) || meta.role || UserRole.READER);
           setUserAvatar(profile?.avatar_url || meta.avatar_url || null);
           
-          await fetchDevices(user.id);
+          await fetchDevices();
         }
       } catch (err) {
         console.warn("Auth check failed:", err);
@@ -470,15 +337,7 @@ function App() {
         setUserName(profile?.full_name || meta.full_name || 'Staff');
         setUserRole((profile?.role as UserRole) || meta.role || UserRole.READER);
         setUserAvatar(profile?.avatar_url || meta.avatar_url || null);
-        fetchDevices(user.id);
-        
-        // Critical: Handle redirect if stuck on auth callback
-        const currentHash = window.location.hash;
-        if (currentHash.includes('type=recovery')) {
-             navigate('/reset-password');
-        } else if (currentHash.includes('access_token')) {
-             navigate('/'); 
-        }
+        fetchDevices(); 
       } else {
         setUserId(null);
         setUserName(null);
@@ -586,14 +445,7 @@ function App() {
 
     setArticles(prev => {
         const exists = prev.find(a => a.id === article.id);
-        if (exists) {
-            return prev.map(a => a.id === article.id ? articleWithSlug : a);
-        }
-        // If the current article is the setup guide, replace it
-        if (prev.length === 1 && prev[0].id === 'system-setup-guide') {
-            return [articleWithSlug];
-        }
-        return [articleWithSlug, ...prev];
+        return exists ? prev.map(a => a.id === article.id ? articleWithSlug : a) : [articleWithSlug, ...prev];
     });
 
     const payload = {
@@ -684,7 +536,7 @@ function App() {
     return currentEntry?.status === 'approved';
   };
 
-  if (loading || currentPath.startsWith('/auth-callback')) {
+  if (loading || currentPath === '/auth-callback') {
       return (
           <div className="h-screen flex items-center justify-center bg-news-paper">
               <div className="flex flex-col items-center gap-4">
@@ -701,9 +553,9 @@ function App() {
   if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
-    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={handleEmergencyReset} />;
+    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => {}} />;
   } else if (path === '/staff/login') {
-    content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={handleEmergencyReset} />;
+    content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => {}} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
     content = <EditorDashboard 
         articles={articles} 

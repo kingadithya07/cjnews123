@@ -106,19 +106,28 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
     }
   };
 
-  const finalizeLogin = (user: any) => {
-    const metaRole = user.user_metadata.role;
-    let role = UserRole.READER;
-
-    if (metaRole) {
-        role = metaRole as UserRole;
-    } else {
+  const finalizeLogin = async (user: any) => {
+    // Fetch secure profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, full_name, avatar_url')
+        .eq('id', user.id)
+        .single();
+    
+    const meta = user.user_metadata;
+    let role = (profile?.role as UserRole) || meta.role || UserRole.READER;
+    
+    // Fallback logic if role is not set in profile (e.g. fresh signup before trigger)
+    if (!profile?.role && !meta.role) {
         if (activeTab === 'admin') role = UserRole.ADMIN;
         else if (activeTab === 'editor') role = UserRole.EDITOR;
         else role = UserRole.WRITER;
     }
 
-    onLogin(role, user.user_metadata.full_name, user.user_metadata.avatar_url);
+    const fullName = profile?.full_name || meta.full_name;
+    const avatarUrl = profile?.avatar_url || meta.avatar_url;
+
+    onLogin(role, fullName, avatarUrl);
     
     if (role === UserRole.ADMIN || role === UserRole.EDITOR) onNavigate('/editor');
     else if (role === UserRole.WRITER) onNavigate('/writer');
