@@ -7,6 +7,7 @@ import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
 import { createSlug } from '../utils';
 import { supabase } from '../supabaseClient';
+import DOMPurify from 'dompurify';
 
 interface ArticleViewProps {
   articles: Article[];
@@ -24,6 +25,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
   const [readTime, setReadTime] = useState(0);
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [sanitizedContent, setSanitizedContent] = useState('');
   const isSharing = useRef(false);
 
   const safeFormat = (dateValue: any, formatStr: string) => {
@@ -43,7 +45,14 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
     setArticle(found);
     
     if (found) {
-      const text = (found.content || '').replace(/<[^>]*>/g, ' '); 
+      // SECURITY: Sanitize content before render
+      const cleanHtml = DOMPurify.sanitize(found.content || '', {
+          USE_PROFILES: { html: true },
+          ADD_ATTR: ['target', 'className'] 
+      });
+      setSanitizedContent(cleanHtml);
+
+      const text = (cleanHtml || '').replace(/<[^>]*>/g, ' '); 
       const count = text.trim().split(/\s+/).length;
       setWordCount(count);
       setReadTime(Math.ceil(count / 200));
@@ -132,9 +141,6 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
           if (isSharing.current) return;
           isSharing.current = true;
           try {
-              // Construct a detailed text caption
-              // Apps like WhatsApp use 'text' as the image caption. 
-              // We separate lines clearly to ensure title, subline and link are distinct.
               const shareText = `📰 ${article.title}\n\n${article.subline ? article.subline + '\n\n' : ''}🔗 Read full story: ${permalink}`;
 
               let shareData: ShareData = {
@@ -143,7 +149,6 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                   url: permalink
               };
 
-              // Enhanced Sharing: Try to share the actual image file along with link
               try {
                   if (article.imageUrl) {
                       const response = await fetch(article.imageUrl);
@@ -153,7 +158,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                       const fileShareData = {
                           files: [file],
                           title: article.title,
-                          text: shareText, // Pass the full captioned text here
+                          text: shareText, 
                           url: permalink 
                       };
 
@@ -287,7 +292,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
 
             <article 
               className="prose prose-slate max-w-none w-full font-serif text-gray-800 !leading-snug md:!leading-loose !text-left hyphens-auto [&_*]:!text-left [&_p]:!mb-4 md:[&_p]:!mb-6 [&_p]:!mt-0 [&_h1]:!mt-4 md:[&_h1]:!mt-8 [&_h2]:!mt-4 md:[&_h2]:!mt-8 [&_h3]:!mt-3 md:[&_h3]:!mt-6 [&_h4]:!mt-3 md:[&_h4]:!mt-6 prose-p:text-[17px] md:prose-p:text-[18px] prose-li:text-[17px] md:prose-li:text-[18px] prose-headings:font-serif break-words mb-8 md:mb-12" 
-              dangerouslySetInnerHTML={{ __html: article.content || '<p>Detailed report pending...</p>' }} 
+              dangerouslySetInnerHTML={{ __html: sanitizedContent }} 
             />
 
             <div className="mt-10 pt-6 border-t border-gray-100 mb-10">

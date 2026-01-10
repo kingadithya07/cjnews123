@@ -168,14 +168,26 @@ function App() {
           } catch (e) { console.error("Failed to parse global settings", e); }
       }
 
-      // 2. Articles
-      let { data: artData } = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).order('publishedAt', { ascending: false });
+      // 2. Articles - use snake_case for DB columns in order()
+      // PERFORMANCE: Limit to 100 recent articles to prevent crashing
+      let { data: artData } = await supabase
+        .from('articles')
+        .select('*')
+        .neq('id', GLOBAL_SETTINGS_ID)
+        .order('published_at', { ascending: false })
+        .limit(100); 
       
-      // 3. E-Paper
-      let { data: pageData } = await supabase.from('epaper_pages').select('*').order('date', { ascending: false }).order('pageNumber', { ascending: true });
+      // 3. E-Paper - use snake_case for DB columns
+      // PERFORMANCE: Limit to 50 recent pages
+      let { data: pageData } = await supabase
+        .from('epaper_pages')
+        .select('*')
+        .order('date', { ascending: false })
+        .order('page_number', { ascending: true })
+        .limit(50);
 
       // 4. Classifieds & Ads
-      const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
+      const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false }).limit(50);
       const { data: adData } = await supabase.from('advertisements').select('*');
 
       // 5. Trusted Devices (Only if logged in)
@@ -192,7 +204,7 @@ function App() {
           title: a.title,
           englishTitle: a.english_title || undefined, // Map English Title
           subline: a.subline,
-          author: a.author,
+          author: a.author || 'Unknown', // Safe fallback
           authorAvatar: a.authorAvatar || a.author_avatar,
           content: a.content,
           categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
@@ -296,18 +308,27 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  const getProfile = async (uid: string) => {
+    const { data } = await supabase.from('profiles').select('role, full_name, avatar_url').eq('id', uid).single();
+    return data;
+  };
+
   useEffect(() => {
     const checkInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          const profile = session.user.user_metadata;
-          setUserId(session.user.id);
-          setUserName(profile.full_name || 'Staff');
-          setUserRole(profile.role || UserRole.READER);
-          setUserAvatar(profile.avatar_url || null);
+          const { user } = session;
+          // Fetch secure profile
+          const profile = await getProfile(user.id);
+          const meta = user.user_metadata;
+
+          setUserId(user.id);
+          // Prefer profile data, fallback to metadata
+          setUserName(profile?.full_name || meta.full_name || 'Staff');
+          setUserRole((profile?.role as UserRole) || meta.role || UserRole.READER);
+          setUserAvatar(profile?.avatar_url || meta.avatar_url || null);
           
-          // Trigger device fetch after login
           await fetchDevices();
         }
       } catch (err) {
@@ -318,14 +339,17 @@ function App() {
     };
     checkInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        const profile = session.user.user_metadata;
-        setUserId(session.user.id);
-        setUserName(profile.full_name || 'Staff');
-        setUserRole(profile.role || UserRole.READER);
-        setUserAvatar(profile.avatar_url || null);
-        fetchDevices(); // Fetch when session becomes active
+        const { user } = session;
+        const profile = await getProfile(user.id);
+        const meta = user.user_metadata;
+
+        setUserId(user.id);
+        setUserName(profile?.full_name || meta.full_name || 'Staff');
+        setUserRole((profile?.role as UserRole) || meta.role || UserRole.READER);
+        setUserAvatar(profile?.avatar_url || meta.avatar_url || null);
+        fetchDevices(); 
       } else {
         setUserId(null);
         setUserName(null);
