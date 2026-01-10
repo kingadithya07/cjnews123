@@ -1,5 +1,4 @@
 
-
 /**
  * Generates a UUID v4 string.
  * Uses crypto.randomUUID if available, otherwise falls back to a random number generation method.
@@ -58,8 +57,8 @@ export const getDeviceId = (): string => {
   deviceId = safeGetItem('dn_temp_device_id', 'session');
   if (deviceId) return deviceId;
 
-  // 3. Generate New
-  const newId = `dev_${generateId().substring(0, 8)}`;
+  // 3. Generate New - Use Full UUID to ensure DB Compatibility
+  const newId = generateId();
   
   // 4. Try to save (Local preferred, fall back to Session, then Memory)
   safeSetItem('dn_device_id', newId, 'local');

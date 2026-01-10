@@ -72,35 +72,43 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
             setIsAwaitingApproval(true);
         } else {
             const meta = getDeviceMetadata();
-            onAddDevice({
-                id: currentId,
-                userId: session.user.id,
-                deviceName: meta.name,
-                deviceType: meta.type,
-                location: 'Remote Station',
-                lastActive: 'Just Now',
-                isCurrent: true,
-                isPrimary: false, 
-                status: 'pending',
-                browser: meta.browser
-            });
+            try {
+                await onAddDevice({
+                    id: currentId,
+                    userId: session.user.id,
+                    deviceName: meta.name,
+                    deviceType: meta.type,
+                    location: 'Remote Station',
+                    lastActive: 'Just Now',
+                    isCurrent: true,
+                    isPrimary: false, 
+                    status: 'pending',
+                    browser: meta.browser
+                });
+            } catch (e) {
+                console.error("Failed to register staff device", e);
+            }
             setPendingUser(session.user);
             setIsAwaitingApproval(true);
         }
     } else {
         const meta = getDeviceMetadata();
-        onAddDevice({
-            id: currentId,
-            userId: session.user.id,
-            deviceName: meta.name,
-            deviceType: meta.type,
-            location: 'Primary Station',
-            lastActive: 'Active Now',
-            isCurrent: true,
-            isPrimary: true, 
-            status: 'approved',
-            browser: meta.browser
-        });
+        try {
+            await onAddDevice({
+                id: currentId,
+                userId: session.user.id,
+                deviceName: meta.name,
+                deviceType: meta.type,
+                location: 'Primary Station',
+                lastActive: 'Active Now',
+                isCurrent: true,
+                isPrimary: true, 
+                status: 'approved',
+                browser: meta.browser
+            });
+        } catch (e) {
+            console.error("Failed to register primary staff device", e);
+        }
         finalizeLogin(session.user);
     }
   };

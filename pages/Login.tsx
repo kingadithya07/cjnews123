@@ -10,7 +10,7 @@ interface LoginProps {
   onLogin: (role: UserRole, name: string, avatar?: string) => void;
   onNavigate: (path: string) => void;
   existingDevices: TrustedDevice[];
-  onAddDevice: (device: TrustedDevice) => void;
+  onAddDevice: (device: TrustedDevice) => Promise<void>;
   onEmergencyReset: () => void;
 }
 
@@ -68,36 +68,44 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
         } else {
             // User has devices, but THIS one is new -> It is SECONDARY (Pending)
             const meta = getDeviceMetadata();
-            onAddDevice({
-                id: currentId,
-                userId: session.user.id,
-                deviceName: meta.name,
-                deviceType: meta.type,
-                location: 'New Detected Station',
-                lastActive: 'Just Now',
-                isCurrent: true,
-                isPrimary: false,
-                status: 'pending',
-                browser: meta.browser
-            });
+            try {
+                await onAddDevice({
+                    id: currentId,
+                    userId: session.user.id,
+                    deviceName: meta.name,
+                    deviceType: meta.type,
+                    location: 'New Detected Station',
+                    lastActive: 'Just Now',
+                    isCurrent: true,
+                    isPrimary: false,
+                    status: 'pending',
+                    browser: meta.browser
+                });
+            } catch (e) {
+                console.error("Failed to register device", e);
+            }
             setPendingUser(session.user);
             setMode('awaiting_approval');
         }
     } else {
         // No devices found for this user in DB -> This is the FIRST device -> PRIMARY
         const meta = getDeviceMetadata();
-        onAddDevice({
-            id: currentId,
-            userId: session.user.id,
-            deviceName: meta.name,
-            deviceType: meta.type,
-            location: 'Primary Station',
-            lastActive: 'Active Now',
-            isCurrent: true,
-            isPrimary: true,
-            status: 'approved',
-            browser: meta.browser
-        });
+        try {
+            await onAddDevice({
+                id: currentId,
+                userId: session.user.id,
+                deviceName: meta.name,
+                deviceType: meta.type,
+                location: 'Primary Station',
+                lastActive: 'Active Now',
+                isCurrent: true,
+                isPrimary: true,
+                status: 'approved',
+                browser: meta.browser
+            });
+        } catch (e) {
+            console.error("Failed to register primary device", e);
+        }
         finalizeLogin(session.user);
     }
   };
