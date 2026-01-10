@@ -18,6 +18,33 @@ import { supabase } from './supabaseClient';
 // Use a fixed UUID for global settings to ensure compatibility with UUID columns in Supabase
 const GLOBAL_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
 
+const SETUP_ARTICLE: Article = {
+    id: 'system-setup-guide',
+    title: 'System Connected: No Data Found',
+    englishTitle: 'System Setup Guide',
+    subline: 'Your frontend is connected to Supabase, but no articles were retrieved.',
+    author: 'System Admin',
+    content: `
+      <h2>Database Connection Successful</h2>
+      <p>If you are seeing this article, it means your <strong>Digital Newsroom</strong> application is successfully connected to your Supabase backend.</p>
+      <hr />
+      <h3>Why am I seeing this?</h3>
+      <p>The application queried your <code>articles</code> table but received <strong>0 rows</strong>. This typically happens for two reasons:</p>
+      <ol>
+        <li><strong>The table is empty:</strong> You haven't written any articles yet. Log in as a Writer/Editor to create your first story.</li>
+        <li><strong>RLS Policies are blocking access:</strong> Supabase enables <em>Row Level Security</em> by default. You must create a Policy to allow public read access.</li>
+      </ol>
+      <h3>How to Fix RLS:</h3>
+      <p>Go to your Supabase Dashboard > Authentication > Policies. Create a new policy for the <code>articles</code> table: <em>"Enable read access for all users"</em> (SELECT operation, Target roles: anon, authenticated).</p>
+    `,
+    categories: ['System'],
+    imageUrl: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=2940&auto=format&fit=crop',
+    publishedAt: new Date().toISOString(),
+    status: ArticleStatus.PUBLISHED,
+    isFeatured: true,
+    views: 0
+};
+
 function App() {
   const [userRole, setUserRole] = useState<UserRole>(UserRole.READER);
   const [userName, setUserName] = useState<string | null>(null); 
@@ -245,6 +272,7 @@ function App() {
                   artData = res3.data;
               } else {
                   console.error("CRITICAL: All article fetch attempts failed.", res3.error);
+                  artError = res3.error;
               }
           }
       }
@@ -267,7 +295,7 @@ function App() {
 
       // --- MAPPING LAYER ---
       // Robustly map data handling potential variations in column naming (snake_case vs camelCase)
-      if (artData) {
+      if (artData && artData.length > 0) {
         setArticles(artData.map((a: any) => {
             // Categories: Handle array, comma-separated string, or undefined
             let catArray: string[] = ['General'];
@@ -300,6 +328,10 @@ function App() {
               views: a.views || 0
             };
         }) as Article[]);
+      } else if (artData && artData.length === 0 && !artError) {
+          // DATABASE EMPTY (BUT CONNECTED)
+          console.log("Database connected but empty. Injecting setup guide.");
+          setArticles([SETUP_ARTICLE]);
       }
 
       if (pageData) {
@@ -524,7 +556,14 @@ function App() {
 
     setArticles(prev => {
         const exists = prev.find(a => a.id === article.id);
-        return exists ? prev.map(a => a.id === article.id ? articleWithSlug : a) : [articleWithSlug, ...prev];
+        if (exists) {
+            return prev.map(a => a.id === article.id ? articleWithSlug : a);
+        }
+        // If the current article is the setup guide, replace it
+        if (prev.length === 1 && prev[0].id === 'system-setup-guide') {
+            return [articleWithSlug];
+        }
+        return [articleWithSlug, ...prev];
     });
 
     const payload = {
