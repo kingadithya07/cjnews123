@@ -1,10 +1,10 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement } from '../types';
+import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement, ActivityLog } from '../types';
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, EyeOff, Mail, ShieldAlert
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, EyeOff, Mail, ShieldAlert, FileClock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -53,7 +53,8 @@ interface EditorDashboardProps {
   onRejectDevice: (id: string) => void;
   onRevokeDevice: (id: string) => void;
   userId?: string | null;
-  activeVisitors?: number; // Add this
+  activeVisitors?: number;
+  logs?: ActivityLog[];
 }
 
 const EditorDashboard: React.FC<EditorDashboardProps> = ({ 
@@ -62,7 +63,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   onAddCategory, onDeleteCategory, onAddTag, onDeleteTag, onAddAdCategory, onDeleteAdCategory, onSaveTaxonomy,
   onAddClassified, onDeleteClassified, onAddAdvertisement, onUpdateAdvertisement, onDeleteAdvertisement,
   onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar, userEmail,
-  devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId, activeVisitors
+  devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId, activeVisitors,
+  logs = []
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'ads' | 'taxonomy' | 'analytics' | 'settings'>('articles');
@@ -782,10 +784,19 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                       </div>
 
                       {/* Profile Section (Non-Security) */}
-                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
+                      <div className={`bg-white rounded-xl border p-6 md:p-8 shadow-sm relative overflow-hidden ${!isPrimaryDevice ? 'border-gray-200 opacity-80' : ''}`}>
+                          {!isPrimaryDevice && (
+                              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center cursor-not-allowed">
+                                  <ShieldAlert className="text-gray-400 mb-2" size={48} />
+                                  <h3 className="font-bold text-gray-800">Profile Locked</h3>
+                                  <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                                      Profile modifications are restricted to the <b>Primary Device</b> only.
+                                  </p>
+                              </div>
+                          )}
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Admin Profile</h2>
-                          <div className="grid grid-cols-1 gap-8">
-                             <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-8 pointer-events-auto">
+                             <div className={`space-y-4 ${!isPrimaryDevice ? 'pointer-events-none filter blur-[1px]' : ''}`}>
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
                                     <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
@@ -896,6 +907,61 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               })}
                           </div>
                       </div>
+
+                      {/* LOGS SECTION (Primary Only) */}
+                      {isPrimaryDevice && (
+                          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                              <div className="p-6 md:p-8 border-b border-gray-100 flex justify-between items-center">
+                                  <h3 className="font-bold text-lg flex items-center gap-2"><FileClock size={20} className="text-blue-600"/> Device Activity Logs</h3>
+                                  <span className="text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 px-3 py-1 rounded">
+                                      Live Tracking
+                                  </span>
+                              </div>
+                              <div className="overflow-x-auto">
+                                  <table className="w-full text-left">
+                                      <thead className="bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                                          <tr>
+                                              <th className="px-6 py-4">Timestamp</th>
+                                              <th className="px-6 py-4">Device</th>
+                                              <th className="px-6 py-4">Action</th>
+                                              <th className="px-6 py-4">IP Address</th>
+                                              <th className="px-6 py-4">Location</th>
+                                              <th className="px-6 py-4">Details</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100 text-xs">
+                                          {logs.map((log) => (
+                                              <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                                                  <td className="px-6 py-4 font-mono text-gray-500">
+                                                      {format(new Date(log.timestamp), 'MMM d, HH:mm:ss')}
+                                                  </td>
+                                                  <td className="px-6 py-4 font-bold text-gray-800">{log.deviceName}</td>
+                                                  <td className="px-6 py-4">
+                                                      <span className={`px-2 py-1 rounded-sm text-[9px] font-black uppercase ${
+                                                          log.action === 'LOGIN' ? 'bg-green-100 text-green-700' :
+                                                          log.action === 'LOGOUT' ? 'bg-gray-100 text-gray-600' :
+                                                          log.action === 'EDIT' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
+                                                      }`}>
+                                                          {log.action}
+                                                      </span>
+                                                  </td>
+                                                  <td className="px-6 py-4 font-mono text-gray-500">{log.ip || '—'}</td>
+                                                  <td className="px-6 py-4 text-gray-600">{log.location || '—'}</td>
+                                                  <td className="px-6 py-4 text-gray-600 max-w-xs truncate" title={log.details}>
+                                                      {log.details || '—'}
+                                                  </td>
+                                              </tr>
+                                          ))}
+                                          {logs.length === 0 && (
+                                              <tr>
+                                                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400 italic">No activity recorded yet.</td>
+                                              </tr>
+                                          )}
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+                      )}
                   </div>
               )}
            </div>

@@ -103,3 +103,16 @@ export const createSlug = (title: string): string => {
     .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with dashes
     .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
 };
+
+/**
+ * Gets the public IP address of the client using a 3rd party service.
+ */
+export const getPublicIP = async (): Promise<string> => {
+    try {
+        const res = await fetch('https://api.ipify.org?format=json');
+        const data = await res.json();
+        return data.ip;
+    } catch {
+        return 'Unknown IP';
+    }
+};

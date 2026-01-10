@@ -236,6 +236,14 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     }
   };
 
+  // Handler for page navigation slider in Reader View
+  const handlePageSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const idx = parseInt(e.target.value);
+      if (idx >= 0 && idx < currentEditionPages.length) {
+          setActivePageIndex(idx);
+      }
+  };
+
   useEffect(() => {
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
@@ -581,6 +589,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                           <div className="hidden md:flex items-center gap-2 text-[8px] font-black text-news-gold uppercase tracking-[0.2em] bg-white/5 px-2 py-1 rounded">HORIZON NAV</div>
                       </div>
                   )}
+                  {/* Page Navigation Slider & Arrows */}
                   {scale === 1 && (
                     <>
                         <div className="absolute inset-y-0 left-0 flex items-center px-2 md:px-4 z-20">
@@ -588,6 +597,20 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                         </div>
                         <div className="absolute inset-y-0 right-0 flex items-center px-2 md:px-4 z-20">
                             <button onClick={() => setActivePageIndex(prev => Math.min(currentEditionPages.length - 1, prev + 1))} disabled={activePageIndex === currentEditionPages.length - 1} className="p-3 md:p-4 text-white/20 hover:text-white transition-all disabled:opacity-0 bg-white/5 hover:bg-white/10 rounded-full border border-white/5"><ChevronRight size={24} /></button>
+                        </div>
+                        
+                        {/* Page Slider - Visible mostly on Mobile/Tablet */}
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90vw] md:w-[400px] bg-black/40 backdrop-blur-md rounded-full py-2 px-4 z-30 flex items-center gap-3 border border-white/10 safe-area-bottom">
+                            <span className="text-[10px] font-bold text-white/60 w-8 text-right">{activePageIndex + 1}</span>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max={currentEditionPages.length - 1} 
+                                value={activePageIndex} 
+                                onChange={handlePageSliderChange}
+                                className="flex-1 accent-news-gold h-1 bg-white/20 rounded-full appearance-none cursor-pointer"
+                            />
+                            <span className="text-[10px] font-bold text-white/60 w-8">{currentEditionPages.length}</span>
                         </div>
                     </>
                   )}

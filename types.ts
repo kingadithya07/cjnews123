@@ -25,6 +25,17 @@ export interface TrustedDevice {
   browser: string;
 }
 
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  deviceName: string;
+  action: 'LOGIN' | 'LOGOUT' | 'EDIT' | 'PUBLISH';
+  details?: string;
+  ip?: string;
+  location?: string;
+  timestamp: string;
+}
+
 export interface Article {
   id: string;
   userId?: string; // Owner ID for isolation

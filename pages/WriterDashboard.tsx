@@ -446,10 +446,19 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                       </div>
 
                       {/* Profile Section */}
-                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
+                      <div className={`bg-white rounded-xl border p-6 md:p-8 shadow-sm relative overflow-hidden ${!isPrimaryDevice ? 'border-gray-200 opacity-80' : ''}`}>
+                          {!isPrimaryDevice && (
+                              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center cursor-not-allowed">
+                                  <ShieldAlert className="text-gray-400 mb-2" size={48} />
+                                  <h3 className="font-bold text-gray-800">Profile Locked</h3>
+                                  <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                                      Profile modifications are restricted to the <b>Primary Device</b> only.
+                                  </p>
+                              </div>
+                          )}
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                             <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pointer-events-auto">
+                             <div className={`space-y-4 ${!isPrimaryDevice ? 'pointer-events-none filter blur-[1px]' : ''}`}>
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
                                     <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />

@@ -10,9 +10,9 @@ import ClassifiedsHome from './pages/ClassifiedsHome';
 import Login from './pages/Login';
 import StaffLogin from './pages/StaffLogin';
 import ResetPassword from './pages/ResetPassword';
-import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, AdSize } from './types';
+import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, AdSize, ActivityLog } from './types';
 import { MOCK_ARTICLES, MOCK_EPAPER, APP_NAME } from './constants';
-import { generateId, getDeviceId, createSlug } from './utils';
+import { generateId, getDeviceId, createSlug, getDeviceMetadata, getPublicIP } from './utils';
 import { supabase } from './supabaseClient';
 
 // Use a fixed UUID for global settings to ensure compatibility with UUID columns in Supabase
@@ -53,11 +53,80 @@ function App() {
     backgroundColor: '#1a1a1a',
     textColor: '#bfa17b'
   });
+  
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const sessionStartTime = useRef<number>(Date.now());
 
   // Sync state to ref
   useEffect(() => {
       userIdRef.current = userId;
   }, [userId]);
+
+  // --- LOGGING SYSTEM ---
+  const handleLogActivity = async (action: ActivityLog['action'], details?: string) => {
+      if (!userIdRef.current) return;
+      
+      const meta = getDeviceMetadata();
+      const ip = await getPublicIP(); // Fetch real IP
+      
+      const newLog: ActivityLog = {
+          id: generateId(),
+          userId: userIdRef.current,
+          deviceName: meta.name,
+          action,
+          details: details || '',
+          ip,
+          location: 'Detected via IP', // In a real app, this would come from a GeoIP service
+          timestamp: new Date().toISOString()
+      };
+
+      // Optimistic update
+      setActivityLogs(prev => [newLog, ...prev]);
+
+      // Save to Supabase (Mocking table existence)
+      // We wrap in try-catch in case table doesn't exist in user's instance
+      try {
+          const { error } = await supabase.from('activity_logs').insert({
+              user_id: newLog.userId,
+              device_name: newLog.deviceName,
+              action: newLog.action,
+              details: newLog.details,
+              ip: newLog.ip,
+              location: newLog.location,
+              timestamp: newLog.timestamp
+          });
+          if (error) console.warn("Log save failed (table might be missing)", error);
+      } catch (e) {
+          console.warn("Log system unavailable");
+      }
+  };
+
+  const fetchLogs = async () => {
+      if (!userIdRef.current) return;
+      try {
+          const { data, error } = await supabase
+              .from('activity_logs')
+              .select('*')
+              .order('timestamp', { ascending: false })
+              .limit(50);
+          
+          if (!error && data) {
+              const mappedLogs: ActivityLog[] = data.map((l: any) => ({
+                  id: l.id,
+                  userId: l.user_id,
+                  deviceName: l.device_name,
+                  action: l.action,
+                  details: l.details,
+                  ip: l.ip,
+                  location: l.location,
+                  timestamp: l.timestamp
+              }));
+              setActivityLogs(mappedLogs);
+          }
+      } catch (e) {
+          console.warn("Log fetch failed");
+      }
+  };
 
   // --- REAL-TIME VISITOR TRACKING (PRESENCE) ---
   useEffect(() => {
@@ -212,6 +281,7 @@ function App() {
       // Use ref to access current ID in case of stale closure during subscription events
       if (userIdRef.current) {
           await fetchDevices(userIdRef.current);
+          fetchLogs();
       }
 
       // --- MAPPING LAYER ---
@@ -322,6 +392,10 @@ function App() {
           // If devices change, re-fetch specifically for current user
           if (userIdRef.current) fetchDevices(userIdRef.current);
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => {
+          // Refresh logs when new one inserted
+          fetchLogs();
+      })
       .subscribe();
 
     const checkInitialSession = async () => {
@@ -331,6 +405,7 @@ function App() {
           const profile = session.user.user_metadata;
           setUserId(session.user.id);
           userIdRef.current = session.user.id; // Immediate ref update for downstream calls
+          sessionStartTime.current = Date.now();
           
           setUserName(profile.full_name || 'Staff');
           setUserEmail(session.user.email || null);
@@ -339,6 +414,7 @@ function App() {
           
           // Trigger device fetch after login, explicitly passing ID to avoid closure staleness
           await fetchDevices(session.user.id);
+          fetchLogs();
         }
       } catch (err) {
         console.warn("Auth check failed:", err);
@@ -348,11 +424,34 @@ function App() {
     };
     checkInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       // HANDLE PASSWORD RECOVERY EVENT
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecovering(true);
         navigate('/reset-password');
+      }
+
+      if (event === 'SIGNED_IN' && session) {
+          sessionStartTime.current = Date.now();
+          setUserId(session.user.id);
+          userIdRef.current = session.user.id;
+          handleLogActivity('LOGIN', 'Session Started');
+          fetchDevices(session.user.id);
+          fetchLogs();
+      }
+
+      if (event === 'SIGNED_OUT') {
+          const duration = Math.round((Date.now() - sessionStartTime.current) / 60000); // Minutes
+          await handleLogActivity('LOGOUT', `Duration: ${duration} mins`);
+          
+          setUserId(null);
+          userIdRef.current = null;
+          setUserName(null);
+          setUserEmail(null);
+          setUserRole(UserRole.READER);
+          setUserAvatar(null);
+          setDevices([]);
+          setActivityLogs([]);
       }
 
       if (session) {
@@ -364,17 +463,6 @@ function App() {
         setUserEmail(session.user.email || null);
         setUserRole(profile.role || UserRole.READER);
         setUserAvatar(profile.avatar_url || null);
-        
-        // Pass ID explicitly
-        fetchDevices(session.user.id); 
-      } else {
-        setUserId(null);
-        userIdRef.current = null;
-        setUserName(null);
-        setUserEmail(null);
-        setUserRole(UserRole.READER);
-        setUserAvatar(null);
-        setDevices([]);
       }
     });
 
@@ -507,6 +595,9 @@ function App() {
     if (error) {
       alert("Failed to save article: " + error.message);
       fetchData(true); 
+    } else {
+        // Log Edit Action
+        handleLogActivity('EDIT', `Article: ${article.title.substring(0, 20)}...`);
     }
   };
 
@@ -661,6 +752,8 @@ function App() {
         userId={userId}
         // Pass Active Visitors Prop
         activeVisitors={activeVisitors}
+        // Logs
+        logs={activityLogs}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard 
