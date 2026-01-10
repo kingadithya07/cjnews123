@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, Mail
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -392,6 +392,22 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     }
   };
 
+  const handleTriggerResetEmail = async () => {
+      try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user || !user.email) throw new Error("User email not found.");
+          
+          const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+              redirectTo: `${window.location.origin}/#/reset-password`
+          });
+          
+          if (error) throw error;
+          alert(`Master reset link sent to ${user.email}. Please check your inbox to reset credentials securely.`);
+      } catch (e: any) {
+          alert("Error: " + e.message);
+      }
+  };
+
   const handleForceSaveDevices = async () => {
       setIsSavingDevices(true);
       try {
@@ -476,6 +492,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
               {activeTab === 'articles' && (
+                  /* Articles Content (Unchanged) */
                   <div className="max-w-6xl mx-auto space-y-6">
                       <div className="flex justify-between items-center">
                            <h1 className="font-serif text-2xl font-bold text-gray-900">Article Manager</h1>
@@ -484,7 +501,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                            </button>
                       </div>
 
-                      {/* Desktop Table - Added overflow-x-auto to wrapper */}
                       <div className="hidden md:block bg-white rounded border overflow-x-auto shadow-sm">
                           <table className="w-full text-left min-w-[700px]">
                                 <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
@@ -529,7 +545,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </table>
                       </div>
 
-                      {/* Mobile Cards */}
                       <div className="md:hidden grid grid-cols-1 gap-4">
                           {articles.map((article) => (
                               <div key={article.id} className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
@@ -576,7 +591,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   </div>
               )}
 
-              {/* ... Other Tabs (epaper, ads, taxonomy) ... */}
               {activeTab === 'epaper' && (
                   /* Existing EPaper Content */
                   <div className="max-w-6xl mx-auto space-y-8">
@@ -673,8 +687,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   </div>
               )}
 
-              {/* ... Rest of tabs ... */}
-              {/* ... (Existing code for Taxonomy, Analytics, Settings remains) ... */}
               {activeTab === 'taxonomy' && (
                   /* Existing Taxonomy Content */
                   <div className="max-w-6xl mx-auto space-y-8">
@@ -819,10 +831,60 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
 
+                      {/* Master Security Section */}
+                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm border-red-100 relative overflow-hidden">
+                          <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                              <Lock size={120} />
+                          </div>
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2 text-red-700">
+                              <ShieldCheck className="text-red-600" /> Master Security
+                          </h2>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                              <div className="space-y-4">
+                                  <div>
+                                      <h3 className="font-bold text-gray-900 text-sm mb-1">Direct Password Update</h3>
+                                      <p className="text-xs text-gray-500 mb-4">Set a new master password for immediate access.</p>
+                                      <div className="relative">
+                                          <Key className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                                          <input 
+                                              type="password" 
+                                              value={newPassword} 
+                                              onChange={e => setNewPassword(e.target.value)} 
+                                              className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all font-bold" 
+                                              placeholder="Enter New Master Password" 
+                                          />
+                                      </div>
+                                  </div>
+                                  <button 
+                                      onClick={handleSaveSettings} 
+                                      disabled={isSavingSettings || !newPassword} 
+                                      className="w-full bg-red-600 text-white py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-700 transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
+                                      Update Credentials
+                                  </button>
+                              </div>
+
+                              <div className="bg-red-50 p-6 rounded-xl border border-red-100 flex flex-col justify-center">
+                                  <h3 className="font-bold text-red-900 text-sm mb-2">Recovery Protocol</h3>
+                                  <p className="text-xs text-red-700 mb-4">
+                                      If the direct update fails due to security timeouts, trigger a system-wide reset link to your registered email.
+                                  </p>
+                                  <button 
+                                      onClick={handleTriggerResetEmail}
+                                      className="w-full bg-white text-red-600 border border-red-200 py-3 rounded-lg font-bold uppercase text-[10px] tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                                  >
+                                      <Mail size={16} /> Send Reset Link
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+
                       {/* Profile Section */}
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Admin Profile</h2>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="grid grid-cols-1 gap-8">
                              <div className="space-y-4">
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
@@ -843,19 +905,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     </div>
                                     <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-xs text-gray-500 outline-none" placeholder="Or paste image URL..." />
                                 </div>
-                             </div>
-                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Change Password</label>
-                                    <div className="relative">
-                                        <Lock className="absolute left-3 top-3.5 text-gray-400" size={16} />
-                                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" placeholder="New Password" />
-                                    </div>
-                                </div>
-                                <div className="pt-6">
-                                    <button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full bg-news-black text-news-gold py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                    <button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full bg-news-black text-white py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg mt-2">
                                         {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
-                                        {isSavingSettings ? 'Saving...' : 'Update Profile'}
+                                        {isSavingSettings ? 'Saving...' : 'Save Profile Changes'}
                                     </button>
                                 </div>
                              </div>
