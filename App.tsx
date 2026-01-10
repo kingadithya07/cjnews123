@@ -20,22 +20,23 @@ const GLOBAL_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
 
 const SETUP_ARTICLE: Article = {
     id: 'system-setup-guide',
-    title: 'System Connected: No Data Found',
+    title: 'Welcome to CJ NEWSHUB',
     englishTitle: 'System Setup Guide',
-    subline: 'Your frontend is connected to Supabase, but no articles were retrieved.',
+    subline: 'Your digital newsroom is ready. Connect your database to see real content.',
     author: 'System Admin',
     content: `
-      <h2>Database Connection Successful</h2>
-      <p>If you are seeing this article, it means your <strong>Digital Newsroom</strong> application is successfully connected to your Supabase backend.</p>
+      <h2>Getting Started</h2>
+      <p>Your <strong>Digital Newsroom</strong> frontend is successfully running.</p>
       <hr />
-      <h3>Why am I seeing this?</h3>
-      <p>The application queried your <code>articles</code> table but received <strong>0 rows</strong>. This typically happens for two reasons:</p>
+      <h3>Status Report</h3>
+      <p>If you are seeing this article, one of the following is true:</p>
       <ol>
-        <li><strong>The table is empty:</strong> You haven't written any articles yet. Log in as a Writer/Editor to create your first story.</li>
-        <li><strong>RLS Policies are blocking access:</strong> Supabase enables <em>Row Level Security</em> by default. You must create a Policy to allow public read access.</li>
+        <li><strong>Database Empty:</strong> You haven't published any articles yet. Log in to the <a href="#/login">Writer Dashboard</a> to create your first story.</li>
+        <li><strong>RLS Policy Required:</strong> Supabase requires a Row Level Security policy to allow public read access. Go to <em>Authentication > Policies</em> in your Supabase dashboard and enable read access for the <code>articles</code> table.</li>
+        <li><strong>Connection Issue:</strong> The application could not fetch data. Check your browser console for error details.</li>
       </ol>
-      <h3>How to Fix RLS:</h3>
-      <p>Go to your Supabase Dashboard > Authentication > Policies. Create a new policy for the <code>articles</code> table: <em>"Enable read access for all users"</em> (SELECT operation, Target roles: anon, authenticated).</p>
+      <h3>Next Steps</h3>
+      <p>Log in as an Editor or Writer to start populating your news feed. The system is designed to show this placeholder until real data is available.</p>
     `,
     categories: ['System'],
     imageUrl: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=2940&auto=format&fit=crop',
@@ -337,10 +338,26 @@ function App() {
               views: a.views || 0
             };
         }) as Article[]);
-      } else if (artData && artData.length === 0 && !artError) {
-          // DATABASE EMPTY (BUT CONNECTED)
-          console.log("Database connected but empty. Injecting setup guide.");
-          setArticles([SETUP_ARTICLE]);
+      } else {
+          // DATABASE EMPTY OR ERROR - ALWAYS INJECT FALLBACK
+          // This ensures the site never looks broken/empty on first load or error
+          console.warn("Database empty or connection error. Injecting system guide.", artError);
+          
+          const fallbackArticle = { ...SETUP_ARTICLE };
+          
+          if (artError) {
+              fallbackArticle.title = "System Alert: Connection Issue";
+              fallbackArticle.content = `
+                <h2>Database Connection Failed</h2>
+                <p>The application encountered an error while fetching content.</p>
+                <div style="background:#fee2e2; border:1px solid #ef4444; color:#991b1b; padding:10px; border-radius:4px; margin: 10px 0;">
+                    <strong>Error:</strong> ${artError.message || JSON.stringify(artError)}
+                </div>
+                <p>This may be due to missing database tables or Row Level Security (RLS) policies. Please check your Supabase dashboard.</p>
+              `;
+          }
+          
+          setArticles([fallbackArticle]);
       }
 
       if (pageData) {
@@ -384,6 +401,8 @@ function App() {
       setLastSync(new Date());
     } catch (err) {
       console.error("Critical error in fetchData:", err);
+      // Even in catch block, inject setup article to prevent white screen
+      setArticles([SETUP_ARTICLE]);
     }
   };
 
