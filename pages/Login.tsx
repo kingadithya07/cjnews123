@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
 import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, KeyRound, Copy, RotateCw, Eye, EyeOff } from 'lucide-react';
@@ -44,6 +43,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     };
     checkExistingSession();
   }, [existingDevices]); // Keep dependency for re-trigger if props change, though we fetch fresh data inside
+
+  // Instant Refresh Effect: Watch props when waiting for approval
+  useEffect(() => {
+      if (mode === 'awaiting_approval' && pendingUser) {
+          const currentId = getDeviceId();
+          const myDevice = existingDevices.find(d => d.id === currentId && d.userId === pendingUser.id);
+          
+          if (myDevice && myDevice.status === 'approved') {
+              finalizeLogin(pendingUser);
+          }
+      }
+  }, [existingDevices, mode, pendingUser]);
 
   const handleSessionFound = async (session: any) => {
     const currentId = getDeviceId();
