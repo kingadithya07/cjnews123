@@ -296,27 +296,18 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const getProfile = async (uid: string) => {
-    const { data } = await supabase.from('profiles').select('role, full_name, avatar_url').eq('id', uid).single();
-    return data;
-  };
-
   useEffect(() => {
     const checkInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          const { user } = session;
-          // Fetch secure profile
-          const profile = await getProfile(user.id);
-          const meta = user.user_metadata;
-
-          setUserId(user.id);
-          // Prefer profile data, fallback to metadata
-          setUserName(profile?.full_name || meta.full_name || 'Staff');
-          setUserRole((profile?.role as UserRole) || meta.role || UserRole.READER);
-          setUserAvatar(profile?.avatar_url || meta.avatar_url || null);
+          const profile = session.user.user_metadata;
+          setUserId(session.user.id);
+          setUserName(profile.full_name || 'Staff');
+          setUserRole(profile.role || UserRole.READER);
+          setUserAvatar(profile.avatar_url || null);
           
+          // Trigger device fetch after login
           await fetchDevices();
         }
       } catch (err) {
@@ -327,17 +318,14 @@ function App() {
     };
     checkInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        const { user } = session;
-        const profile = await getProfile(user.id);
-        const meta = user.user_metadata;
-
-        setUserId(user.id);
-        setUserName(profile?.full_name || meta.full_name || 'Staff');
-        setUserRole((profile?.role as UserRole) || meta.role || UserRole.READER);
-        setUserAvatar(profile?.avatar_url || meta.avatar_url || null);
-        fetchDevices(); 
+        const profile = session.user.user_metadata;
+        setUserId(session.user.id);
+        setUserName(profile.full_name || 'Staff');
+        setUserRole(profile.role || UserRole.READER);
+        setUserAvatar(profile.avatar_url || null);
+        fetchDevices(); // Fetch when session becomes active
       } else {
         setUserId(null);
         setUserName(null);
