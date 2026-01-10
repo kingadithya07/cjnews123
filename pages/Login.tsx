@@ -71,11 +71,30 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                 setMode('awaiting_approval');
             }
         } else {
-            // CRITICAL CHANGE: This is an unknown device (Secondary).
-            // Do NOT automatically add it to the database. 
-            // Allow login (Ephemeral Session) but do not list as trusted.
-            // Verification happened via Email/Password (Primary Account credentials).
-            finalizeLogin(session.user);
+            // UNKNOWN DEVICE (Secondary).
+            // Register as PENDING to trigger approval workflow on Primary Device.
+            const meta = getDeviceMetadata();
+            try {
+                await onAddDevice({
+                    id: currentId,
+                    userId: session.user.id,
+                    deviceName: meta.name,
+                    deviceType: meta.type,
+                    location: 'New Login',
+                    lastActive: 'Requesting Access',
+                    isCurrent: true,
+                    isPrimary: false,
+                    status: 'pending',
+                    browser: meta.browser
+                });
+                
+                // Show approval screen
+                setPendingUser(session.user);
+                setMode('awaiting_approval');
+            } catch (e) {
+                console.error("Failed to register secondary device", e);
+                setError("Device registration failed. Please try again.");
+            }
         }
     } else {
         // No devices found for this user in DB -> This is the FIRST device -> PRIMARY
@@ -102,7 +121,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   };
 
   const manualRefresh = async () => {
+      // Force a session refresh and re-check device status
       await supabase.auth.refreshSession();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+          handleSessionFound(session);
+      }
   };
 
   const finalizeLogin = (user: any) => {
@@ -237,7 +261,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                   <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 space-y-3">
                       <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
                           <span>Terminal ID</span>
-                          <span className="text-gray-900 font-mono">{getDeviceId()}</span>
+                          <span className="text-gray-900 font-mono">{getDeviceId().substring(0, 8)}...</span>
                       </div>
                       <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
                           <span>Metadata</span>
@@ -249,7 +273,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                           <Loader2 size={14} className="animate-spin" /> Awaiting Handshake...
                       </div>
                       <button onClick={manualRefresh} className="flex items-center justify-center gap-2 text-news-gold font-bold text-[10px] uppercase tracking-[0.2em] hover:text-news-black transition-colors">
-                          <RotateCw size={14} /> Re-verify Approval Status
+                          <RotateCw size={14} /> Check Approval Status
                       </button>
                       
                       <div className="pt-4 border-t border-gray-100">
@@ -268,7 +292,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   return (
     <div className="min-h-[calc(100vh-80px)] flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8 bg-news-paper">
       <div className="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-5xl w-full flex flex-col md:flex-row min-h-[600px] border border-gray-200">
-        <div className="w-full md:w-1/2 bg-news-black relative p-12 flex flex-col justify-between text-white overflow-hidden">
+        <div className="w-full md:w-1/2 bg-news-black relative p-8 md:p-12 flex flex-col justify-between text-white overflow-hidden shrink-0">
            <div className="absolute inset-0 opacity-10 pointer-events-none">
               <div className="absolute top-0 left-0 w-64 h-64 bg-news-accent rounded-full filter blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
            </div>
@@ -277,12 +301,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  <Newspaper size={28} />
                  <span className="font-serif text-3xl font-black tracking-tighter text-white uppercase italic">CJ <span className="not-italic text-white">NEWSHUB</span></span>
               </div>
-              <h2 className="text-4xl font-serif font-black leading-tight mb-6 uppercase">
+              <h2 className="text-3xl md:text-4xl font-serif font-black leading-tight mb-6 uppercase">
                 {mode === 'signup' ? "Staff Enrollment" : "Editorial Access"}
               </h2>
-              <p className="text-gray-400 text-lg leading-relaxed font-light">Secure gateway to the CJ NEWSHUB global publishing suite. Professional editorial tools for modern journalism.</p>
+              <p className="text-gray-400 text-base md:text-lg leading-relaxed font-light">Secure gateway to the CJ NEWSHUB global publishing suite. Professional editorial tools for modern journalism.</p>
            </div>
-           <div className="relative z-10 pt-8 border-t border-white/10">
+           <div className="relative z-10 pt-8 border-t border-white/10 mt-8 md:mt-0">
                <button onClick={onEmergencyReset} className="text-[10px] text-gray-500 hover:text-white font-bold uppercase tracking-[0.3em] transition-colors">
                    System Security Protocol
                </button>
