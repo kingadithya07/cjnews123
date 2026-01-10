@@ -22,6 +22,7 @@ function App() {
   const [userRole, setUserRole] = useState<UserRole>(UserRole.READER);
   const [userName, setUserName] = useState<string | null>(null); 
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRecovering, setIsRecovering] = useState(false);
@@ -251,26 +252,6 @@ function App() {
     }
   };
 
-  // --- REAL-TIME SUBSCRIPTION ---
-  useEffect(() => {
-    fetchData();
-
-    const channel = supabase
-      .channel('newsroom_global_sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, () => fetchData(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, () => {
-          if (userId) fetchDevices(); // Refresh devices on change
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
-
   // --- ROUTING LOGIC ---
   const getPathFromHash = () => {
      const hash = window.location.hash;
@@ -296,7 +277,21 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // --- REAL-TIME SUBSCRIPTION & AUTH STATE ---
   useEffect(() => {
+    fetchData();
+
+    const channel = supabase
+      .channel('newsroom_global_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, () => {
+          if (userId) fetchDevices(); // Refresh devices on change
+      })
+      .subscribe();
+
     const checkInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -304,6 +299,7 @@ function App() {
           const profile = session.user.user_metadata;
           setUserId(session.user.id);
           setUserName(profile.full_name || 'Staff');
+          setUserEmail(session.user.email || null);
           setUserRole(profile.role || UserRole.READER);
           setUserAvatar(profile.avatar_url || null);
           
@@ -319,23 +315,35 @@ function App() {
     checkInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // HANDLE PASSWORD RECOVERY EVENT
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecovering(true);
+        navigate('/reset-password');
+      }
+
       if (session) {
         const profile = session.user.user_metadata;
         setUserId(session.user.id);
         setUserName(profile.full_name || 'Staff');
+        setUserEmail(session.user.email || null);
         setUserRole(profile.role || UserRole.READER);
         setUserAvatar(profile.avatar_url || null);
         fetchDevices(); // Fetch when session becomes active
       } else {
         setUserId(null);
         setUserName(null);
+        setUserEmail(null);
         setUserRole(UserRole.READER);
         setUserAvatar(null);
         setDevices([]);
       }
     });
-    return () => subscription.unsubscribe();
-  }, []);
+
+    return () => {
+      supabase.removeChannel(channel);
+      subscription.unsubscribe();
+    };
+  }, []); // Note: Removed userId dep from here to avoid recreation loop, userId is handled inside
 
   // Check device approval AFTER fetching devices
   useEffect(() => {
@@ -605,6 +613,7 @@ function App() {
         onNavigate={navigate} 
         userAvatar={userAvatar} 
         userName={userName}
+        userEmail={userEmail}
         devices={devices.filter(d => d.userId === userId)} 
         onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} 
         onRejectDevice={(id) => handleRevokeDevice(id)} 
@@ -624,6 +633,7 @@ function App() {
         onNavigate={navigate} 
         userAvatar={userAvatar} 
         userName={userName}
+        userEmail={userEmail}
         devices={devices.filter(d => d.userId === userId)}
         onRevokeDevice={handleRevokeDevice}
         userId={userId} // Pass userId for isolation

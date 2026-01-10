@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
-import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, EyeOff, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles, Key } from 'lucide-react';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, EyeOff, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles, Key, Mail } from 'lucide-react';
 import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -18,13 +18,14 @@ interface WriterDashboardProps {
   onNavigate: (path: string) => void;
   userAvatar?: string | null;
   userName?: string | null;
+  userEmail?: string | null;
   devices?: TrustedDevice[];
   onRevokeDevice?: (id: string) => void;
   userId?: string | null; // Passed for data isolation
 }
 
 const WriterDashboard: React.FC<WriterDashboardProps> = ({ 
-    onSave, onDelete, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName,
+    onSave, onDelete, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName, userEmail,
     devices = [], onRevokeDevice, userId
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -48,6 +49,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
 
   // Settings State
   const [profileName, setProfileName] = useState(userName || '');
+  const [profileEmail, setProfileEmail] = useState(userEmail || '');
   const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -220,9 +222,18 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
       if (newPassword) {
         updates.password = newPassword;
       }
+      if (profileEmail !== userEmail) {
+          updates.email = profileEmail;
+      }
+
       const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
-      alert("Settings updated successfully!");
+      
+      if (profileEmail !== userEmail) {
+          alert("Settings updated! A confirmation link has been sent to your new email address.");
+      } else {
+          alert("Settings updated successfully!");
+      }
       setNewPassword('');
     } catch (err: any) {
       alert("Error updating profile: " + err.message);
@@ -466,6 +477,20 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
                                     <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Email Address</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                                        <input 
+                                            type="email" 
+                                            value={profileEmail} 
+                                            onChange={e => setProfileEmail(e.target.value)} 
+                                            className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black font-medium" 
+                                            placeholder="writer@example.com"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1">Changing this will trigger a confirmation link to the new address.</p>
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar</label>

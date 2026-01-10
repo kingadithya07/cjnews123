@@ -47,6 +47,7 @@ interface EditorDashboardProps {
   onNavigate: (path: string) => void;
   userAvatar?: string | null;
   userName?: string | null;
+  userEmail?: string | null;
   devices: TrustedDevice[];
   onApproveDevice: (id: string) => void;
   onRejectDevice: (id: string) => void;
@@ -60,7 +61,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   onAddPage, onDeletePage, onDeleteArticle, onSaveArticle, 
   onAddCategory, onDeleteCategory, onAddTag, onDeleteTag, onAddAdCategory, onDeleteAdCategory, onSaveTaxonomy,
   onAddClassified, onDeleteClassified, onAddAdvertisement, onUpdateAdvertisement, onDeleteAdvertisement,
-  onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar,
+  onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar, userEmail,
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId, activeVisitors
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -125,6 +126,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
   // Settings State
   const [profileName, setProfileName] = useState(userName || '');
+  const [profileEmail, setProfileEmail] = useState(userEmail || '');
   const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -377,9 +379,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       if (newPassword) {
         updates.password = newPassword;
       }
+      if (profileEmail !== userEmail) {
+          updates.email = profileEmail;
+      }
+
       const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
-      alert("Settings updated successfully!");
+      
+      if (profileEmail !== userEmail) {
+          alert("Settings updated! A confirmation link has been sent to your new email address.");
+      } else {
+          alert("Settings updated successfully!");
+      }
       setNewPassword('');
     } catch (err: any) {
         // Handle "Password update requires reauthentication" specifically
@@ -896,6 +907,20 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
                                     <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Email Address (Recovery)</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                                        <input 
+                                            type="email" 
+                                            value={profileEmail} 
+                                            onChange={e => setProfileEmail(e.target.value)} 
+                                            className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black font-medium" 
+                                            placeholder="admin@example.com"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1">Changing this will trigger a confirmation link to the new address.</p>
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar</label>
