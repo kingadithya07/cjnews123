@@ -168,11 +168,19 @@ function App() {
           } catch (e) { console.error("Failed to parse global settings", e); }
       }
 
-      // 2. Articles
-      let { data: artData } = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).order('publishedAt', { ascending: false });
+      // 2. Articles - use snake_case for DB columns in order()
+      let { data: artData } = await supabase
+        .from('articles')
+        .select('*')
+        .neq('id', GLOBAL_SETTINGS_ID)
+        .order('published_at', { ascending: false }); // Updated from publishedAt
       
-      // 3. E-Paper
-      let { data: pageData } = await supabase.from('epaper_pages').select('*').order('date', { ascending: false }).order('pageNumber', { ascending: true });
+      // 3. E-Paper - use snake_case for DB columns
+      let { data: pageData } = await supabase
+        .from('epaper_pages')
+        .select('*')
+        .order('date', { ascending: false })
+        .order('page_number', { ascending: true }); // Updated from pageNumber
 
       // 4. Classifieds & Ads
       const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
@@ -192,7 +200,7 @@ function App() {
           title: a.title,
           englishTitle: a.english_title || undefined, // Map English Title
           subline: a.subline,
-          author: a.author,
+          author: a.author || 'Unknown', // Safe fallback
           authorAvatar: a.authorAvatar || a.author_avatar,
           content: a.content,
           categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
