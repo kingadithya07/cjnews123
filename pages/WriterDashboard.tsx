@@ -22,11 +22,12 @@ interface WriterDashboardProps {
   devices?: TrustedDevice[];
   onRevokeDevice?: (id: string) => void;
   userId?: string | null; // Passed for data isolation
+  activeVisitors?: number; // Added for Analytics
 }
 
 const WriterDashboard: React.FC<WriterDashboardProps> = ({ 
     onSave, onDelete, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName, userEmail,
-    devices = [], onRevokeDevice, userId
+    devices = [], onRevokeDevice, userId, activeVisitors
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'settings'>('articles');
@@ -403,7 +404,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                       </div>
                   </div>
               )}
-              {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={myArticles} role={ArticleStatus.PUBLISHED as any} /></div>}
+              {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={myArticles} role={ArticleStatus.PUBLISHED as any} activeVisitors={activeVisitors} /></div>}
               {activeTab === 'settings' && (
                   <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
                       {/* Third-Party Integrations */}

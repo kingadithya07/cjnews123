@@ -158,6 +158,24 @@ function App() {
   }, [userRole]);
 
   // --- DEVICE MANAGEMENT (DB TABLE) ---
+  const mapDbDevice = (d: any): TrustedDevice => {
+      const currentId = getDeviceId();
+      return {
+          id: d.id,
+          userId: d.user_id,
+          deviceName: d.device_name,
+          deviceType: d.device_type,
+          location: d.location,
+          lastActive: d.last_active,
+          status: d.status,
+          browser: d.browser,
+          isPrimary: d.is_primary,
+          // CALCULATE isCurrent dynamically. Do NOT rely on DB value.
+          // This ensures 'Delete' button shows for remote devices.
+          isCurrent: d.id === currentId 
+      };
+  };
+
   const fetchDevices = async (uidOverride?: string) => {
       const targetUserId = uidOverride || userIdRef.current;
       
@@ -180,22 +198,7 @@ function App() {
       }
 
       if (data) {
-          const currentId = getDeviceId();
-          const mappedDevices: TrustedDevice[] = data.map((d: any) => ({
-              id: d.id,
-              userId: d.user_id,
-              deviceName: d.device_name,
-              deviceType: d.device_type,
-              location: d.location,
-              lastActive: d.last_active,
-              status: d.status,
-              browser: d.browser,
-              isPrimary: d.is_primary,
-              // CALCULATE isCurrent dynamically. Do NOT rely on DB value.
-              // This ensures 'Delete' button shows for remote devices.
-              isCurrent: d.id === currentId 
-          }));
-          setDevices(mappedDevices);
+          setDevices(data.map(mapDbDevice));
       }
   };
 
@@ -389,9 +392,32 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, () => {
-          // If devices change, re-fetch specifically for current user
-          if (userIdRef.current) fetchDevices(userIdRef.current);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, (payload) => {
+          // INSTANT UPDATE LOGIC
+          // Instead of fetching, we process the payload immediately to update state
+          // This ensures popup appears instantly on primary device and redirects instantly on secondary device.
+          
+          if (!userIdRef.current) return;
+
+          // Only process if it belongs to current user
+          if (payload.new && (payload.new as any).user_id !== userIdRef.current) return;
+          if (payload.old && !payload.new && (payload.old as any).user_id !== userIdRef.current) {
+              // For delete, we might not have user_id in 'old' depending on replica identity
+          }
+
+          if (payload.eventType === 'INSERT') {
+              const newDevice = mapDbDevice(payload.new);
+              setDevices(prev => {
+                  if (prev.some(d => d.id === newDevice.id)) return prev;
+                  return [...prev, newDevice];
+              });
+          } else if (payload.eventType === 'UPDATE') {
+              const updatedDevice = mapDbDevice(payload.new);
+              setDevices(prev => prev.map(d => d.id === updatedDevice.id ? updatedDevice : d));
+          } else if (payload.eventType === 'DELETE') {
+              const deletedId = payload.old.id;
+              setDevices(prev => prev.filter(d => d.id !== deletedId));
+          }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => {
           // Refresh logs when new one inserted
@@ -682,14 +708,16 @@ function App() {
   const pendingDevice = devices.find(d => d.status === 'pending');
 
   const path = currentPath.toLowerCase();
-  let content;
+  
+  // Explicitly typing and initializing content variable to fix TS error
+  let content: React.ReactNode = null;
   
   if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
-    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => {}} />;
+    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
   } else if (path === '/staff/login') {
-    content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => {}} />;
+    content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
     content = <EditorDashboard 
         articles={articles} 
@@ -777,6 +805,7 @@ function App() {
         devices={devices.filter(d => d.userId === userId)}
         onRevokeDevice={handleRevokeDevice}
         userId={userId} // Pass userId for isolation
+        activeVisitors={activeVisitors} // Pass Real-Time Analytics
     />;
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
