@@ -5,7 +5,7 @@ import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link a
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
-import { createSlug } from '../utils';
+import { createSlug, getDeviceMetadata } from '../utils';
 import { supabase } from '../supabaseClient';
 
 interface ArticleViewProps {
@@ -132,8 +132,8 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
           if (isSharing.current) return;
           isSharing.current = true;
           try {
-              // Construct detailed text caption: URL first, then Title, then Subline
-              const shareText = `🔗 ${permalink}\n\n📰 ${article.title}\n\n${article.subline || ''}`;
+              // Construct text caption: URL first, then Title, then Subline
+              const shareText = `${permalink}\n\n${article.title}${article.subline ? `\n\n${article.subline}` : ''}`;
 
               let shareData: ShareData = {
                   title: article.title,
@@ -141,26 +141,33 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                   url: permalink
               };
 
-              // Enhanced Sharing: Try to share the actual image file along with link
-              try {
-                  if (article.imageUrl) {
-                      const response = await fetch(article.imageUrl);
-                      const blob = await response.blob();
-                      const file = new File([blob], "article_cover.jpg", { type: blob.type });
-                      
-                      const fileShareData = {
-                          files: [file],
-                          title: article.title,
-                          text: shareText, // Pass the full captioned text here
-                          url: permalink 
-                      };
+              // Determine device type
+              const { type } = getDeviceMetadata();
+              const isMobileOrTablet = type === 'mobile' || type === 'tablet';
 
-                      if (navigator.canShare && navigator.canShare(fileShareData)) {
-                          shareData = fileShareData;
+              // Enhanced Sharing: Try to share the actual image file along with link ONLY ON MOBILE/TABLET
+              // On desktop, sharing files often suppresses the text/url in the native share sheet.
+              if (isMobileOrTablet) {
+                  try {
+                      if (article.imageUrl) {
+                          const response = await fetch(article.imageUrl);
+                          const blob = await response.blob();
+                          const file = new File([blob], "article_cover.jpg", { type: blob.type });
+                          
+                          const fileShareData = {
+                              files: [file],
+                              title: article.title,
+                              text: shareText, // Pass the full captioned text here
+                              url: permalink 
+                          };
+
+                          if (navigator.canShare && navigator.canShare(fileShareData)) {
+                              shareData = fileShareData;
+                          }
                       }
+                  } catch (e) {
+                      console.warn("Image sharing fallback enabled. Sharing link only.", e);
                   }
-              } catch (e) {
-                  console.warn("Image sharing fallback enabled. Sharing link only.", e);
               }
 
               await navigator.share(shareData);
@@ -179,7 +186,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
   const handleSocialShare = (platform: 'twitter' | 'facebook' | 'linkedin') => {
       if (!article) return;
       const permalink = getPermalink();
-      const text = encodeURIComponent(article.title + (article.subline ? ` - ${article.subline}` : ''));
+      const text = encodeURIComponent(article.title);
       const url = encodeURIComponent(permalink);
       
       let shareUrl = '';
