@@ -135,10 +135,11 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
               // Construct text caption: URL first, then Title, then Subline
               const shareText = `${permalink}\n\n${article.title}${article.subline ? `\n\n${article.subline}` : ''}`;
 
+              // Base share data (Text only fallback) - Includes URL property to ensure visibility
               let shareData: ShareData = {
                   title: article.title,
-                  text: shareText
-                  // Note: 'url' field omitted to ensure strict ordering in 'text' and prevent duplication at end of message on some platforms.
+                  text: shareText,
+                  url: permalink
               };
 
               // Determine device type
@@ -146,23 +147,32 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
               const isMobileOrTablet = type === 'mobile' || type === 'tablet';
 
               // Enhanced Sharing: Try to share the actual image file along with link ONLY ON MOBILE/TABLET
-              // On desktop, sharing files often suppresses the text/url in the native share sheet.
-              if (isMobileOrTablet) {
+              if (isMobileOrTablet && article.imageUrl) {
                   try {
-                      if (article.imageUrl) {
-                          const response = await fetch(article.imageUrl);
-                          const blob = await response.blob();
-                          const file = new File([blob], "article_cover.jpg", { type: blob.type });
-                          
-                          const fileShareData = {
-                              files: [file],
-                              title: article.title,
-                              text: shareText
-                          };
+                      const response = await fetch(article.imageUrl);
+                      const blob = await response.blob();
+                      const file = new File([blob], "article_cover.jpg", { type: blob.type });
+                      
+                      // Try with URL property first (Best experience if supported)
+                      const fileShareDataWithUrl = {
+                          files: [file],
+                          title: article.title,
+                          text: shareText,
+                          url: permalink
+                      };
 
-                          if (navigator.canShare && navigator.canShare(fileShareData)) {
-                              shareData = fileShareData;
-                          }
+                      // Try without URL property (fallback if platform rejects files + url combo)
+                      // The URL is still in 'text' (shareText) as the first line.
+                      const fileShareDataNoUrl = {
+                          files: [file],
+                          title: article.title,
+                          text: shareText
+                      };
+
+                      if (navigator.canShare && navigator.canShare(fileShareDataWithUrl)) {
+                          shareData = fileShareDataWithUrl;
+                      } else if (navigator.canShare && navigator.canShare(fileShareDataNoUrl)) {
+                          shareData = fileShareDataNoUrl;
                       }
                   } catch (e) {
                       console.warn("Image sharing fallback enabled. Sharing link only.", e);
