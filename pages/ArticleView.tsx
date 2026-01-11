@@ -132,10 +132,8 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
           if (isSharing.current) return;
           isSharing.current = true;
           try {
-              // Construct a detailed text caption
-              // Apps like WhatsApp use 'text' as the image caption. 
-              // We separate lines clearly to ensure title, subline and link are distinct.
-              const shareText = `📰 ${article.title}\n\n${article.subline ? article.subline + '\n\n' : ''}🔗 Read full story: ${permalink}`;
+              // Construct detailed text caption: URL first, then Title, then Subline
+              const shareText = `🔗 ${permalink}\n\n📰 ${article.title}\n\n${article.subline || ''}`;
 
               let shareData: ShareData = {
                   title: article.title,
