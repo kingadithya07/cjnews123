@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
 import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, KeyRound, Copy, RotateCw, Eye, EyeOff } from 'lucide-react';
@@ -30,7 +29,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   const [otp, setOtp] = useState('');
   
   const [pendingUser, setPendingUser] = useState<any>(null);
-  const [hasRegistered, setHasRegistered] = useState(false);
 
   useEffect(() => {
     return () => { isMounted.current = false; };
@@ -46,29 +44,17 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     checkExistingSession();
   }, [existingDevices]); // Keep dependency for re-trigger if props change, though we fetch fresh data inside
 
-  // Instant Refresh Effect: Watch props when waiting for approval OR Rejection
+  // Instant Refresh Effect: Watch props when waiting for approval
   useEffect(() => {
-      if (mode === 'awaiting_approval' && pendingUser && hasRegistered) {
+      if (mode === 'awaiting_approval' && pendingUser) {
           const currentId = getDeviceId();
-          // Find device in the updated list from App.tsx
           const myDevice = existingDevices.find(d => d.id === currentId && d.userId === pendingUser.id);
           
-          if (!myDevice) {
-              // Device DISAPPEARED -> It was rejected/deleted by Primary
-              // Trigger sign out and reset UI immediately
-              supabase.auth.signOut().then(() => {
-                  setMode('signin');
-                  setPendingUser(null);
-                  setHasRegistered(false);
-                  setError("Access Denied: Your device request was rejected by the administrator.");
-              });
-          } else if (myDevice.status === 'approved') {
-              // Device APPROVED -> Finalize
+          if (myDevice && myDevice.status === 'approved') {
               finalizeLogin(pendingUser);
           }
-          // If status is 'pending', we stay waiting
       }
-  }, [existingDevices, mode, pendingUser, hasRegistered]);
+  }, [existingDevices, mode, pendingUser]);
 
   const handleSessionFound = async (session: any) => {
     const currentId = getDeviceId();
@@ -94,7 +80,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                 // Device exists but is pending or blocked
                 setPendingUser(session.user);
                 setMode('awaiting_approval');
-                setHasRegistered(true);
             }
         } else {
             // UNKNOWN DEVICE (Secondary).
@@ -117,7 +102,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                 // Show approval screen
                 setPendingUser(session.user);
                 setMode('awaiting_approval');
-                setHasRegistered(true);
             } catch (e) {
                 console.error("Failed to register secondary device", e);
                 setError("Device registration failed. Please try again.");
@@ -309,7 +293,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                         </button>
                       </div>
                       
-                      <button onClick={async () => { await supabase.auth.signOut(); setMode('signin'); setPendingUser(null); setHasRegistered(false); }} className="text-gray-400 hover:text-news-black text-[10px] font-bold uppercase tracking-widest">Abort & Sign Out</button>
+                      <button onClick={async () => { await supabase.auth.signOut(); setMode('signin'); setPendingUser(null); }} className="text-gray-400 hover:text-news-black text-[10px] font-bold uppercase tracking-widest">Abort & Sign Out</button>
                   </div>
               </div>
           </div>

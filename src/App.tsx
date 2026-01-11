@@ -661,7 +661,7 @@ function App() {
     }).eq('id', page.id);
     if (error) console.error("Page update error:", error.message);
     fetchData(true); 
-  };
+  }
 
   const isDeviceAuthorized = () => {
     if (!userId) return false;
@@ -788,7 +788,6 @@ function App() {
         devices={devices.filter(d => d.userId === userId)}
         onRevokeDevice={handleRevokeDevice}
         userId={userId} // Pass userId for isolation
-        activeVisitors={activeVisitors}
     />;
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;

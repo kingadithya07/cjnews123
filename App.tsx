@@ -131,16 +131,19 @@ function App() {
 
   // --- REAL-TIME VISITOR TRACKING (PRESENCE) ---
   useEffect(() => {
+    // Unique channel name for the app
     const channel = supabase.channel('cj_newsroom_visitors');
 
     channel
       .on('presence', { event: 'sync' }, () => {
         const newState = channel.presenceState();
+        // Count distinct presence IDs (connected clients)
         const count = Object.keys(newState).length;
         setActiveVisitors(count > 0 ? count : 1);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          // Track this client
           await channel.track({ 
             online_at: new Date().toISOString(),
             device_id: getDeviceId(),
@@ -154,7 +157,7 @@ function App() {
     };
   }, [userRole]);
 
-  // --- DEVICE MANAGEMENT ---
+  // --- DEVICE MANAGEMENT (DB TABLE) ---
   const mapDbDevice = (d: any): TrustedDevice => {
       const currentId = getDeviceId();
       return {
@@ -167,16 +170,23 @@ function App() {
           status: d.status,
           browser: d.browser,
           isPrimary: d.is_primary,
+          // CALCULATE isCurrent dynamically. Do NOT rely on DB value.
+          // This ensures 'Delete' button shows for remote devices.
           isCurrent: d.id === currentId 
       };
   };
 
   const fetchDevices = async (uidOverride?: string) => {
       const targetUserId = uidOverride || userIdRef.current;
+      
       if (!targetUserId) {
+          // If no user ID, ensure devices list is empty
           setDevices([]);
           return;
       }
+
+      // Fetch from 'trusted_devices' table instead of metadata
+      // Explicitly filter by user_id to ensure we get the right data even if RLS is lax
       const { data, error } = await supabase
         .from('trusted_devices')
         .select('*')
@@ -186,6 +196,7 @@ function App() {
           console.error("Error fetching devices:", error);
           return;
       }
+
       if (data) {
           setDevices(data.map(mapDbDevice));
       }
@@ -194,6 +205,7 @@ function App() {
   const handleAddDevice = async (device: TrustedDevice) => {
       // Optimistic Update
       setDevices(prev => {
+          // Avoid duplicates in optimistic update
           if (prev.some(d => d.id === device.id)) return prev;
           return [...prev, { ...device, isCurrent: true }];
       });
@@ -208,6 +220,7 @@ function App() {
           status: device.status,
           browser: device.browser,
           is_primary: device.isPrimary
+          // Removed isCurrent from DB payload to avoid stale state
       };
 
       const { error } = await supabase.from('trusted_devices').upsert(dbDevice);
@@ -218,7 +231,9 @@ function App() {
   };
 
   const handleRevokeDevice = async (deviceId: string) => {
+      // Optimistic
       setDevices(prev => prev.filter(d => d.id !== deviceId));
+      
       const { error } = await supabase.from('trusted_devices').delete().eq('id', deviceId);
       if (error) {
           alert("Failed to delete device: " + error.message);
@@ -227,9 +242,7 @@ function App() {
   };
 
   const handleUpdateDeviceStatus = async (deviceId: string, status: 'approved' | 'pending') => {
-      // Instant Local Update
       setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, status } : d));
-      
       const { error } = await supabase.from('trusted_devices').update({ status }).eq('id', deviceId);
       if (error) {
           console.error("Status update failed", error);
@@ -237,9 +250,10 @@ function App() {
       }
   };
 
-  // --- DATA SYNC ---
+  // --- DATA SYNC FROM SUPABASE ---
   const fetchData = async (force: boolean = false) => {
     try {
+      // 1. Global Settings
       const { data: settingsData } = await supabase
         .from('articles')
         .select('content, published_at')
@@ -257,18 +271,31 @@ function App() {
           } catch (e) { console.error("Failed to parse global settings", e); }
       }
 
+      // 2. Articles
       let { data: artData } = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).order('publishedAt', { ascending: false });
+      
+      // 3. E-Paper
       let { data: pageData } = await supabase.from('epaper_pages').select('*').order('date', { ascending: false }).order('pageNumber', { ascending: true });
+
+      // 4. Classifieds & Ads
       const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
 
+      // 5. Trusted Devices (Only if logged in)
+      // Use ref to access current ID in case of stale closure during subscription events
+      if (userIdRef.current) {
+          await fetchDevices(userIdRef.current);
+          fetchLogs();
+      }
+
+      // --- MAPPING LAYER ---
       if (artData) {
         setArticles(artData.map(a => ({
           id: a.id,
-          userId: a.user_id,
-          slug: a.slug,
+          userId: a.user_id, // Map database column to type
+          slug: a.slug, // Map slug
           title: a.title,
-          englishTitle: a.english_title || undefined,
+          englishTitle: a.english_title || undefined, // Map English Title
           subline: a.subline,
           author: a.author,
           authorAvatar: a.authorAvatar || a.author_avatar,
@@ -281,7 +308,7 @@ function App() {
           isPremium: a.isPremium || a.is_premium || false,
           isFeatured: a.isFeatured || a.is_featured || false,
           isEditorsChoice: a.isEditorsChoice || a.is_editors_choice || false,
-          views: a.views || 0
+          views: a.views || 0 // Map views from DB
         })) as Article[]);
       }
 
@@ -329,7 +356,7 @@ function App() {
     }
   };
 
-  // --- ROUTING ---
+  // --- ROUTING LOGIC ---
   const getPathFromHash = () => {
      const hash = window.location.hash;
      if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('error=')) return '/auth-callback'; 
@@ -354,19 +381,78 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // --- GLOBAL SUBSCRIPTION (Articles, Ads, etc) ---
+  // --- REAL-TIME SUBSCRIPTION & AUTH STATE ---
   useEffect(() => {
-    fetchData(); // Initial load
+    // Initial fetch
+    fetchData();
 
     const channel = supabase
-      .channel('newsroom_global_content')
+      .channel('newsroom_global_sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'epaper_pages' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, (payload) => {
+          // INSTANT UPDATE LOGIC
+          // Instead of fetching, we process the payload immediately to update state
+          // This ensures popup appears instantly on primary device and redirects instantly on secondary device.
+          
+          if (!userIdRef.current) return;
+
+          // Only process if it belongs to current user
+          if (payload.new && (payload.new as any).user_id !== userIdRef.current) return;
+          if (payload.old && !payload.new && (payload.old as any).user_id !== userIdRef.current) {
+              // For delete, we might not have user_id in 'old' depending on replica identity
+          }
+
+          if (payload.eventType === 'INSERT') {
+              const newDevice = mapDbDevice(payload.new);
+              setDevices(prev => {
+                  if (prev.some(d => d.id === newDevice.id)) return prev;
+                  return [...prev, newDevice];
+              });
+          } else if (payload.eventType === 'UPDATE') {
+              const updatedDevice = mapDbDevice(payload.new);
+              setDevices(prev => prev.map(d => d.id === updatedDevice.id ? updatedDevice : d));
+          } else if (payload.eventType === 'DELETE') {
+              const deletedId = payload.old.id;
+              setDevices(prev => prev.filter(d => d.id !== deletedId));
+          }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => {
+          // Refresh logs when new one inserted
+          fetchLogs();
+      })
       .subscribe();
 
+    const checkInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const profile = session.user.user_metadata;
+          setUserId(session.user.id);
+          userIdRef.current = session.user.id; // Immediate ref update for downstream calls
+          sessionStartTime.current = Date.now();
+          
+          setUserName(profile.full_name || 'Staff');
+          setUserEmail(session.user.email || null);
+          setUserRole(profile.role || UserRole.READER);
+          setUserAvatar(profile.avatar_url || null);
+          
+          // Trigger device fetch after login, explicitly passing ID to avoid closure staleness
+          await fetchDevices(session.user.id);
+          fetchLogs();
+        }
+      } catch (err) {
+        console.warn("Auth check failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkInitialSession();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // HANDLE PASSWORD RECOVERY EVENT
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecovering(true);
         navigate('/reset-password');
@@ -382,7 +468,7 @@ function App() {
       }
 
       if (event === 'SIGNED_OUT') {
-          const duration = Math.round((Date.now() - sessionStartTime.current) / 60000); 
+          const duration = Math.round((Date.now() - sessionStartTime.current) / 60000); // Minutes
           await handleLogActivity('LOGOUT', `Duration: ${duration} mins`);
           
           setUserId(null);
@@ -398,7 +484,8 @@ function App() {
       if (session) {
         const profile = session.user.user_metadata;
         setUserId(session.user.id);
-        userIdRef.current = session.user.id; 
+        userIdRef.current = session.user.id; // Sync ref immediately
+        
         setUserName(profile.full_name || 'Staff');
         setUserEmail(session.user.email || null);
         setUserRole(profile.role || UserRole.READER);
@@ -406,73 +493,13 @@ function App() {
       }
     });
 
-    const checkInitialSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const profile = session.user.user_metadata;
-          setUserId(session.user.id);
-          userIdRef.current = session.user.id;
-          sessionStartTime.current = Date.now();
-          setUserName(profile.full_name || 'Staff');
-          setUserEmail(session.user.email || null);
-          setUserRole(profile.role || UserRole.READER);
-          setUserAvatar(profile.avatar_url || null);
-          await fetchDevices(session.user.id);
-          fetchLogs();
-        }
-      } catch (err) {
-        console.warn("Auth check failed:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkInitialSession();
-
     return () => {
       supabase.removeChannel(channel);
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Empty dep array: runs once on mount.
 
-  // --- USER-SPECIFIC SUBSCRIPTION (Trusted Devices, Logs) ---
-  useEffect(() => {
-      if (!userId) return;
-
-      // Unique channel for this user's devices to ensure instant updates
-      const userChannel = supabase.channel(`user_devices_${userId}`)
-          .on('postgres_changes', 
-              { event: '*', schema: 'public', table: 'trusted_devices', filter: `user_id=eq.${userId}` }, 
-              (payload) => {
-                  // INSTANT UPDATE LOGIC
-                  if (payload.eventType === 'INSERT') {
-                      const newDevice = mapDbDevice(payload.new);
-                      setDevices(prev => {
-                          if (prev.some(d => d.id === newDevice.id)) return prev;
-                          return [...prev, newDevice];
-                      });
-                  } else if (payload.eventType === 'UPDATE') {
-                      const updatedDevice = mapDbDevice(payload.new);
-                      setDevices(prev => prev.map(d => d.id === updatedDevice.id ? updatedDevice : d));
-                  } else if (payload.eventType === 'DELETE') {
-                      // Robust delete: Remove based on ID regardless of user_id presence in payload
-                      const deletedId = payload.old.id;
-                      setDevices(prev => prev.filter(d => d.id !== deletedId));
-                  }
-              }
-          )
-          .on('postgres_changes', 
-              { event: 'INSERT', schema: 'public', table: 'activity_logs', filter: `user_id=eq.${userId}` }, 
-              () => fetchLogs()
-          )
-          .subscribe();
-
-      return () => {
-          supabase.removeChannel(userChannel);
-      };
-  }, [userId]);
-
-  // Check device approval AFTER fetching/updating devices
+  // Check device approval AFTER fetching devices
   useEffect(() => {
       if (userId && devices.length > 0) {
           const currentId = getDeviceId();
@@ -486,14 +513,178 @@ function App() {
       }
   }, [devices, userId]);
 
-  // ... (Remainder of the file remains unchanged from handleLogin onwards)
-  // Re-inserting the rendering logic for clarity in the output block
+  const handleLogin = (role: UserRole, name: string, avatar?: string) => {
+      setUserRole(role);
+      setUserName(name);
+      if (avatar) setUserAvatar(avatar);
+  };
+
+  const handleSaveGlobalConfig = async (newWatermark?: WatermarkSettings) => {
+      const watermarkToSave = newWatermark || watermarkSettings;
+      if (newWatermark) setWatermarkSettings(newWatermark);
+
+      const payload = {
+          id: GLOBAL_SETTINGS_ID,
+          title: 'SYSTEM_CONFIG',
+          subline: 'Global System Configuration',
+          content: JSON.stringify({ 
+              watermark: watermarkToSave,
+              categories: categories,
+              tags: tags,
+              adCategories: adCategories,
+              adsEnabled: globalAdsEnabled
+          }),
+          author: 'SYSTEM',
+          category: 'Config',
+          imageUrl: 'https://placehold.co/100?text=Config',
+          image_url: 'https://placehold.co/100?text=Config',
+          publishedAt: new Date().toISOString(),
+          published_at: new Date().toISOString(),
+          status: ArticleStatus.PUBLISHED, 
+          user_id: userId,
+          summary: 'Internal system configuration'
+      };
+
+      const { error } = await supabase.from('articles').upsert(payload);
+      if (error) {
+          alert(`Failed to save settings globally: ${error.message}`);
+      } else {
+          fetchData(true);
+      }
+  };
+
+  const handleToggleGlobalAds = async (enabled: boolean) => {
+      setGlobalAdsEnabled(enabled);
+      
+      const payload = {
+          id: GLOBAL_SETTINGS_ID,
+          title: 'SYSTEM_CONFIG',
+          subline: 'Global System Configuration',
+          content: JSON.stringify({ 
+              watermark: watermarkSettings,
+              categories: categories,
+              tags: tags,
+              adCategories: adCategories,
+              adsEnabled: enabled
+          }),
+          author: 'SYSTEM',
+          category: 'Config',
+          imageUrl: 'https://placehold.co/100?text=Config',
+          image_url: 'https://placehold.co/100?text=Config',
+          publishedAt: new Date().toISOString(),
+          published_at: new Date().toISOString(),
+          status: ArticleStatus.PUBLISHED, 
+          user_id: userId,
+          summary: 'Internal system configuration'
+      };
+
+      const { error } = await supabase.from('articles').upsert(payload);
+      if (error) {
+          console.error("Failed to sync global ad switch", error);
+      } else {
+          fetchData(true);
+      }
+  };
+
+  const handleSaveArticle = async (article: Article) => {
+    // Generate slug from English title if available (better for SEO), otherwise fallback to regular title
+    const slugBase = article.englishTitle || article.title;
+    const articleSlug = article.slug || createSlug(slugBase);
+    
+    const articleWithSlug = { ...article, slug: articleSlug };
+
+    setArticles(prev => {
+        const exists = prev.find(a => a.id === article.id);
+        return exists ? prev.map(a => a.id === article.id ? articleWithSlug : a) : [articleWithSlug, ...prev];
+    });
+
+    const payload = {
+        id: article.id,
+        title: article.title,
+        english_title: article.englishTitle, // Save English title
+        slug: articleSlug,
+        subline: article.subline,
+        author: article.author,
+        author_avatar: article.authorAvatar,
+        content: article.content,
+        category: article.categories.join(', '), 
+        imageUrl: article.imageUrl,
+        image_url: article.imageUrl,
+        publishedAt: article.publishedAt,
+        published_at: article.publishedAt,
+        status: article.status,
+        user_id: userId,
+        is_featured: article.isFeatured,
+        is_editors_choice: article.isEditorsChoice
+    };
+
+    const { error } = await supabase.from('articles').upsert(payload);
+    if (error) {
+      alert("Failed to save article: " + error.message);
+      fetchData(true); 
+    } else {
+        // Log Edit Action
+        handleLogActivity('EDIT', `Article: ${article.title.substring(0, 20)}...`);
+    }
+  };
+
+  const handleDeleteArticle = async (id: string) => {
+      const previousArticles = [...articles];
+      setArticles(prev => prev.filter(a => a.id !== id));
+      
+      try {
+          const { error } = await supabase.from('articles').delete().eq('id', id);
+          if (error) throw error;
+      } catch (error: any) {
+          alert(`Failed to delete: ${error.message}`);
+          setArticles(previousArticles);
+          fetchData(true);
+      }
+  };
+
+  const handleAddPage = async (page: EPaperPage) => {
+    setEPaperPages(prev => [page, ...prev]);
+    const payload = {
+      id: page.id,
+      date: page.date,
+      pageNumber: page.pageNumber,
+      page_number: page.pageNumber,
+      imageUrl: page.imageUrl,
+      image_url: page.imageUrl,
+      user_id: userId
+    };
+    const { error } = await supabase.from('epaper_pages').insert(payload);
+    if (error) {
+      alert("Backend Sync Error: " + error.message);
+      fetchData(true); 
+    }
+  };
+
+  const handleDeletePage = async (id: string) => {
+    const prevPages = [...ePaperPages];
+    setEPaperPages(prev => prev.filter(p => p.id !== id));
+    const { error } = await supabase.from('epaper_pages').delete().eq('id', id);
+    if (error) {
+      alert("Failed to delete page: " + error.message);
+      setEPaperPages(prevPages);
+    }
+  };
+
+  const handleUpdatePage = async (page: EPaperPage) => {
+    const { error } = await supabase.from('epaper_pages').update({
+        date: page.date,
+        pageNumber: page.pageNumber,
+        page_number: page.pageNumber
+    }).eq('id', page.id);
+    if (error) console.error("Page update error:", error.message);
+    fetchData(true); 
+  }
 
   const isDeviceAuthorized = () => {
     if (!userId) return false;
     const currentDeviceId = getDeviceId();
     const myDevices = devices.filter(d => d.userId === userId);
-    if (myDevices.length === 0) return true; 
+    if (myDevices.length === 0) return true; // First time login scenario handled in Login
     const currentEntry = myDevices.find(d => d.id === currentDeviceId);
     return currentEntry?.status === 'approved';
   };
@@ -509,12 +700,16 @@ function App() {
       );
   }
 
+  // Calculate Primary Device Status for Global Popup
   const currentDeviceId = getDeviceId();
   const currentDeviceEntry = devices.find(d => d.id === currentDeviceId);
   const isPrimary = currentDeviceEntry?.isPrimary ?? false;
+  // Get FIRST pending device only
   const pendingDevice = devices.find(d => d.status === 'pending');
 
   const path = currentPath.toLowerCase();
+  
+  // Explicitly typing and initializing content variable to fix TS error
   let content: React.ReactNode = null;
   
   if (path === '/reset-password') {
@@ -551,6 +746,7 @@ function App() {
         onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} 
         onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
         onAddAdvertisement={async (ad) => { 
+            // Save standard ad properties
             const dbAd = {
                 id: ad.id,
                 title: ad.title,
@@ -588,8 +784,11 @@ function App() {
         onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} 
         onRejectDevice={(id) => handleRevokeDevice(id)} 
         onRevokeDevice={handleRevokeDevice}
+        // Pass userId to EditorDashboard for isolated gallery handling
         userId={userId}
+        // Pass Active Visitors Prop
         activeVisitors={activeVisitors}
+        // Logs
         logs={activityLogs}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
@@ -605,13 +804,16 @@ function App() {
         userEmail={userEmail}
         devices={devices.filter(d => d.userId === userId)}
         onRevokeDevice={handleRevokeDevice}
-        userId={userId}
-        activeVisitors={activeVisitors}
+        userId={userId} // Pass userId for isolation
+        activeVisitors={activeVisitors} // Pass Real-Time Analytics
     />;
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   } else if (path.startsWith('/article/')) {
+    // Determine if it's an ID or a Slug
     const slugOrId = currentPath.split('/article/')[1];
+    
+    // Find matching article either by ID or Slug OR by generated slug from title (robust fallback)
     let targetId = slugOrId;
     const foundBySlug = articles.find(a => 
         a.slug === slugOrId || 
@@ -649,6 +851,7 @@ function App() {
       {content}
     </Layout>
 
+    {/* GLOBAL SECURITY ALERT POPUP (PRIMARY DEVICE ONLY) */}
     {isPrimary && pendingDevice && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-red-100">
