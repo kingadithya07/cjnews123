@@ -137,8 +137,8 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
 
               let shareData: ShareData = {
                   title: article.title,
-                  text: shareText,
-                  url: permalink
+                  text: shareText
+                  // Note: 'url' field omitted to ensure strict ordering in 'text' and prevent duplication at end of message on some platforms.
               };
 
               // Determine device type
@@ -157,8 +157,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                           const fileShareData = {
                               files: [file],
                               title: article.title,
-                              text: shareText, // Pass the full captioned text here
-                              url: permalink 
+                              text: shareText
                           };
 
                           if (navigator.canShare && navigator.canShare(fileShareData)) {
