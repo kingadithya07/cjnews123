@@ -132,8 +132,8 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
           if (isSharing.current) return;
           isSharing.current = true;
           try {
-              // Construct text caption: URL first, then Title, then Subline
-              const shareText = `${permalink}\n\n${article.title}${article.subline ? `\n\n${article.subline}` : ''}`;
+              // Construct text caption in specific format: URL - Title.. Subline
+              const shareText = `${permalink} - ${article.title}${article.subline ? `.. ${article.subline}` : ''}`;
 
               // Base share data (Text only fallback) - Includes URL property to ensure visibility
               let shareData: ShareData = {
@@ -162,7 +162,7 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                       };
 
                       // Try without URL property (fallback if platform rejects files + url combo)
-                      // The URL is still in 'text' (shareText) as the first line.
+                      // The URL is still in 'text' (shareText) as the first part.
                       const fileShareDataNoUrl = {
                           files: [file],
                           title: article.title,
