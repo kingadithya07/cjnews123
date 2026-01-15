@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, KeyRound, Copy, RotateCw, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, KeyRound, Copy, RotateCw, Eye, EyeOff, UserCheck } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
 import { getDeviceId, getDeviceMetadata } from '../utils';
@@ -14,7 +15,7 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onAddDevice, onEmergencyReset }) => {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'verify_email' | 'awaiting_approval'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'verify_email' | 'awaiting_approval' | 'awaiting_verification'>('signin');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -46,7 +47,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
 
   // Instant Refresh Effect: Watch props when waiting for approval
   useEffect(() => {
-      if (mode === 'awaiting_approval' && pendingUser) {
+      if ((mode === 'awaiting_approval' || mode === 'awaiting_verification') && pendingUser) {
           const currentId = getDeviceId();
           const myDevice = existingDevices.find(d => d.id === currentId && d.userId === pendingUser.id);
           
@@ -76,8 +77,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
             // This device is known. Check status.
             if (thisDevice.status === 'approved') {
                 finalizeLogin(session.user);
+            } else if (thisDevice.status === 'awaiting_verification') {
+                // New user account pending editor approval
+                setPendingUser(session.user);
+                setMode('awaiting_verification');
             } else {
-                // Device exists but is pending or blocked
+                // Device exists but is pending (secondary device handshake) or blocked
                 setPendingUser(session.user);
                 setMode('awaiting_approval');
             }
@@ -108,8 +113,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
             }
         }
     } else {
-        // No devices found for this user in DB -> This is the FIRST device -> PRIMARY
-        // Only the very first device is auto-registered as Trusted/Primary.
+        // No devices found for this user in DB -> This is the FIRST device -> NEW USER REGISTRATION
+        // Register as 'awaiting_verification' to require Editor Approval for new accounts
         const meta = getDeviceMetadata();
         try {
             await onAddDevice({
@@ -117,17 +122,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                 userId: session.user.id,
                 deviceName: meta.name,
                 deviceType: meta.type,
-                location: 'Primary Station',
+                // HACK: Storing email in location field to allow Editor to see who it is
+                location: `Primary | ${session.user.email}`, 
                 lastActive: 'Active Now',
                 isCurrent: true,
                 isPrimary: true,
-                status: 'approved',
+                status: 'awaiting_verification',
                 browser: meta.browser
             });
+            
+            setPendingUser(session.user);
+            setMode('awaiting_verification');
         } catch (e) {
             console.error("Failed to register primary device", e);
         }
-        finalizeLogin(session.user);
     }
   };
 
@@ -253,51 +261,66 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
       );
   }
 
-  if (mode === 'awaiting_approval') {
-      return (
-          <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-4 bg-news-paper">
-              <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-lg w-full text-center space-y-8 border border-gray-100 animate-in fade-in zoom-in-95">
-                  <div className="relative inline-block">
-                      <div className="absolute inset-0 bg-news-gold/20 rounded-full animate-ping"></div>
-                      <div className="relative bg-news-gold text-white p-6 rounded-full">
-                          <Shield size={48} />
-                      </div>
-                  </div>
-                  <div>
-                      <h2 className="text-3xl font-serif font-black text-gray-900 mb-4 uppercase">CJ NEWSHUB Access</h2>
-                      <p className="text-gray-500 leading-relaxed text-sm">
-                          Handshake initiated for <b>{pendingUser?.user_metadata?.full_name || 'User'}</b>. Authorization required from your <b>Primary Device</b>.
-                      </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 space-y-3">
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                          <span>Terminal ID</span>
-                          <span className="text-gray-900 font-mono">{getDeviceId().substring(0, 8)}...</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                          <span>Metadata</span>
-                          <span className="text-gray-900">{getDeviceMetadata().name}</span>
-                      </div>
-                  </div>
-                  <div className="flex flex-col gap-4">
-                      <div className="flex items-center justify-center gap-3 text-news-accent font-bold text-xs animate-pulse">
-                          <Loader2 size={14} className="animate-spin" /> Awaiting Handshake...
-                      </div>
-                      <button onClick={manualRefresh} className="flex items-center justify-center gap-2 text-news-gold font-bold text-[10px] uppercase tracking-[0.2em] hover:text-news-black transition-colors">
-                          <RotateCw size={14} /> Check Approval Status
-                      </button>
-                      
-                      <div className="pt-4 border-t border-gray-100">
-                        <button onClick={onEmergencyReset} className="text-[10px] font-black text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-red-100 uppercase tracking-widest">
-                            Factory Reset: System Recovery
-                        </button>
-                      </div>
-                      
-                      <button onClick={async () => { await supabase.auth.signOut(); setMode('signin'); setPendingUser(null); }} className="text-gray-400 hover:text-news-black text-[10px] font-bold uppercase tracking-widest">Abort & Sign Out</button>
+  // Common wrapper for pending states
+  const PendingWrapper = ({ title, message, icon: Icon }: any) => (
+      <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-4 bg-news-paper">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-lg w-full text-center space-y-8 border border-gray-100 animate-in fade-in zoom-in-95">
+              <div className="relative inline-block">
+                  <div className="absolute inset-0 bg-news-gold/20 rounded-full animate-ping"></div>
+                  <div className="relative bg-news-gold text-white p-6 rounded-full">
+                      <Icon size={48} />
                   </div>
               </div>
+              <div>
+                  <h2 className="text-3xl font-serif font-black text-gray-900 mb-4 uppercase">{title}</h2>
+                  <p className="text-gray-500 leading-relaxed text-sm">
+                      {message}
+                  </p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 space-y-3">
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                      <span>Account</span>
+                      <span className="text-gray-900">{pendingUser?.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                      <span>Terminal ID</span>
+                      <span className="text-gray-900 font-mono">{getDeviceId().substring(0, 8)}...</span>
+                  </div>
+              </div>
+              <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-center gap-3 text-news-accent font-bold text-xs animate-pulse">
+                      <Loader2 size={14} className="animate-spin" /> Waiting for approval...
+                  </div>
+                  <button onClick={manualRefresh} className="flex items-center justify-center gap-2 text-news-gold font-bold text-[10px] uppercase tracking-[0.2em] hover:text-news-black transition-colors">
+                      <RotateCw size={14} /> Refresh Status
+                  </button>
+                  
+                  <div className="pt-4 border-t border-gray-100">
+                    <button onClick={onEmergencyReset} className="text-[10px] font-black text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-red-100 uppercase tracking-widest">
+                        Factory Reset: System Recovery
+                    </button>
+                  </div>
+                  
+                  <button onClick={async () => { await supabase.auth.signOut(); setMode('signin'); setPendingUser(null); }} className="text-gray-400 hover:text-news-black text-[10px] font-bold uppercase tracking-widest">Sign Out</button>
+              </div>
           </div>
-      );
+      </div>
+  );
+
+  if (mode === 'awaiting_verification') {
+      return <PendingWrapper 
+          title="Account Review" 
+          message="Your registration has been submitted and is pending verification by an existing Editor or Administrator."
+          icon={UserCheck}
+      />;
+  }
+
+  if (mode === 'awaiting_approval') {
+      return <PendingWrapper 
+          title="Terminal Handshake" 
+          message="Secure station connection pending. Authorization required from your Primary CJ NEWSHUB Terminal."
+          icon={Shield}
+      />;
   }
 
   return (

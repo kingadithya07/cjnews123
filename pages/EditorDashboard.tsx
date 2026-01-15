@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, EyeOff, Mail, ShieldAlert, FileClock
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, EyeOff, Mail, ShieldAlert, FileClock, UserCheck, CheckCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -55,6 +55,8 @@ interface EditorDashboardProps {
   userId?: string | null;
   activeVisitors?: number;
   logs?: ActivityLog[];
+  pendingRegistrations?: TrustedDevice[]; // Devices/Users awaiting approval
+  onApproveRegistration?: (id: string) => void;
 }
 
 const EditorDashboard: React.FC<EditorDashboardProps> = ({ 
@@ -64,10 +66,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   onAddClassified, onDeleteClassified, onAddAdvertisement, onUpdateAdvertisement, onDeleteAdvertisement,
   onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar, userEmail,
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId, activeVisitors,
-  logs = []
+  logs = [], pendingRegistrations = [], onApproveRegistration
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'ads' | 'taxonomy' | 'analytics' | 'settings'>('articles');
+  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'ads' | 'taxonomy' | 'analytics' | 'settings' | 'approvals'>('articles');
 
   // Article State
   const [showArticleModal, setShowArticleModal] = useState(false);
@@ -168,6 +170,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   }, [watermarkSettings]);
 
   const pendingDevicesCount = devices.filter(d => d.status === 'pending').length;
+  const pendingRegistrationsCount = pendingRegistrations.length;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void, folder: string = 'gallery') => {
       const file = e.target.files?.[0];
@@ -207,9 +210,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setModalPublishedAt(article.publishedAt); setShowArticleModal(true);
   };
 
-  // ... (Translation and other methods remain same, removed for brevity in diff but assume present) ...
   const handleTranslateTitle = async () => {
-      // Implementation provided in previous step, kept same
       if (!modalTitle) return;
       const keyToUse = customApiKey;
       if (!keyToUse) {
@@ -335,7 +336,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
   return (
     <>
-    {/* ... (Modals and Layout Start - No Changes until Settings Tab content) ... */}
+    {/* ... (Modals and Layout Start) ... */}
     <ImageGalleryModal 
         isOpen={showImageGallery}
         onClose={() => setShowImageGallery(false)}
@@ -367,6 +368,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           </div>
           <div className="flex-1 overflow-y-auto py-4">
               <SidebarItem id="articles" label="Editorial Content" icon={FileText} />
+              <SidebarItem id="approvals" label="Staff Requests" icon={UserCheck} badge={pendingRegistrationsCount} />
               <SidebarItem id="epaper" label="E-Paper Manager" icon={Newspaper} />
               <SidebarItem id="ads" label="Ads & Classifieds" icon={Megaphone} />
               <SidebarItem id="taxonomy" label="Categories & Tags" icon={Tag} />
@@ -393,6 +395,50 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
 
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
+              
+              {activeTab === 'approvals' && (
+                  <div className="max-w-4xl mx-auto space-y-6">
+                      <div className="flex justify-between items-center mb-6">
+                           <h1 className="font-serif text-2xl font-bold text-gray-900 flex items-center gap-2"><UserCheck size={28} className="text-news-gold"/> Pending Staff Registrations</h1>
+                      </div>
+                      
+                      <div className="space-y-4">
+                          {pendingRegistrations.length === 0 && (
+                              <div className="p-12 text-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-200">
+                                  <UserCheck size={48} className="mx-auto mb-4 opacity-20"/>
+                                  <p className="font-serif text-lg">No pending registrations.</p>
+                                  <p className="text-xs mt-2">New staff sign-ups will appear here for approval.</p>
+                              </div>
+                          )}
+                          {pendingRegistrations.map(reg => (
+                              <div key={reg.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                                  <div className="flex items-center gap-4">
+                                      <div className="p-3 bg-news-black/5 rounded-full text-news-black">
+                                          <UserIcon size={24} />
+                                      </div>
+                                      <div>
+                                          <h4 className="font-bold text-gray-900 text-sm">New User Request</h4>
+                                          <p className="text-xs text-gray-500 mt-1">{reg.location}</p> {/* Email is hacked into location field */}
+                                          <div className="flex items-center gap-2 mt-2">
+                                              <span className="bg-yellow-100 text-yellow-700 text-[9px] font-black uppercase px-2 py-0.5 rounded tracking-wider">Awaiting Verification</span>
+                                              <span className="text-[10px] text-gray-400">{reg.browser}</span>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div className="flex gap-3">
+                                      <button onClick={() => onRejectDevice(reg.id)} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-bold uppercase hover:bg-gray-50 hover:text-red-500">
+                                          Reject
+                                      </button>
+                                      <button onClick={() => onApproveRegistration && onApproveRegistration(reg.id)} className="px-6 py-2 bg-news-black text-white rounded-lg text-xs font-bold uppercase shadow-lg hover:bg-gray-800 flex items-center gap-2">
+                                          <CheckCircle size={16} /> Approve Access
+                                      </button>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              )}
+
               {activeTab === 'articles' && (
                   /* Articles Content (Unchanged) */
                   <div className="max-w-6xl mx-auto space-y-6">
