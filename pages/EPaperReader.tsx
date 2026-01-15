@@ -732,14 +732,19 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         <div className="fixed inset-0 z-[110] bg-[#050505] flex flex-col animate-in fade-in zoom-in-95 duration-400">
             {!cropPreview && (
                 <div className="px-4 md:px-6 py-2 md:py-3 bg-black/95 border-b border-white/5 flex items-center justify-between shrink-0 shadow-2xl safe-area-top">
+                    {/* Left Side: Title */}
                     <div className="flex items-center gap-3">
-                        <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="p-1.5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all"><X size={24} /></button>
+                        {/* Mobile Close Button (Left) */}
+                        <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="md:hidden p-1.5 hover:bg-white/10 rounded-full text-white transition-all"><X size={24} /></button>
+                        
                         <div>
                             <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-news-gold leading-none">Workshop</h2>
                             <p className="text-[7px] text-gray-600 uppercase tracking-widest font-bold hidden md:block mt-1">CJ NEWSHUB Digital Lab</p>
                         </div>
                     </div>
-                    <div className="flex gap-2 md:gap-4">
+
+                    {/* Right Side: Controls + Desktop Close */}
+                    <div className="flex items-center gap-2 md:gap-4">
                         <div className="flex gap-3">
                             <div className="hidden md:flex items-center gap-3 bg-white/5 rounded-full px-3 py-1 border border-white/10 mr-2">
                                 <button onClick={() => cropperRef.current?.zoom(-0.2)} className="p-1.5 hover:bg-white/10 text-white rounded-full"><ZoomOut size={16} /></button>
@@ -751,6 +756,11 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                                 <span className="text-[9px] font-black uppercase tracking-[0.2em]">{isProcessing ? 'Busy' : 'Export Clip'}</span>
                             </button>
                         </div>
+
+                        {/* Desktop Close Button (Right) */}
+                        <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="hidden md:flex p-2 hover:bg-white/10 rounded-full text-white transition-all border border-white/10 ml-2">
+                            <X size={20} />
+                        </button>
                     </div>
                 </div>
             )}
@@ -768,7 +778,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                     <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 md:p-12 animate-in fade-in zoom-in-95 duration-300">
                         {/* Actions Top Right */}
                         <div className="absolute top-6 right-6 z-50">
-                             <button onClick={() => setCropPreview(null)} className="p-3 bg-white/10 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition-all backdrop-blur-md">
+                             <button onClick={() => setCropPreview(null)} className="p-3 bg-white/10 rounded-full text-white hover:text-white hover:bg-white/20 transition-all backdrop-blur-md">
                                 <X size={24} />
                              </button>
                         </div>
