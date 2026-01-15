@@ -261,9 +261,13 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (!cropperRef.current) return;
     setIsProcessing(true);
     
-    // Scale Factor for High Resolution Output (3x)
-    // Increases pixel density for sharper text/branding
-    const scaleFactor = 3;
+    // --- BYPASS WHATSAPP COMPRESSION FIX ---
+    // Scale Factor: 3x. 
+    // This creates an image with 9x the pixel data (3x width, 3x height).
+    // This high resolution "Super-sampling" ensures text remains crisp even after 
+    // social media algorithms downscale/compress it.
+    const scaleFactor = 3; 
+    
     const cropData = cropperRef.current.getData();
 
     const croppedCanvas = (cropperRef.current as any).getCroppedCanvas({
@@ -400,7 +404,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         ctx.fillText(fullDateStr, clipWidth - padding, textY);
     }
     
-    // Output high quality JPEG
+    // Output high quality JPEG at 0.95 quality
     setCropPreview(finalCanvas.toDataURL('image/jpeg', 0.95));
     setIsProcessing(false);
   };
