@@ -15,6 +15,7 @@ import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
 import CategorySelector from '../components/CategorySelector';
 
+// ... (Props interface remains same)
 interface EditorDashboardProps {
   articles: Article[];
   ePaperPages: EPaperPage[];
@@ -66,6 +67,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId, activeVisitors,
   logs = []
 }) => {
+  // ... (State initialization remains the same)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'ads' | 'taxonomy' | 'analytics' | 'settings'>('articles');
 
@@ -152,12 +154,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [customApiKey, setCustomApiKey] = useState('');
   const [showKeyInput, setShowKeyInput] = useState(false);
 
-  // Load custom key on mount
   useEffect(() => {
       const storedKey = localStorage.getItem('newsroom_custom_api_key');
       if (storedKey) setCustomApiKey(storedKey);
   }, []);
 
+  // ... (Other handlers like save article, upload page etc. remain the same)
   const handleSaveApiKey = () => {
       localStorage.setItem('newsroom_custom_api_key', customApiKey);
       setShowKeyInput(false);
@@ -172,6 +174,90 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
   const pendingDevicesCount = devices.filter(d => d.status === 'pending').length;
 
+  // ... (Article Handlers omitted for brevity)
+  // ... (Ad Handlers omitted for brevity)
+  // ... (Taxonomy Handlers omitted for brevity)
+  
+  // NOTE: Keep handleImageUpload, handleContentImageUpload etc.
+
+  // --- UPDATED INVITE HANDLER ---
+  const handleGenerateInvite = async () => {
+      setIsGeneratingInvite(true);
+      setGeneratedLink('');
+      try {
+          const token = generateId();
+          const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins
+          
+          // Store in Supabase
+          const { error } = await supabase.from('staff_invitations').insert({
+              token,
+              role: inviteRole,
+              expires_at: expiresAt,
+              created_by: userId
+          });
+
+          if (error) throw error;
+
+          // NEW LINK FORMAT FOR DEDICATED PAGE
+          const link = `${window.location.origin}/#/invite?token=${token}`;
+          setGeneratedLink(link);
+      } catch (e: any) {
+          if (e.message && (e.message.includes("Could not find the table") || e.message.includes("relation \"public.staff_invitations\" does not exist"))) {
+              alert("SYSTEM ERROR: The invitations table is missing. Please execute the 'SUPABASE_SETUP.sql' script in your Supabase SQL Editor.");
+          } else {
+              alert("Failed to generate invite: " + e.message);
+          }
+      } finally {
+          setIsGeneratingInvite(false);
+      }
+  };
+
+  // ... (Rest of handlers: Settings, etc.)
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      const updates: any = { data: { full_name: profileName, avatar_url: profileAvatar } };
+      if (newPassword) updates.password = newPassword;
+      if (profileEmail !== userEmail) updates.email = profileEmail;
+      const { error } = await supabase.auth.updateUser(updates);
+      if (error) throw error;
+      if (profileEmail !== userEmail) alert("Settings updated! A confirmation link has been sent to your new email address.");
+      else alert("Settings updated successfully!");
+      setNewPassword('');
+    } catch (err: any) {
+        if (err.message?.includes('security purposes') || err.message?.includes('reauthentication')) alert("Security Alert: To update your password, you must have recently signed in. Please log out and sign in again.");
+        else alert("Error updating profile: " + err.message);
+    } finally { setIsSavingSettings(false); }
+  };
+
+  const handleTriggerResetEmail = async () => {
+      try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user || !user.email) throw new Error("User email not found.");
+          const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: `${window.location.origin}/#/reset-password` });
+          if (error) throw error;
+          alert(`Master reset link sent to ${user.email}. Please check your inbox to reset credentials securely.`);
+      } catch (e: any) { alert("Error: " + e.message); }
+  };
+
+  const handleForceSaveDevices = async () => {
+      setIsSavingDevices(true);
+      try { alert("Device list synced globally."); } catch (e: any) { alert("Error syncing: " + e.message); } finally { setIsSavingDevices(false); }
+  };
+
+  // ... (Render Functions like SidebarItem)
+  const SidebarItem = ({ id, label, icon: Icon, badge }: { id: typeof activeTab, label: string, icon: any, badge?: number }) => (
+    <button 
+        onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
+        className={`w-full flex items-center gap-4 px-6 py-4 transition-colors ${activeTab === id ? 'text-white border-l-4 border-news-gold bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-4 border-transparent'}`}
+    >
+        <Icon size={18} />
+        <span className="text-xs font-bold uppercase tracking-widest flex-1 text-left">{label}</span>
+        {badge ? <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{badge}</span> : null}
+    </button>
+  );
+
+  // Dummy functions to keep existing props working if logic was omitted in snippet
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void, folder: string = 'gallery') => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -291,79 +377,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setShowClassifiedModal(false); setNewClassified({});
   };
 
-  const handleGenerateInvite = async () => {
-      setIsGeneratingInvite(true);
-      setGeneratedLink('');
-      try {
-          const token = generateId();
-          const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins
-          
-          // Store in Supabase
-          const { error } = await supabase.from('staff_invitations').insert({
-              token,
-              role: inviteRole,
-              expires_at: expiresAt,
-              created_by: userId
-          });
-
-          if (error) throw error;
-
-          const link = `${window.location.origin}/#/staff/login?invite=${token}`;
-          setGeneratedLink(link);
-      } catch (e: any) {
-          if (e.message && (e.message.includes("Could not find the table") || e.message.includes("relation \"public.staff_invitations\" does not exist"))) {
-              alert("SYSTEM ERROR: The invitations table is missing. Please execute the 'SUPABASE_SETUP.sql' script in your Supabase SQL Editor.");
-          } else {
-              alert("Failed to generate invite: " + e.message);
-          }
-      } finally {
-          setIsGeneratingInvite(false);
-      }
-  };
-
-  const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
-    try {
-      const updates: any = { data: { full_name: profileName, avatar_url: profileAvatar } };
-      if (newPassword) updates.password = newPassword;
-      if (profileEmail !== userEmail) updates.email = profileEmail;
-      const { error } = await supabase.auth.updateUser(updates);
-      if (error) throw error;
-      if (profileEmail !== userEmail) alert("Settings updated! A confirmation link has been sent to your new email address.");
-      else alert("Settings updated successfully!");
-      setNewPassword('');
-    } catch (err: any) {
-        if (err.message?.includes('security purposes') || err.message?.includes('reauthentication')) alert("Security Alert: To update your password, you must have recently signed in. Please log out and sign in again.");
-        else alert("Error updating profile: " + err.message);
-    } finally { setIsSavingSettings(false); }
-  };
-
-  const handleTriggerResetEmail = async () => {
-      try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user || !user.email) throw new Error("User email not found.");
-          const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: `${window.location.origin}/#/reset-password` });
-          if (error) throw error;
-          alert(`Master reset link sent to ${user.email}. Please check your inbox to reset credentials securely.`);
-      } catch (e: any) { alert("Error: " + e.message); }
-  };
-
-  const handleForceSaveDevices = async () => {
-      setIsSavingDevices(true);
-      try { alert("Device list synced globally."); } catch (e: any) { alert("Error syncing: " + e.message); } finally { setIsSavingDevices(false); }
-  };
-
-  const SidebarItem = ({ id, label, icon: Icon, badge }: { id: typeof activeTab, label: string, icon: any, badge?: number }) => (
-    <button 
-        onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
-        className={`w-full flex items-center gap-4 px-6 py-4 transition-colors ${activeTab === id ? 'text-white border-l-4 border-news-gold bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-4 border-transparent'}`}
-    >
-        <Icon size={18} />
-        <span className="text-xs font-bold uppercase tracking-widest flex-1 text-left">{label}</span>
-        {badge ? <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{badge}</span> : null}
-    </button>
-  );
-
+  // --- RENDER ---
   return (
     <>
     <ImageGalleryModal 
@@ -413,8 +427,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col md:ml-64 h-full overflow-hidden bg-[#f8f9fa]">
-           {/* ... Header and other tabs content removed for brevity as they are unchanged ... */}
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
+              {/* Articles Tab */}
               {activeTab === 'articles' && (
                   <div className="max-w-6xl mx-auto space-y-6">
                       <div className="flex justify-between items-center">
@@ -423,7 +437,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                 <Plus size={16} /> New Article
                            </button>
                       </div>
-                      {/* ... Article Table/List logic ... */}
                       <div className="hidden md:block bg-white rounded border overflow-x-auto shadow-sm">
                           <table className="w-full text-left min-w-[700px]">
                                 <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
@@ -470,6 +483,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   </div>
               )}
 
+              {/* Other Tabs (ePaper, Ads, Taxonomy, Analytics) - Render logic unchanged, passing relevant props */}
               {activeTab === 'epaper' && (
                   <div className="max-w-6xl mx-auto space-y-8">
                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -569,7 +583,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </button>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                          {/* ... Taxonomy Content ... */}
                           <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                               <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Categories</h3>
                               <div className="flex gap-2 mb-4">
@@ -725,7 +738,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
 
-                      {/* Master Security Section - Restricted to Primary Device */}
+                      {/* Master Security Section */}
                       <div className={`bg-white rounded-xl border p-6 md:p-8 shadow-sm relative overflow-hidden ${!isPrimaryDevice ? 'border-gray-200 opacity-70 pointer-events-none' : 'border-red-100'}`}>
                           {!isPrimaryDevice && (
                               <div className="absolute inset-0 bg-gray-50/50 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center">
@@ -792,16 +805,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               </div>
                           </div>
                       </div>
-
-                      {/* Profile Section & Trusted Devices (Unchanged) */}
-                      {/* ... */}
                   </div>
               )}
            </div>
       </div>
       
-      {/* ... Modals (Article, Ads, Page Upload) ... */}
-      {/* Article Modal */}
+      {/* Modals remain mostly unchanged - reused from existing props */}
       {showArticleModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
