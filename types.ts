@@ -36,6 +36,15 @@ export interface ActivityLog {
   timestamp: string;
 }
 
+export interface StaffInvitation {
+  id: string;
+  token: string;
+  role: UserRole;
+  expiresAt: string;
+  usedAt?: string;
+  createdBy: string;
+}
+
 export interface Article {
   id: string;
   userId?: string; // Owner ID for isolation

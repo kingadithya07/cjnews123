@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Shield, Feather, Lock, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, RotateCw, Mail, Server, Eye, EyeOff } from 'lucide-react';
+import { Shield, Feather, Lock, ArrowRight, CheckCircle, AlertCircle, Upload, Newspaper, Loader2, RotateCw, Mail, Server, Eye, EyeOff, UserPlus } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
 import { getDeviceId, getDeviceMetadata } from '../utils';
@@ -19,6 +19,11 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
   const [message, setMessage] = useState<string | null>(null);
   const isMounted = useRef(true);
 
+  // Invite State
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [invitedRole, setInvitedRole] = useState<UserRole | null>(null);
+  const [checkingInvite, setCheckingInvite] = useState(false);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,6 +36,47 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
   useEffect(() => {
     return () => { isMounted.current = false; };
   }, []);
+
+  // Check for Invite Token in URL
+  useEffect(() => {
+      const href = window.location.href;
+      const url = new URL(href.replace('#', '')); // Hack to handle hash routing query params
+      const token = url.searchParams.get('invite');
+      
+      if (token) {
+          validateInvite(token);
+      }
+  }, []);
+
+  const validateInvite = async (token: string) => {
+      setCheckingInvite(true);
+      setError(null);
+      try {
+          const { data, error } = await supabase
+              .from('staff_invitations')
+              .select('*')
+              .eq('token', token)
+              .is('used_at', null)
+              .gt('expires_at', new Date().toISOString())
+              .maybeSingle();
+
+          if (error) throw error;
+
+          if (data) {
+              setInviteToken(token);
+              setInvitedRole(data.role);
+              setIsRegistering(true); // Auto-switch to registration
+              setMessage("Invitation accepted. Please complete your enrollment.");
+          } else {
+              setError("Invitation link invalid or expired. Please contact your administrator.");
+          }
+      } catch (err) {
+          console.error(err);
+          setError("Failed to validate invitation.");
+      } finally {
+          setCheckingInvite(false);
+      }
+  };
 
   useEffect(() => {
     const checkExistingSession = async () => {
@@ -139,21 +185,24 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
     setError(null);
     setMessage(null);
 
-    let role = UserRole.READER;
-    if (activeTab === 'admin') role = UserRole.ADMIN;
-    else if (activeTab === 'editor') role = UserRole.EDITOR;
-    else role = UserRole.WRITER;
-
     try {
       if (isRegistering) {
+        if (!inviteToken || !invitedRole) {
+            throw new Error("Registration requires a valid invitation link.");
+        }
+
         const { data, error: signUpErr } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { full_name: name, role: role, avatar_url: avatar }
+            data: { full_name: name, role: invitedRole, avatar_url: avatar }
           }
         });
         if (signUpErr) throw signUpErr;
+        
+        // Mark invite as used
+        await supabase.from('staff_invitations').update({ used_at: new Date().toISOString() }).eq('token', inviteToken);
+
         if (data.session) handleSessionFound(data.session);
         else setIsVerifyingEmail(true);
       } else {
@@ -182,6 +231,17 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
         setLoading(false);
     }
   };
+
+  if (checkingInvite) {
+      return (
+          <div className="min-h-screen bg-news-black flex items-center justify-center">
+              <div className="text-white flex flex-col items-center gap-4">
+                  <Loader2 className="animate-spin text-news-gold" size={32} />
+                  <p className="text-xs font-black uppercase tracking-widest">Verifying Invite Token...</p>
+              </div>
+          </div>
+      );
+  }
 
   if (isVerifyingEmail) {
       return (
@@ -255,20 +315,32 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
                  <h1 className="text-white font-serif text-2xl font-black tracking-tighter uppercase italic">CJ <span className="not-italic text-white">NEWSHUB</span></h1>
               </div>
               <p className="text-news-gold text-[10px] font-bold uppercase tracking-[0.3em] mb-12">Authorized Personnel Only</p>
-              <div className="space-y-4">
-                 <button onClick={() => { setActiveTab('admin'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'admin' ? 'bg-white/5 border-red-500/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
-                    <Server size={22} className={activeTab === 'admin' ? 'text-red-500' : ''} />
-                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'admin' ? 'text-white' : ''}`}>Global Admin</span></div>
-                 </button>
-                 <button onClick={() => { setActiveTab('editor'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'editor' ? 'bg-white/5 border-news-gold/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
-                    <Shield size={22} className={activeTab === 'editor' ? 'text-news-gold' : ''} />
-                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'editor' ? 'text-white' : ''}`}>Chief Editor</span></div>
-                 </button>
-                 <button onClick={() => { setActiveTab('publisher'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'publisher' ? 'bg-white/5 border-blue-500/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
-                    <Feather size={22} className={activeTab === 'publisher' ? 'text-blue-500' : ''} />
-                    <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'publisher' ? 'text-white' : ''}`}>Editorial Writer</span></div>
-                 </button>
-              </div>
+              
+              {!isRegistering && (
+                  <div className="space-y-4">
+                     <button onClick={() => { setActiveTab('admin'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'admin' ? 'bg-white/5 border-red-500/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
+                        <Server size={22} className={activeTab === 'admin' ? 'text-red-500' : ''} />
+                        <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'admin' ? 'text-white' : ''}`}>Global Admin</span></div>
+                     </button>
+                     <button onClick={() => { setActiveTab('editor'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'editor' ? 'bg-white/5 border-news-gold/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
+                        <Shield size={22} className={activeTab === 'editor' ? 'text-news-gold' : ''} />
+                        <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'editor' ? 'text-white' : ''}`}>Chief Editor</span></div>
+                     </button>
+                     <button onClick={() => { setActiveTab('publisher'); setIsRegistering(false); }} className={`w-full text-left p-5 rounded-xl border transition-all ${activeTab === 'publisher' ? 'bg-white/5 border-blue-500/30 shadow-lg' : 'bg-transparent border-transparent text-gray-500'}`}>
+                        <Feather size={22} className={activeTab === 'publisher' ? 'text-blue-500' : ''} />
+                        <div className="mt-2"><span className={`block font-bold text-sm ${activeTab === 'publisher' ? 'text-white' : ''}`}>Editorial Writer</span></div>
+                     </button>
+                  </div>
+              )}
+              {isRegistering && (
+                  <div className="bg-white/5 p-6 rounded-xl border border-news-gold/30">
+                      <div className="flex items-center gap-2 text-news-gold font-bold uppercase text-xs tracking-widest mb-2">
+                          <UserPlus size={16} /> Invitation Active
+                      </div>
+                      <p className="text-white text-sm font-bold">Enrolling as: {invitedRole}</p>
+                      <p className="text-gray-500 text-xs mt-1">This invitation expires in 15 minutes.</p>
+                  </div>
+              )}
            </div>
            <div className="pt-8 mt-10 border-t border-white/5">
               <button onClick={onEmergencyReset} className="text-[9px] text-gray-700 hover:text-white font-bold uppercase tracking-[0.4em] transition-colors">
@@ -309,14 +381,22 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
                     {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
                 </button>
               </div>
-              <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${activeTab === 'admin' ? 'bg-red-600 text-white' : activeTab === 'editor' ? 'bg-news-gold text-black' : 'bg-blue-600 text-white'}`}>
-                {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'INITIATE ENROLLMENT' : 'STAFF HANDSHAKE'} <ArrowRight size={18}/></>}
+              <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${isRegistering ? 'bg-news-gold text-black' : activeTab === 'admin' ? 'bg-red-600 text-white' : activeTab === 'editor' ? 'bg-news-gold text-black' : 'bg-blue-600 text-white'}`}>
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'COMPLETE ENROLLMENT' : 'STAFF HANDSHAKE'} <ArrowRight size={18}/></>}
               </button>
-              <div className="text-center pt-4">
-                  <button type="button" onClick={() => setIsRegistering(!isRegistering)} className="text-[10px] font-bold text-gray-600 hover:text-white uppercase tracking-widest transition-colors">
-                      {isRegistering ? 'Back to Access' : 'New Staff Application'}
-                  </button>
-              </div>
+              
+              {!isRegistering && (
+                  <div className="text-center pt-4 opacity-30 text-[10px] uppercase text-gray-600">
+                      Public registration closed. Invite required.
+                  </div>
+              )}
+              {isRegistering && (
+                  <div className="text-center pt-4">
+                      <button type="button" onClick={() => { setIsRegistering(false); setInviteToken(null); }} className="text-gray-500 hover:text-white text-xs uppercase tracking-widest">
+                          Cancel Enrollment
+                      </button>
+                  </div>
+              )}
            </form>
         </div>
       </div>
