@@ -200,11 +200,12 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       />
 
       {/* --- TOP SECTION: SLIDER & E-PAPER PREVIEW --- */}
-      <div className="max-w-7xl mx-auto px-4 md:px-0">
+      {/* Full width slider on mobile via negative margin (-mx-4) to counteract Layout padding */}
+      <div className="max-w-7xl mx-auto -mx-4 md:mx-0">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[500px]">
               
               {/* SLIDER COLUMN (2/3 width on desktop) */}
-              <div className="lg:col-span-2 w-full h-[250px] sm:h-[350px] md:h-[500px] lg:h-full relative rounded-2xl overflow-hidden shadow-2xl bg-news-black group border border-gray-800"
+              <div className="lg:col-span-2 w-full h-[250px] sm:h-[350px] md:h-[500px] lg:h-full relative rounded-none md:rounded-2xl overflow-hidden shadow-2xl bg-news-black group border-y md:border border-gray-800"
                    onMouseEnter={() => setIsPaused(true)}
                    onMouseLeave={() => setIsPaused(false)}
               >
