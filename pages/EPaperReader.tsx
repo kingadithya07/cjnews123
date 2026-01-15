@@ -422,9 +422,22 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         ctx.fillText(fullDateStr, clipWidth - padding, textY);
     }
     
-    // Output high quality JPEG at 0.95 quality
-    setCropPreview(finalCanvas.toDataURL('image/jpeg', 0.95));
+    // Output high quality JPEG at 0.80 quality (Optimized for size while keeping resolution)
+    const finalDataUrl = finalCanvas.toDataURL('image/jpeg', 0.80);
+    setCropPreview(finalDataUrl);
     setIsProcessing(false);
+
+    // INSTANT DOWNLOAD TRIGGER
+    try {
+        const link = document.createElement('a');
+        link.href = finalDataUrl;
+        link.download = `CJ_NEWSHUB_EXTRACT_${activePage?.date}_${Date.now()}.jpg`; 
+        document.body.appendChild(link); 
+        link.click();
+        document.body.removeChild(link);
+    } catch (e) {
+        console.error("Auto download failed", e);
+    }
   };
 
   const handleDownload = () => {
@@ -721,22 +734,16 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
       {isCropping && (
         <div className="fixed inset-0 z-[110] bg-[#050505] flex flex-col animate-in fade-in zoom-in-95 duration-400">
-            <div className="px-4 md:px-6 py-2 md:py-3 bg-black/95 border-b border-white/5 flex items-center justify-between shrink-0 shadow-2xl safe-area-top">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="p-1.5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all"><X size={24} /></button>
-                    <div>
-                        <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-news-gold leading-none">Workshop</h2>
-                        <p className="text-[7px] text-gray-600 uppercase tracking-widest font-bold hidden md:block mt-1">CJ NEWSHUB Digital Lab</p>
-                    </div>
-                </div>
-                <div className="flex gap-2 md:gap-4">
-                    {cropPreview ? (
-                        <div className="flex gap-2 md:gap-3">
-                            <button onClick={handleShare} className="bg-white/5 text-white border border-white/10 px-4 py-2 rounded-full hover:bg-white/10 transition-all flex items-center gap-2"><Share2 size={14} /> <span className="text-[9px] font-black uppercase tracking-[0.2em] hidden md:inline">Share</span></button>
-                            <button onClick={handleDownload} className="bg-news-gold text-black px-6 py-2 rounded-full hover:bg-white transition-all flex items-center gap-2 shadow-xl"><Download size={14} /> <span className="text-[9px] font-black uppercase tracking-[0.2em] hidden md:inline">Save</span></button>
-                            <button onClick={() => setCropPreview(null)} className="p-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 text-gray-400 transition-all"><RefreshCcw size={16} /></button>
+            {!cropPreview && (
+                <div className="px-4 md:px-6 py-2 md:py-3 bg-black/95 border-b border-white/5 flex items-center justify-between shrink-0 shadow-2xl safe-area-top">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => { setIsCropping(false); setCropPreview(null); }} className="p-1.5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all"><X size={24} /></button>
+                        <div>
+                            <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-news-gold leading-none">Workshop</h2>
+                            <p className="text-[7px] text-gray-600 uppercase tracking-widest font-bold hidden md:block mt-1">CJ NEWSHUB Digital Lab</p>
                         </div>
-                    ) : (
+                    </div>
+                    <div className="flex gap-2 md:gap-4">
                         <div className="flex gap-3">
                             <div className="hidden md:flex items-center gap-3 bg-white/5 rounded-full px-3 py-1 border border-white/10 mr-2">
                                 <button onClick={() => cropperRef.current?.zoom(-0.2)} className="p-1.5 hover:bg-white/10 text-white rounded-full"><ZoomOut size={16} /></button>
@@ -748,21 +755,51 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                                 <span className="text-[9px] font-black uppercase tracking-[0.2em]">{isProcessing ? 'Busy' : 'Export Clip'}</span>
                             </button>
                         </div>
-                    )}
-                </div>
-            </div>
-            <div className={`flex-1 overflow-hidden relative flex flex-col ${cropPreview ? 'md:flex-row' : 'flex-col'} bg-[#0a0a0a]`}>
-                <div className={`relative flex flex-col items-center justify-center transition-all duration-700 ${cropPreview ? 'w-full md:w-1/2 border-r border-white/5 h-1/2 md:h-full p-4 grayscale brightness-50' : 'w-full h-full p-2 md:p-8'}`}>
-                    {workshopScale > 1 && !cropPreview && <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-news-gold text-black px-5 py-1.5 rounded-full font-black uppercase text-[8px] tracking-[0.3em] shadow-2xl animate-bounce pointer-events-none"><Hand size={12} /> Pan Mode Active</div>}
-                    <div className={`w-full h-full flex items-center justify-center ${cropPreview ? 'opacity-30 pointer-events-none scale-[0.85]' : ''} transition-all duration-700`}>
-                        <img ref={cropperImgRef} src={activePage?.imageUrl} className={`max-w-full max-h-full block ${cropPreview ? '' : 'invisible'}`} crossOrigin="anonymous" alt="Archive workspace" />
                     </div>
                 </div>
+            )}
+            
+            <div className="flex-1 overflow-hidden relative flex flex-col bg-[#0a0a0a]">
+                <div className={`relative flex flex-col items-center justify-center w-full h-full p-2 md:p-8 transition-opacity duration-300 ${cropPreview ? 'opacity-0' : 'opacity-100'}`}>
+                    {workshopScale > 1 && !cropPreview && <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-news-gold text-black px-5 py-1.5 rounded-full font-black uppercase text-[8px] tracking-[0.3em] shadow-2xl animate-bounce pointer-events-none"><Hand size={12} /> Pan Mode Active</div>}
+                    <div className="w-full h-full flex items-center justify-center">
+                        <img ref={cropperImgRef} src={activePage?.imageUrl} className="max-w-full max-h-full block" crossOrigin="anonymous" alt="Archive workspace" />
+                    </div>
+                </div>
+
+                {/* FULL SCREEN PREVIEW MODAL */}
                 {cropPreview && (
-                    <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col items-center justify-center p-6 md:p-12 bg-black animate-in slide-in-from-right duration-700 relative overflow-y-auto">
-                        <div className="absolute top-4 right-6 text-[8px] font-black uppercase tracking-[0.4em] text-news-gold">High-Res Output</div>
-                        <div className="max-w-full md:max-w-4xl shadow-[0_0_80px_rgba(191,161,123,0.15)] border border-white/5 rounded-sm overflow-hidden bg-white animate-in zoom-in-95 duration-700 mb-6">
-                             <img src={cropPreview} className="max-h-[50vh] md:max-h-[65vh] w-auto block" alt="Branded Archival Result" />
+                    <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 md:p-12 animate-in fade-in zoom-in-95 duration-300">
+                        {/* Actions Top Right */}
+                        <div className="absolute top-6 right-6 z-50">
+                             <button onClick={() => setCropPreview(null)} className="p-3 bg-white/10 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition-all backdrop-blur-md">
+                                <X size={24} />
+                             </button>
+                        </div>
+
+                        {/* Title */}
+                        <div className="absolute top-8 left-0 right-0 text-center pointer-events-none">
+                            <h3 className="text-news-gold font-black uppercase tracking-[0.3em] text-xs md:text-sm shadow-black drop-shadow-md">Generated Clip</h3>
+                        </div>
+
+                        {/* Centered Image */}
+                        <div className="max-w-full max-h-[70vh] relative shadow-2xl rounded-sm overflow-hidden border border-white/10 bg-white">
+                             <img src={cropPreview} className="max-w-full max-h-[70vh] object-contain block" alt="Branded Archival Result" />
+                        </div>
+
+                        {/* Download Confirmation */}
+                        <div className="mt-8 flex flex-col items-center gap-4">
+                            <div className="flex gap-4">
+                                <button onClick={handleShare} className="bg-white/10 text-white border border-white/10 px-8 py-3 rounded-full hover:bg-white/20 transition-all flex items-center gap-3 font-bold uppercase tracking-widest text-xs">
+                                    <Share2 size={16} /> Share
+                                </button>
+                                <button onClick={handleDownload} className="bg-news-gold text-black px-8 py-3 rounded-full hover:bg-white transition-all flex items-center gap-3 shadow-xl font-bold uppercase tracking-widest text-xs">
+                                    <Download size={16} /> Download Again
+                                </button>
+                            </div>
+                            <p className="text-green-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 animate-in slide-in-from-bottom-2 fade-in duration-700">
+                                <Check size={12}/> Automatically Saved to Device
+                            </p>
                         </div>
                     </div>
                 )}
