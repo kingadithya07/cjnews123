@@ -37,11 +37,20 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
     return () => { isMounted.current = false; };
   }, []);
 
-  // Check for Invite Token in URL
+  // Check for Invite Token in URL (Handles both ?invite=... and #/path?invite=...)
   useEffect(() => {
-      const href = window.location.href;
-      const url = new URL(href.replace('#', '')); // Hack to handle hash routing query params
-      const token = url.searchParams.get('invite');
+      // 1. Check Search Query (Standard)
+      const params = new URLSearchParams(window.location.search);
+      let token = params.get('invite');
+
+      // 2. Check Hash Query (Hash Router)
+      if (!token && window.location.hash.includes('?')) {
+          const hashParts = window.location.hash.split('?');
+          if (hashParts.length > 1) {
+              const hashParams = new URLSearchParams(hashParts[1]);
+              token = hashParams.get('invite');
+          }
+      }
       
       if (token) {
           validateInvite(token);

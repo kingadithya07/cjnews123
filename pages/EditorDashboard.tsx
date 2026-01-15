@@ -311,7 +311,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           const link = `${window.location.origin}/#/staff/login?invite=${token}`;
           setGeneratedLink(link);
       } catch (e: any) {
-          alert("Failed to generate invite: " + e.message);
+          if (e.message && (e.message.includes("Could not find the table") || e.message.includes("relation \"public.staff_invitations\" does not exist"))) {
+              alert("SYSTEM ERROR: The invitations table is missing. Please execute the 'SUPABASE_SETUP.sql' script in your Supabase SQL Editor.");
+          } else {
+              alert("Failed to generate invite: " + e.message);
+          }
       } finally {
           setIsGeneratingInvite(false);
       }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -699,7 +700,7 @@ function App() {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
     content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
-  } else if (path === '/staff/login') {
+  } else if (path.startsWith('/staff/login')) {
     content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
     content = <EditorDashboard 
@@ -767,11 +768,8 @@ function App() {
         onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} 
         onRejectDevice={(id) => handleRevokeDevice(id)} 
         onRevokeDevice={handleRevokeDevice}
-        // Pass userId to EditorDashboard for isolated gallery handling
         userId={userId}
-        // Pass Active Visitors Prop
         activeVisitors={activeVisitors}
-        // Logs
         logs={activityLogs}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
@@ -787,15 +785,12 @@ function App() {
         userEmail={userEmail}
         devices={devices.filter(d => d.userId === userId)}
         onRevokeDevice={handleRevokeDevice}
-        userId={userId} // Pass userId for isolation
+        userId={userId} 
     />;
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   } else if (path.startsWith('/article/')) {
-    // Determine if it's an ID or a Slug
     const slugOrId = currentPath.split('/article/')[1];
-    
-    // Find matching article either by ID or Slug OR by generated slug from title (robust fallback)
     let targetId = slugOrId;
     const foundBySlug = articles.find(a => 
         a.slug === slugOrId || 
@@ -833,7 +828,6 @@ function App() {
       {content}
     </Layout>
 
-    {/* GLOBAL SECURITY ALERT POPUP (PRIMARY DEVICE ONLY) */}
     {isPrimary && pendingDevice && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-red-100">

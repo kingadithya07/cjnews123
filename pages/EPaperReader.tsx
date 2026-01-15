@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, Calendar, ZoomIn, ZoomOut, 
   X, Grid, ArrowLeft, Loader2, Scissors, Download, Check, LayoutGrid, Eye, Search, Share2, RotateCcw, RefreshCcw, Maximize, MousePointer2, MoveHorizontal, Hand, Image as ImageIcon, Upload, Save, Newspaper
 } from 'lucide-react';
-import { format, isValid, getDaysInMonth, startOfMonth, addMonths, subMonths, isSameDay } from 'date-fns';
+import { format, isValid, getDaysInMonth, addMonths } from 'date-fns';
 import { APP_NAME } from '../constants';
 import { generateId } from '../utils';
 import { supabase } from '../supabaseClient';
@@ -62,7 +62,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
       const year = monthDate.getFullYear();
       const month = monthDate.getMonth();
       const daysInMonth = getDaysInMonth(monthDate);
-      const startDay = startOfMonth(monthDate).getDay(); // 0 is Sunday
+      const startDay = new Date(year, month, 1).getDay(); // 0 is Sunday
       
       const days = [];
       // Fill empty slots before start of month
@@ -552,7 +552,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                   {showCalendar && (
                       <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-50 w-72 animate-in fade-in zoom-in-95">
                           <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
-                              <button onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft size={16}/></button>
+                              <button onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft size={16}/></button>
                               <span className="text-xs font-bold uppercase tracking-widest text-news-black">{format(calendarMonth, 'MMMM yyyy')}</span>
                               <button onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))} className="p-1 hover:bg-gray-100 rounded-full"><ChevronRight size={16}/></button>
                           </div>

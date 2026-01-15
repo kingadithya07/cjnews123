@@ -1,5 +1,6 @@
 
--- [PREVIOUS TABLES - ASSUMED EXISTING] --
+-- Enable UUID extension (Required for uuid_generate_v4)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create Staff Invitations Table
 CREATE TABLE IF NOT EXISTS public.staff_invitations (
@@ -12,7 +13,20 @@ CREATE TABLE IF NOT EXISTS public.staff_invitations (
     used_at TIMESTAMP WITH TIME ZONE
 );
 
--- RLS Policy (Optional: Add if RLS is enabled)
--- ALTER TABLE public.staff_invitations ENABLE ROW LEVEL SECURITY;
--- CREATE POLICY "Allow read for validation" ON public.staff_invitations FOR SELECT USING (true);
--- CREATE POLICY "Allow insert for staff" ON public.staff_invitations FOR INSERT WITH CHECK (true);
+-- Enable Row Level Security (RLS)
+ALTER TABLE public.staff_invitations ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+
+-- 1. Allow public read access to validate tokens (Required for Staff Login check)
+CREATE POLICY "Allow public read for validation" ON public.staff_invitations 
+FOR SELECT USING (true);
+
+-- 2. Allow authenticated staff to create invites
+-- (This ensures Editors logged in can insert rows)
+CREATE POLICY "Allow staff to create invites" ON public.staff_invitations 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- 3. Allow system/public to update usage timestamp during registration
+CREATE POLICY "Allow update usage" ON public.staff_invitations
+FOR UPDATE USING (true);
