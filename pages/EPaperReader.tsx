@@ -247,30 +247,36 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   useEffect(() => {
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
-        const cropper = new Cropper(cropperImgRef.current, {
-            // Optimized Configuration for "Light Weight" & "Smooth" feel
-            viewMode: 1, // Restrict crop box to canvas size
-            dragMode: 'move', // Allow moving image by default
-            autoCropArea: 0.6, // Start with a slightly smaller focused box
-            restore: false,
-            guides: false, // Cleaner look
-            center: false, // Cleaner look
-            highlight: false,
-            cropBoxMovable: true,
-            cropBoxResizable: true,
-            zoomable: true,
-            zoomOnWheel: false, // Prevent accidental scroll zooming on desktop
-            toggleDragModeOnDblclick: false, // Consistent interaction
-            background: false,
-            responsive: true,
-            minContainerWidth: 300,
-            minContainerHeight: 300,
-            ready() { 
-                setWorkshopScale(1); 
-            },
-            zoom(e) { setWorkshopScale(e.detail.ratio); }
-        } as any);
-        cropperRef.current = cropper;
+        
+        // Defer Cropper initialization to prevent UI freeze during modal open animation
+        const timer = setTimeout(() => {
+            const cropper = new Cropper(cropperImgRef.current!, {
+                // Optimized Configuration for "Light Weight" & "Smooth" feel
+                viewMode: 1, // Restrict crop box to canvas size
+                dragMode: 'move', // Allow moving image by default
+                autoCropArea: 0.6, // Start with a slightly smaller focused box
+                restore: false,
+                guides: false, // Cleaner look
+                center: false, // Cleaner look
+                highlight: false,
+                cropBoxMovable: true,
+                cropBoxResizable: true,
+                zoomable: true,
+                zoomOnWheel: false, // Prevent accidental scroll zooming on desktop
+                toggleDragModeOnDblclick: false, // Consistent interaction
+                background: false,
+                responsive: true,
+                minContainerWidth: 300,
+                minContainerHeight: 300,
+                ready() { 
+                    setWorkshopScale(1); 
+                },
+                zoom(e) { setWorkshopScale(e.detail.ratio); }
+            } as any);
+            cropperRef.current = cropper;
+        }, 150); // 150ms delay for smoother modal transition
+
+        return () => clearTimeout(timer);
     }
     return () => { if (cropperRef.current) { cropperRef.current.destroy(); cropperRef.current = null; } };
   }, [isCropping, cropPreview]);
@@ -279,153 +285,155 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (!cropperRef.current) return;
     setIsProcessing(true);
     
-    // --- BYPASS WHATSAPP COMPRESSION FIX ---
-    // Scale Factor: 3x. 
-    // This creates an image with 9x the pixel data (3x width, 3x height).
-    // This high resolution "Super-sampling" ensures text remains crisp even after 
-    // social media algorithms downscale/compress it.
-    const scaleFactor = 3; 
-    
-    const cropData = cropperRef.current.getData();
+    // Defer heavy processing to next tick to allow UI to show 'Busy' state
+    setTimeout(async () => {
+        if (!cropperRef.current) return;
 
-    const croppedCanvas = (cropperRef.current as any).getCroppedCanvas({
-        width: Math.round(cropData.width * scaleFactor),
-        height: Math.round(cropData.height * scaleFactor),
-        fillColor: '#fff',
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
-    });
+        // Optimization: Reduced scale factor from 3 to 1.5 for faster generation
+        // 1.5x provides good quality for mobile/social sharing without huge memory overhead
+        const scaleFactor = 1.5; 
+        
+        const cropData = cropperRef.current.getData();
 
-    if (!croppedCanvas) { setIsProcessing(false); return; }
-    
-    const finalCanvas = document.createElement('canvas');
-    const ctx = finalCanvas.getContext('2d');
-    if (!ctx) return;
-    
-    const clipWidth = croppedCanvas.width;
-    const clipHeight = croppedCanvas.height;
+        const croppedCanvas = (cropperRef.current as any).getCroppedCanvas({
+            width: Math.round(cropData.width * scaleFactor),
+            height: Math.round(cropData.height * scaleFactor),
+            fillColor: '#fff',
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high',
+        });
 
-    // Adjusted threshold for narrow column layout logic (scaled)
-    const isNarrow = clipWidth < (450 * scaleFactor);
-    
-    // Scaled footer height calculation
-    const baseFooterHeight = Math.max(50 * scaleFactor, Math.min(clipHeight * 0.12, 150 * scaleFactor));
-    const footerHeight = isNarrow ? baseFooterHeight * 1.8 : baseFooterHeight;
-    
-    finalCanvas.width = clipWidth;
-    finalCanvas.height = clipHeight + footerHeight;
-    
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-    ctx.drawImage(croppedCanvas, 0, 0);
-    
-    ctx.fillStyle = watermarkSettings.backgroundColor || '#1a1a1a';
-    ctx.fillRect(0, clipHeight, finalCanvas.width, footerHeight);
-    
-    const padding = Math.max(10 * scaleFactor, clipWidth * 0.05);
-    const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
-    
-    const brandLabel = (watermarkSettings.text || APP_NAME).toUpperCase();
-    const fontSizePercent = (watermarkSettings.fontSize || 30) / 100;
-    
-    let logoImg: HTMLImageElement | null = null;
-    if (watermarkSettings.logoUrl) {
-        try {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.src = watermarkSettings.logoUrl;
-            await new Promise((res) => { img.onload = res; img.onerror = res; });
-            logoImg = img;
-        } catch (e) { console.error("Logo load failed", e); }
-    }
+        if (!croppedCanvas) { setIsProcessing(false); return; }
+        
+        const finalCanvas = document.createElement('canvas');
+        const ctx = finalCanvas.getContext('2d');
+        if (!ctx) return;
+        
+        const clipWidth = croppedCanvas.width;
+        const clipHeight = croppedCanvas.height;
 
-    const getFittingFontSize = (text: string, initialSize: number, maxWidth: number, fontFace: string) => {
-        let size = initialSize;
-        const minSize = 8 * scaleFactor;
-        ctx.font = `bold ${size}px ${fontFace}`;
-        while (ctx.measureText(text).width > maxWidth && size > minSize) {
-            size -= (0.5 * scaleFactor);
+        // Adjusted threshold for narrow column layout logic (scaled)
+        const isNarrow = clipWidth < (450 * scaleFactor);
+        
+        // Scaled footer height calculation
+        const baseFooterHeight = Math.max(50 * scaleFactor, Math.min(clipHeight * 0.12, 150 * scaleFactor));
+        const footerHeight = isNarrow ? baseFooterHeight * 1.8 : baseFooterHeight;
+        
+        finalCanvas.width = clipWidth;
+        finalCanvas.height = clipHeight + footerHeight;
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+        ctx.drawImage(croppedCanvas, 0, 0);
+        
+        ctx.fillStyle = watermarkSettings.backgroundColor || '#1a1a1a';
+        ctx.fillRect(0, clipHeight, finalCanvas.width, footerHeight);
+        
+        const padding = Math.max(10 * scaleFactor, clipWidth * 0.05);
+        const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
+        
+        const brandLabel = (watermarkSettings.text || APP_NAME).toUpperCase();
+        const fontSizePercent = (watermarkSettings.fontSize || 30) / 100;
+        
+        let logoImg: HTMLImageElement | null = null;
+        if (watermarkSettings.logoUrl) {
+            try {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.src = watermarkSettings.logoUrl;
+                await new Promise((res) => { img.onload = res; img.onerror = res; });
+                logoImg = img;
+            } catch (e) { console.error("Logo load failed", e); }
+        }
+
+        const getFittingFontSize = (text: string, initialSize: number, maxWidth: number, fontFace: string) => {
+            let size = initialSize;
+            const minSize = 8 * scaleFactor;
             ctx.font = `bold ${size}px ${fontFace}`;
-        }
-        return size;
-    };
-
-    if (isNarrow) {
-        const line1Y = clipHeight + (footerHeight * 0.35);
-        const line2Y = clipHeight + (footerHeight * 0.75);
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        let currentX = padding;
-        
-        if (logoImg) {
-            const logoH = footerHeight * 0.35;
-            let logoW = (logoImg.width / logoImg.height) * logoH;
-            if (logoW > clipWidth * 0.3) {
-                logoW = clipWidth * 0.3;
-                const newLogoH = (logoImg.height / logoImg.width) * logoW;
-                ctx.drawImage(logoImg, currentX, line1Y - (newLogoH / 2), logoW, newLogoH);
-            } else {
-                ctx.drawImage(logoImg, currentX, line1Y - (logoH / 2), logoW, logoH);
+            while (ctx.measureText(text).width > maxWidth && size > minSize) {
+                size -= (0.5 * scaleFactor);
+                ctx.font = `bold ${size}px ${fontFace}`;
             }
-            currentX += logoW + (padding * 0.5);
-        }
-        
-        const maxBrandWidth = clipWidth - currentX - padding;
-        const initialSize = footerHeight * fontSizePercent;
-        const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Playfair Display", serif');
-        ctx.font = `bold ${brandFontSize}px "Playfair Display", serif`;
-        ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
-        ctx.fillText(brandLabel, currentX, line1Y);
-        
-        const fullDateStr = `CJ NEWSHUB ARCHIVE: ${dateStr}`;
-        const maxDateWidth = clipWidth - (padding * 2);
-        const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", sans-serif');
-        ctx.font = `500 ${dateFontSize}px "Inter", sans-serif`;
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.fillText(fullDateStr, padding, line2Y);
-        
-    } else {
-        const textY = clipHeight + (footerHeight / 2);
-        ctx.textBaseline = 'middle';
-        let currentX = padding;
-        
-        if (logoImg) {
-            const logoH = footerHeight * 0.6;
-            const logoW = (logoImg.width / logoImg.height) * logoH;
-            ctx.drawImage(logoImg, currentX, clipHeight + (footerHeight - logoH) / 2, logoW, logoH);
-            currentX += logoW + (padding * 0.5);
-        }
-        
-        const fullDateStr = `CJ NEWSHUB GLOBAL ARCHIVE: ${dateStr}`;
-        const baseFontSize = footerHeight * fontSizePercent;
-        const totalAvailableWidth = clipWidth - currentX - (padding * 2);
-        
-        ctx.font = `bold ${baseFontSize}px "Playfair Display", serif`;
-        const brandW = ctx.measureText(brandLabel).width;
-        ctx.font = `500 ${baseFontSize * 0.6}px "Inter", sans-serif`;
-        const dateW = ctx.measureText(fullDateStr).width;
-        
-        let fontSize = baseFontSize;
-        if ((brandW + dateW + padding) > totalAvailableWidth) {
-            const scale = totalAvailableWidth / (brandW + dateW + padding);
-            fontSize = Math.max(10 * scaleFactor, baseFontSize * scale);
-        }
+            return size;
+        };
 
-        ctx.font = `bold ${fontSize}px "Playfair Display", serif`;
-        ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
-        ctx.textAlign = 'left';
-        ctx.fillText(brandLabel, currentX, textY);
+        if (isNarrow) {
+            const line1Y = clipHeight + (footerHeight * 0.35);
+            const line2Y = clipHeight + (footerHeight * 0.75);
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            let currentX = padding;
+            
+            if (logoImg) {
+                const logoH = footerHeight * 0.35;
+                let logoW = (logoImg.width / logoImg.height) * logoH;
+                if (logoW > clipWidth * 0.3) {
+                    logoW = clipWidth * 0.3;
+                    const newLogoH = (logoImg.height / logoImg.width) * logoW;
+                    ctx.drawImage(logoImg, currentX, line1Y - (newLogoH / 2), logoW, newLogoH);
+                } else {
+                    ctx.drawImage(logoImg, currentX, line1Y - (logoH / 2), logoW, logoH);
+                }
+                currentX += logoW + (padding * 0.5);
+            }
+            
+            const maxBrandWidth = clipWidth - currentX - padding;
+            const initialSize = footerHeight * fontSizePercent;
+            const brandFontSize = getFittingFontSize(brandLabel, initialSize, maxBrandWidth, '"Playfair Display", serif');
+            ctx.font = `bold ${brandFontSize}px "Playfair Display", serif`;
+            ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
+            ctx.fillText(brandLabel, currentX, line1Y);
+            
+            const fullDateStr = `CJ NEWSHUB ARCHIVE: ${dateStr}`;
+            const maxDateWidth = clipWidth - (padding * 2);
+            const dateFontSize = getFittingFontSize(fullDateStr, footerHeight * 0.18, maxDateWidth, '"Inter", sans-serif');
+            ctx.font = `500 ${dateFontSize}px "Inter", sans-serif`;
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fillText(fullDateStr, padding, line2Y);
+            
+        } else {
+            const textY = clipHeight + (footerHeight / 2);
+            ctx.textBaseline = 'middle';
+            let currentX = padding;
+            
+            if (logoImg) {
+                const logoH = footerHeight * 0.6;
+                const logoW = (logoImg.width / logoImg.height) * logoH;
+                ctx.drawImage(logoImg, currentX, clipHeight + (footerHeight - logoH) / 2, logoW, logoH);
+                currentX += logoW + (padding * 0.5);
+            }
+            
+            const fullDateStr = `CJ NEWSHUB GLOBAL ARCHIVE: ${dateStr}`;
+            const baseFontSize = footerHeight * fontSizePercent;
+            const totalAvailableWidth = clipWidth - currentX - (padding * 2);
+            
+            ctx.font = `bold ${baseFontSize}px "Playfair Display", serif`;
+            const brandW = ctx.measureText(brandLabel).width;
+            ctx.font = `500 ${baseFontSize * 0.6}px "Inter", sans-serif`;
+            const dateW = ctx.measureText(fullDateStr).width;
+            
+            let fontSize = baseFontSize;
+            if ((brandW + dateW + padding) > totalAvailableWidth) {
+                const scale = totalAvailableWidth / (brandW + dateW + padding);
+                fontSize = Math.max(10 * scaleFactor, baseFontSize * scale);
+            }
+
+            ctx.font = `bold ${fontSize}px "Playfair Display", serif`;
+            ctx.fillStyle = watermarkSettings.textColor || '#bfa17b';
+            ctx.textAlign = 'left';
+            ctx.fillText(brandLabel, currentX, textY);
+            
+            ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.textAlign = 'right';
+            ctx.fillText(fullDateStr, clipWidth - padding, textY);
+        }
         
-        ctx.font = `500 ${fontSize * 0.6}px "Inter", sans-serif`;
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.textAlign = 'right';
-        ctx.fillText(fullDateStr, clipWidth - padding, textY);
-    }
-    
-    // Output high quality JPEG at 0.80 quality (Optimized for size while keeping resolution)
-    const finalDataUrl = finalCanvas.toDataURL('image/jpeg', 0.80);
-    setCropPreview(finalDataUrl);
-    setIsProcessing(false);
+        // Output high quality JPEG at 0.80 quality (Optimized for size while keeping resolution)
+        const finalDataUrl = finalCanvas.toDataURL('image/jpeg', 0.80);
+        setCropPreview(finalDataUrl);
+        setIsProcessing(false);
+    }, 50); // 50ms delay allows spinner to render
   };
 
   const handleDownload = () => {
