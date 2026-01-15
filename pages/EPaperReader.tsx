@@ -426,18 +426,6 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     const finalDataUrl = finalCanvas.toDataURL('image/jpeg', 0.80);
     setCropPreview(finalDataUrl);
     setIsProcessing(false);
-
-    // INSTANT DOWNLOAD TRIGGER
-    try {
-        const link = document.createElement('a');
-        link.href = finalDataUrl;
-        link.download = `CJ_NEWSHUB_EXTRACT_${activePage?.date}_${Date.now()}.jpg`; 
-        document.body.appendChild(link); 
-        link.click();
-        document.body.removeChild(link);
-    } catch (e) {
-        console.error("Auto download failed", e);
-    }
   };
 
   const handleDownload = () => {
@@ -794,12 +782,9 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                                     <Share2 size={16} /> Share
                                 </button>
                                 <button onClick={handleDownload} className="bg-news-gold text-black px-8 py-3 rounded-full hover:bg-white transition-all flex items-center gap-3 shadow-xl font-bold uppercase tracking-widest text-xs">
-                                    <Download size={16} /> Download Again
+                                    <Download size={16} /> Download
                                 </button>
                             </div>
-                            <p className="text-green-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 animate-in slide-in-from-bottom-2 fade-in duration-700">
-                                <Check size={12}/> Automatically Saved to Device
-                            </p>
                         </div>
                     </div>
                 )}
