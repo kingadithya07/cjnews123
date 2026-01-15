@@ -181,17 +181,21 @@ function App() {
           setDevices([]);
           return;
       }
-      const { data, error } = await supabase
-        .from('trusted_devices')
-        .select('*')
-        .eq('user_id', targetUserId);
-        
-      if (error) {
-          console.error("Error fetching devices:", error);
-          return;
-      }
-      if (data) {
-          setDevices(data.map(mapDbDevice));
+      try {
+        const { data, error } = await supabase
+            .from('trusted_devices')
+            .select('*')
+            .eq('user_id', targetUserId);
+            
+        if (error) {
+            console.error("Error fetching devices:", error);
+            return;
+        }
+        if (data) {
+            setDevices(data.map(mapDbDevice));
+        }
+      } catch (e) {
+          console.warn("Device fetch error", e);
       }
   };
 
@@ -199,14 +203,16 @@ function App() {
   const fetchPendingRegistrations = async () => {
       if (!userIdRef.current || (userRole !== UserRole.ADMIN && userRole !== UserRole.EDITOR)) return;
 
-      const { data, error } = await supabase
-          .from('trusted_devices')
-          .select('*')
-          .eq('status', 'awaiting_verification');
+      try {
+        const { data, error } = await supabase
+            .from('trusted_devices')
+            .select('*')
+            .eq('status', 'awaiting_verification');
 
-      if (!error && data) {
-          setPendingRegistrations(data.map(mapDbDevice));
-      }
+        if (!error && data) {
+            setPendingRegistrations(data.map(mapDbDevice));
+        }
+      } catch (e) { console.warn("Pending regs fetch error", e); }
   };
 
   const handleAddDevice = async (device: TrustedDevice) => {
@@ -236,7 +242,6 @@ function App() {
   };
 
   const handleRevokeDevice = async (deviceId: string) => {
-      // Remove from pending if it was there
       setPendingRegistrations(prev => prev.filter(d => d.id !== deviceId));
       setDevices(prev => prev.filter(d => d.id !== deviceId));
       
@@ -470,6 +475,11 @@ function App() {
     };
     checkInitialSession();
 
+    // Safety timeout to prevent infinite loading screen
+    const safetyTimeout = setTimeout(() => {
+        setLoading(false);
+    }, 4000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecovering(true);
@@ -518,6 +528,7 @@ function App() {
     });
 
     return () => {
+      clearTimeout(safetyTimeout);
       supabase.removeChannel(channel);
       subscription.unsubscribe();
     };
@@ -714,7 +725,7 @@ function App() {
     return currentEntry?.status === 'approved';
   };
 
-  if (loading || currentPath === '/auth-callback') {
+  if (loading) {
       return (
           <div className="h-screen flex items-center justify-center bg-news-paper">
               <div className="flex flex-col items-center gap-4">
@@ -736,7 +747,11 @@ function App() {
   
   let content: React.ReactNode = null;
   
-  if (path === '/reset-password') {
+  if (path === '/auth-callback') {
+      // Temporary Redirect State to break loop if user stuck
+      setTimeout(() => navigate('/'), 100);
+      content = <div className="h-screen flex items-center justify-center">Redirecting...</div>;
+  } else if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
     content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
