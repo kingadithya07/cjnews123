@@ -696,12 +696,13 @@ function App() {
   // Explicitly typing and initializing content variable to fix TS error
   let content: React.ReactNode = null;
   
+  // ROUTING ORDER FIXED: Check specific staff routes BEFORE generic login check to allow invite flow
   if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
-  } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
-    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
   } else if (path.startsWith('/staff/login')) {
     content = <StaffLogin onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
+  } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
+    content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
   } else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) && isDeviceAuthorized()) {
     content = <EditorDashboard 
         articles={articles} 
@@ -730,7 +731,6 @@ function App() {
         onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} 
         onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
         onAddAdvertisement={async (ad) => { 
-            // Save standard ad properties
             const dbAd = {
                 id: ad.id,
                 title: ad.title,
