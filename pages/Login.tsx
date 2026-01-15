@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
 import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, KeyRound, Copy, RotateCw, Eye, EyeOff } from 'lucide-react';
@@ -313,9 +314,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  <span className="font-serif text-3xl font-black tracking-tighter text-white uppercase italic">CJ <span className="not-italic text-white">NEWSHUB</span></span>
               </div>
               <h2 className="text-3xl md:text-4xl font-serif font-black leading-tight mb-6 uppercase">
-                {mode === 'signup' ? "Staff Enrollment" : "Editorial Access"}
+                {mode === 'signup' ? "Public Enrollment" : "Editorial Access"}
               </h2>
-              <p className="text-gray-400 text-base md:text-lg leading-relaxed font-light">Secure gateway to the CJ NEWSHUB global publishing suite. Professional editorial tools for modern journalism.</p>
+              <p className="text-gray-400 text-base md:text-lg leading-relaxed font-light">
+                  {mode === 'signup' 
+                    ? "Join as a Reader or Writer. Editorial roles require an invitation."
+                    : "Secure gateway to the CJ NEWSHUB global publishing suite."
+                  }
+              </p>
            </div>
            <div className="relative z-10 pt-8 border-t border-white/10 mt-8 md:mt-0">
                <button onClick={onEmergencyReset} className="text-[10px] text-gray-500 hover:text-white font-bold uppercase tracking-[0.3em] transition-colors">
@@ -337,9 +343,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                           <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"/>
                        </div>
                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Station Role</label>
-                          <div className="grid grid-cols-3 gap-2">
-                             {[UserRole.READER, UserRole.WRITER, UserRole.EDITOR].map((role) => (
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Role Selection</label>
+                          <div className="grid grid-cols-2 gap-2">
+                             {[UserRole.READER, UserRole.WRITER].map((role) => (
                                 <button key={role} type="button" onClick={() => setSelectedRole(role)} className={`py-2 text-[10px] font-bold uppercase rounded-lg border transition-all ${selectedRole === role ? 'bg-news-black text-white border-news-black shadow-lg' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{role}</button>
                              ))}
                           </div>
@@ -348,7 +354,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  )}
 
                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Editorial Email</label>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
                     <div className="relative">
                         <Mail className="absolute left-3 top-3.5 text-gray-400" size={16}/>
                         <input 
@@ -357,13 +363,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                             value={email} 
                             onChange={e => setEmail(e.target.value)} 
                             className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all font-medium" 
-                            placeholder="staff@cjnewshub.com"
+                            placeholder="user@example.com"
                         />
                     </div>
                  </div>
 
                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Security Credential</label>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Password</label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-3.5 text-gray-400" size={16}/>
                         <input 
@@ -390,13 +396,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  )}
 
                  <button type="submit" disabled={loading} className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 flex justify-center items-center gap-3 shadow-xl transition-all">
-                    {loading ? <Loader2 className="animate-spin" size={20}/> : (mode === 'signup' ? "Complete Enrollment" : "Verified Sign In")}
+                    {loading ? <Loader2 className="animate-spin" size={20}/> : (mode === 'signup' ? "Complete Registration" : "Sign In")}
                     {!loading && <ArrowRight size={18} />}
                  </button>
               </form>
 
               <div className="mt-8 text-center text-xs text-gray-500">
-                 {mode === 'signin' ? <p>New staff member? <button onClick={() => setMode('signup')} className="font-black text-news-black hover:underline uppercase">Enroll Now</button></p> : <p>Existing staff? <button onClick={() => setMode('signin')} className="font-black text-news-black hover:underline uppercase">Sign In</button></p>}
+                 {mode === 'signin' ? <p>New user? <button onClick={() => setMode('signup')} className="font-black text-news-black hover:underline uppercase">Register Now</button></p> : <p>Existing user? <button onClick={() => setMode('signin')} className="font-black text-news-black hover:underline uppercase">Sign In</button></p>}
               </div>
            </div>
         </div>

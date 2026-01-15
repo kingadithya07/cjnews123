@@ -142,7 +142,7 @@ const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({ isOpen, onClose, 
                 cropBoxResizable: true,
                 toggleDragModeOnDblclick: false,
                 background: false // Transparent bg
-            });
+            } as any);
             cropperRef.current = cropper;
         }
         return () => {
