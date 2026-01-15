@@ -37,30 +37,60 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
     return () => { isMounted.current = false; };
   }, []);
 
-  // Check for Invite Token in URL (Handles both ?invite=... and #/path?invite=...)
+  // Initialization Logic
   useEffect(() => {
-      // 1. Check Search Query (Standard)
-      const params = new URLSearchParams(window.location.search);
-      let token = params.get('invite');
+      const init = async () => {
+          // 1. Extract Token from URL (Standard or Hash)
+          let token: string | null = null;
+          const searchParams = new URLSearchParams(window.location.search);
+          token = searchParams.get('invite');
 
-      // 2. Check Hash Query (Hash Router)
-      if (!token && window.location.hash.includes('?')) {
-          const hashParts = window.location.hash.split('?');
-          if (hashParts.length > 1) {
-              const hashParams = new URLSearchParams(hashParts[1]);
-              token = hashParams.get('invite');
+          if (!token && window.location.hash.includes('?')) {
+              const hashParts = window.location.hash.split('?');
+              if (hashParts.length > 1) {
+                  const hashParams = new URLSearchParams(hashParts[1]);
+                  token = hashParams.get('invite');
+              }
           }
-      }
-      
-      if (token) {
-          validateInvite(token);
-      }
-  }, []);
+
+          // 2. Prioritize Invite Validation
+          if (token) {
+              // If there's an invite token, we ignore existing session to allow registration
+              // or handle the invite flow specifically.
+              await validateInvite(token);
+          } else {
+              // 3. Otherwise check for existing session
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session && isMounted.current) {
+                  handleSessionFound(session);
+              }
+          }
+      };
+
+      init();
+  }, []); // Run once on mount
+
+  // Watch for approval only if in that state
+  useEffect(() => {
+    let interval: any;
+    if (isAwaitingApproval && pendingUser) {
+        interval = setInterval(() => {
+            checkApprovalStatus();
+        }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [isAwaitingApproval, existingDevices, pendingUser]);
 
   const validateInvite = async (token: string) => {
       setCheckingInvite(true);
       setError(null);
       try {
+          // Force sign out if a session exists to ensure clean registration
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+              await supabase.auth.signOut();
+          }
+
           const { data, error } = await supabase
               .from('staff_invitations')
               .select('*')
@@ -74,43 +104,31 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
           if (data) {
               setInviteToken(token);
               setInvitedRole(data.role);
-              setIsRegistering(true); // Auto-switch to registration
+              setIsRegistering(true); // Switch to registration UI
               setMessage("Invitation accepted. Please complete your enrollment.");
           } else {
               setError("Invitation link invalid or expired. Please contact your administrator.");
           }
-      } catch (err) {
-          console.error(err);
-          setError("Failed to validate invitation.");
+      } catch (err: any) {
+          console.error("Invite validation error:", err);
+          // Check for missing table error specifically to help dev
+          if (err.message?.includes('relation "public.staff_invitations" does not exist')) {
+              setError("System Error: Database not configured. Please run SUPABASE_SETUP.sql.");
+          } else {
+              setError("Failed to validate invitation.");
+          }
       } finally {
           setCheckingInvite(false);
       }
   };
 
-  useEffect(() => {
-    const checkExistingSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session && isMounted.current) {
-            handleSessionFound(session);
-        }
-    };
-    checkExistingSession();
-  }, [existingDevices]);
-
-  useEffect(() => {
-    let interval: any;
-    if (isAwaitingApproval && pendingUser) {
-        interval = setInterval(() => {
-            checkApprovalStatus();
-        }, 3000);
-    }
-    return () => clearInterval(interval);
-  }, [isAwaitingApproval, existingDevices, pendingUser]);
-
   const handleSessionFound = async (session: any) => {
+    // Prevent redirect loop if we are currently validating an invite
+    if (checkingInvite || inviteToken) return;
+
     const currentId = getDeviceId();
     
-    // Fetch fresh device list directly from DB for accurate Primary determination
+    // Fetch fresh device list directly from DB
     const { data: freshDevices, error } = await supabase
         .from('trusted_devices')
         .select('*')
@@ -120,24 +138,17 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
     const thisDevice = userDevices.find((d: any) => d.id === currentId);
 
     if (userDevices.length > 0) {
-        // User has registered devices
         if (thisDevice) {
-            // Known device
             if (thisDevice.status === 'approved') {
                 finalizeLogin(session.user);
             } else {
-                // Known but blocked/pending
                 setPendingUser(session.user);
                 setIsAwaitingApproval(true);
             }
         } else {
-            // UNKNOWN DEVICE (SECONDARY).
-            // Do NOT automatically register. 
-            // Allow login because user has credentials, but do not trust the device.
             finalizeLogin(session.user);
         }
     } else {
-        // First device ever -> Register as Primary
         const meta = getDeviceMetadata();
         try {
             await onAddDevice({
@@ -162,7 +173,6 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
   const checkApprovalStatus = () => {
     if (!pendingUser) return;
     const currentId = getDeviceId();
-    // Re-check prop for updates (handled by parent polling/subscription)
     const approved = existingDevices.find(d => d.id === currentId && d.userId === pendingUser.id && d.status === 'approved');
     if (approved) {
         finalizeLogin(pendingUser);
@@ -342,7 +352,7 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
                   </div>
               )}
               {isRegistering && (
-                  <div className="bg-white/5 p-6 rounded-xl border border-news-gold/30">
+                  <div className="bg-white/5 p-6 rounded-xl border border-news-gold/30 animate-in fade-in">
                       <div className="flex items-center gap-2 text-news-gold font-bold uppercase text-xs tracking-widest mb-2">
                           <UserPlus size={16} /> Invitation Active
                       </div>
@@ -363,11 +373,26 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
               <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">{isRegistering ? ' Enrollment' : 'Staff Login'}</h2>
               <p className="text-sm text-gray-500 font-medium">Verified credentials required for internal CJ NEWSHUB stations.</p>
            </div>
+           
            {error && <div className="mb-6 p-4 bg-red-900/20 border border-red-900/30 text-red-500 text-xs rounded-xl flex items-center gap-3"><AlertCircle size={16}/> {error}</div>}
+           
            <form onSubmit={handleSubmit} className="space-y-6">
               {isRegistering && (
-                  <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="Full Staff Name" className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 px-5 focus:border-news-gold outline-none transition-all" />
+                  <div className="animate-in slide-in-from-right-4">
+                      <div className="relative mb-6">
+                          <UserPlus className="absolute left-4 top-4.5 text-gray-500" size={18}/>
+                          <input 
+                            type="text" 
+                            required 
+                            value={name} 
+                            onChange={e => setName(e.target.value)} 
+                            placeholder="Full Staff Name" 
+                            className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" 
+                          />
+                      </div>
+                  </div>
               )}
+              
               <div className="relative">
                 <Mail className="absolute left-4 top-4.5 text-gray-500" size={18}/>
                 <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl text-white py-4 pl-12 pr-5 focus:border-news-gold outline-none transition-all" placeholder="staff@cjnewshub.com" />
@@ -390,6 +415,7 @@ const StaffLogin: React.FC<any> = ({ onLogin, onNavigate, existingDevices, onAdd
                     {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
                 </button>
               </div>
+              
               <button type="submit" disabled={loading} className={`w-full py-5 px-6 rounded-xl text-xs font-black tracking-[0.2em] transition-all flex justify-center items-center gap-3 shadow-2xl ${isRegistering ? 'bg-news-gold text-black' : activeTab === 'admin' ? 'bg-red-600 text-white' : activeTab === 'editor' ? 'bg-news-gold text-black' : 'bg-blue-600 text-white'}`}>
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <>{isRegistering ? 'COMPLETE ENROLLMENT' : 'STAFF HANDSHAKE'} <ArrowRight size={18}/></>}
               </button>
