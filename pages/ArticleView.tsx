@@ -232,12 +232,28 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
   return (
     <div className="animate-in fade-in duration-500 pb-16">
       
+      {/* Mobile Sticky Header */}
+      <div className="md:hidden sticky top-0 z-40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b border-gray-200 -mx-4 px-4 py-3 flex items-center justify-between shadow-sm mb-6">
+          <div className="flex items-center gap-3 overflow-hidden">
+              <button onClick={() => onNavigate('/')} className="text-news-black hover:text-news-accent transition-colors flex-shrink-0">
+                  <ArrowLeft size={20} />
+              </button>
+              <h1 className="text-sm font-serif font-bold text-gray-900 truncate pr-4 leading-tight">
+                  {article.title}
+              </h1>
+          </div>
+          <button onClick={handleShare} className="text-gray-500 hover:text-news-black shrink-0 p-1">
+              <Share2 size={18} />
+          </button>
+      </div>
+
       <AdvertisementBanner ads={advertisements} size="MOBILE_BANNER" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} />
 
       <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12 px-0 md:px-0 w-full">
         
         <div className="flex-1 min-w-0">
-            <Link to="/" onNavigate={onNavigate} className="inline-flex items-center text-gray-500 hover:text-news-accent hover:underline my-8 transition-colors text-sm font-medium">
+            {/* Desktop Back Button */}
+            <Link to="/" onNavigate={onNavigate} className="hidden md:inline-flex items-center text-gray-500 hover:text-news-accent hover:underline my-8 transition-colors text-sm font-medium">
                 <ArrowLeft size={16} className="mr-1" /> Back to Newsroom
             </Link>
 

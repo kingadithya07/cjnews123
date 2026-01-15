@@ -649,11 +649,14 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
           <div className="fixed inset-0 z-[100] bg-black text-white flex flex-col animate-in fade-in duration-300">
               <div className="flex items-center justify-between px-4 md:px-8 py-2 bg-black/90 backdrop-blur-xl border-b border-white/5 z-50 shrink-0 shadow-2xl safe-area-top">
                   <div className="flex items-center gap-4">
-                      <button onClick={() => setViewMode('grid')} className="flex items-center gap-2 text-white/50 hover:text-white transition-all bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+                      {/* Mobile-Only Left Exit Button */}
+                      <button onClick={() => setViewMode('grid')} className="md:hidden flex items-center gap-2 text-white/50 hover:text-white transition-all bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
                           <X size={16} />
-                          <span className="hidden md:inline text-[9px] font-black uppercase tracking-[0.2em]">Exit</span>
+                          <span className="text-[9px] font-black uppercase tracking-[0.2em]">Exit</span>
                       </button>
-                      <div className="hidden md:flex items-center gap-3 border-l border-white/10 pl-5">
+                      
+                      {/* Desktop Date Display - Always visible here on desktop */}
+                      <div className="hidden md:flex items-center gap-3 border-l-0 pl-0">
                            <span className="text-[9px] font-black text-news-gold tracking-widest uppercase">{safeFormat(selectedDate, 'dd MMM yyyy')}</span>
                            <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest">Page {activePage?.pageNumber} / {currentEditionPages.length}</span>
                       </div>
@@ -668,6 +671,11 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                           <span className="text-[9px] font-mono font-black text-news-gold w-8 md:w-10 text-center select-none">{Math.round(scale * 100)}%</span>
                           <button onClick={() => setScale(s => Math.min(4, s + 0.5))} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-white/60"><ZoomIn size={16} /></button>
                       </div>
+
+                      {/* Desktop-Only Right Exit Button */}
+                      <button onClick={() => setViewMode('grid')} className="hidden md:flex p-2 hover:bg-white/10 rounded-full text-white transition-all border border-white/10 ml-2" title="Exit Reader">
+                          <X size={20} />
+                      </button>
                   </div>
               </div>
               <div 
