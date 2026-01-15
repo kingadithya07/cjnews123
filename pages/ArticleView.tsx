@@ -320,6 +320,16 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
               dangerouslySetInnerHTML={{ __html: article.content || '<p>Detailed report pending...</p>' }} 
             />
 
+            {/* Mobile Share Button at end of article */}
+            <div className="md:hidden mt-6 mb-8">
+                <button 
+                    onClick={handleShare} 
+                    className="w-full bg-gray-100 text-gray-900 py-3 rounded-full font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+                >
+                    <Share2 size={16} /> Share Article
+                </button>
+            </div>
+
             <div className="mt-10 pt-6 border-t border-gray-100 mb-10">
                 <div className="flex flex-wrap gap-2">
                     {(article.categories || []).map(cat => (

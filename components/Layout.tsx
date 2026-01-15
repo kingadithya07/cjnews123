@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { UserRole, Article } from '../types';
-import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard, ChevronDown, Handshake } from 'lucide-react';
+import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard, ChevronDown, Handshake, ArrowUp, ArrowDown } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
@@ -109,6 +109,10 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
 
+  // Scroll Buttons State
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
   // Constants for Navigation
   const MAX_VISIBLE_CATS = 6;
   const visibleCats = categories.slice(0, MAX_VISIBLE_CATS);
@@ -128,6 +132,26 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Handle Scroll Logic for Up/Down Arrows
+  useEffect(() => {
+    const handleScroll = () => {
+        const scrollTop = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const fullHeight = document.documentElement.scrollHeight;
+        
+        setShowScrollTop(scrollTop > 300);
+        // Show bottom button if we are not near the bottom AND the page is long enough
+        setShowScrollBottom((scrollTop + windowHeight) < (fullHeight - 300) && fullHeight > windowHeight * 1.5);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Initial check
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [currentPath]); // Re-run when path changes (content changes)
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  const scrollToBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
 
   const getWeatherCondition = (code: number) => {
       if (code === 0) return 'Clear';
@@ -181,7 +205,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   if (isDashboard) return <div className="min-h-screen bg-gray-50">{children}</div>;
 
   return (
-    <div className="min-h-screen flex flex-col bg-news-paper overflow-x-hidden w-full">
+    <div className="min-h-screen flex flex-col bg-news-paper overflow-x-hidden w-full relative">
       
       {/* TOP BAR: DATE & LOGIN */}
       <div className="bg-white border-b border-gray-100 py-2.5 px-4 md:px-6 flex justify-between items-center text-[10px] font-bold tracking-widest uppercase text-gray-400">
@@ -305,14 +329,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       {/* DESKTOP NAVIGATION */}
       <nav className="hidden md:block bg-white border-b border-gray-200 sticky top-0 z-50">
          <div className="max-w-7xl mx-auto px-6 h-12 flex justify-center items-center gap-6 overflow-visible">
-             {/* Desktop Search Trigger - Left of Home */}
-             <button 
-                onClick={() => setIsSearchOpen(true)}
-                className="text-[9px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-colors duration-200 h-full border-b-2 border-transparent text-gray-500 hover:text-news-blue"
-             >
-                 <Search size={14} /> SEARCH
-             </button>
-
              <DesktopNavItem to="/" label="HOME" isActive={isActive('/')} onNavigate={onNavigate} />
              <DesktopNavItem to="/epaper" label="E-PAPER" icon={Newspaper} isActive={isActive('/epaper')} onNavigate={onNavigate} />
              
@@ -344,6 +360,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                      </div>
                  </div>
              )}
+
+             {/* Desktop Search Trigger - Moved to Right */}
+             <button 
+                onClick={() => setIsSearchOpen(true)}
+                className="text-[9px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-colors duration-200 h-full border-b-2 border-transparent text-gray-500 hover:text-news-blue ml-4"
+             >
+                 <Search size={14} /> SEARCH
+             </button>
          </div>
       </nav>
 
@@ -437,6 +461,28 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
            <p className="text-[10px] tracking-[0.5em] uppercase text-gray-600 mt-4">© {new Date().getFullYear()} CJ NEWSHUB MEDIA GROUP. ALL RIGHTS RESERVED.</p>
         </div>
       </footer>
+
+      {/* Floating Scroll Actions */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 print:hidden pointer-events-none">
+          {showScrollTop && (
+              <button 
+                onClick={scrollToTop} 
+                className="pointer-events-auto bg-news-black text-white p-3 md:p-3.5 rounded-full shadow-2xl hover:bg-news-gold hover:text-black transition-all border border-gray-700 opacity-90 hover:opacity-100 hover:scale-110 active:scale-95"
+                title="Scroll to Top"
+              >
+                  <ArrowUp size={20} />
+              </button>
+          )}
+          {showScrollBottom && (
+              <button 
+                onClick={scrollToBottom} 
+                className="pointer-events-auto bg-white text-news-black p-3 md:p-3.5 rounded-full shadow-2xl hover:bg-news-blue hover:text-white transition-all border border-gray-200 opacity-90 hover:opacity-100 hover:scale-110 active:scale-95"
+                title="Scroll to Bottom"
+              >
+                  <ArrowDown size={20} />
+              </button>
+          )}
+      </div>
 
       {isWeatherModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-md">
