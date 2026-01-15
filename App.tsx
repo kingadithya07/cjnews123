@@ -308,7 +308,7 @@ function App() {
       }
 
       // --- MAPPING LAYER ---
-      if (artData) {
+      if (artData && artData.length > 0) {
         setArticles(artData.map(a => ({
           id: a.id,
           userId: a.user_id,
@@ -329,9 +329,12 @@ function App() {
           isEditorsChoice: a.isEditorsChoice || a.is_editors_choice || false,
           views: a.views || 0
         })) as Article[]);
+      } else {
+          // Fallback to Mock Data if DB is empty
+          setArticles(MOCK_ARTICLES);
       }
 
-      if (pageData) {
+      if (pageData && pageData.length > 0) {
         setEPaperPages(pageData.map(p => ({
           id: p.id,
           date: p.date,
@@ -339,6 +342,9 @@ function App() {
           imageUrl: p.imageUrl || p.image_url || 'https://placehold.co/600x800?text=No+Scan',
           regions: []
         })) as EPaperPage[]);
+      } else {
+          // Fallback to Mock Data
+          setEPaperPages(MOCK_EPAPER);
       }
 
       if (clsData) {
@@ -372,6 +378,9 @@ function App() {
       setLastSync(new Date());
     } catch (err) {
       console.error("Critical error in fetchData:", err);
+      // Ensure mock data fallback on critical error
+      setArticles(MOCK_ARTICLES);
+      setEPaperPages(MOCK_EPAPER);
     }
   };
 
@@ -725,7 +734,7 @@ function App() {
     return currentEntry?.status === 'approved';
   };
 
-  if (loading) {
+  if (loading || currentPath === '/auth-callback') {
       return (
           <div className="h-screen flex items-center justify-center bg-news-paper">
               <div className="flex flex-col items-center gap-4">
