@@ -41,7 +41,6 @@ function App() {
   const [categories, setCategories] = useState<string[]>(['General', 'World', 'Technology', 'Politics', 'Lifestyle', 'Business', 'Culture', 'Sports', 'Local']);
   const [tags, setTags] = useState<string[]>(['Breaking', 'Live', 'Exclusive', 'Opinion', 'Video', 'Podcast', 'Analysis']);
   const [devices, setDevices] = useState<TrustedDevice[]>([]);
-  const [pendingRegistrations, setPendingRegistrations] = useState<TrustedDevice[]>([]);
   const [adCategories, setAdCategories] = useState<string[]>(['Jobs', 'Real Estate', 'For Sale', 'Services', 'Community', 'Automotive', 'Events']);
   const [classifieds, setClassifieds] = useState<ClassifiedAd[]>([]);
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
@@ -158,7 +157,7 @@ function App() {
     };
   }, [userRole]);
 
-  // --- DEVICE MANAGEMENT ---
+  // --- DEVICE MANAGEMENT (DB TABLE) ---
   const mapDbDevice = (d: any): TrustedDevice => {
       const currentId = getDeviceId();
       return {
@@ -171,53 +170,42 @@ function App() {
           status: d.status,
           browser: d.browser,
           isPrimary: d.is_primary,
+          // CALCULATE isCurrent dynamically. Do NOT rely on DB value.
+          // This ensures 'Delete' button shows for remote devices.
           isCurrent: d.id === currentId 
       };
   };
 
   const fetchDevices = async (uidOverride?: string) => {
       const targetUserId = uidOverride || userIdRef.current;
+      
       if (!targetUserId) {
+          // If no user ID, ensure devices list is empty
           setDevices([]);
           return;
       }
-      try {
-        const { data, error } = await supabase
-            .from('trusted_devices')
-            .select('*')
-            .eq('user_id', targetUserId);
-            
-        if (error) {
-            console.error("Error fetching devices:", error);
-            return;
-        }
-        if (data) {
-            setDevices(data.map(mapDbDevice));
-        }
-      } catch (e) {
-          console.warn("Device fetch error", e);
+
+      // Fetch from 'trusted_devices' table instead of metadata
+      // Explicitly filter by user_id to ensure we get the right data even if RLS is lax
+      const { data, error } = await supabase
+        .from('trusted_devices')
+        .select('*')
+        .eq('user_id', targetUserId);
+        
+      if (error) {
+          console.error("Error fetching devices:", error);
+          return;
       }
-  };
 
-  // Fetch pending registrations across ALL users (Only for Admin/Editor)
-  const fetchPendingRegistrations = async () => {
-      if (!userIdRef.current || (userRole !== UserRole.ADMIN && userRole !== UserRole.EDITOR)) return;
-
-      try {
-        const { data, error } = await supabase
-            .from('trusted_devices')
-            .select('*')
-            .eq('status', 'awaiting_verification');
-
-        if (!error && data) {
-            setPendingRegistrations(data.map(mapDbDevice));
-        }
-      } catch (e) { console.warn("Pending regs fetch error", e); }
+      if (data) {
+          setDevices(data.map(mapDbDevice));
+      }
   };
 
   const handleAddDevice = async (device: TrustedDevice) => {
       // Optimistic Update
       setDevices(prev => {
+          // Avoid duplicates in optimistic update
           if (prev.some(d => d.id === device.id)) return prev;
           return [...prev, { ...device, isCurrent: true }];
       });
@@ -232,6 +220,7 @@ function App() {
           status: device.status,
           browser: device.browser,
           is_primary: device.isPrimary
+          // Removed isCurrent from DB payload to avoid stale state
       };
 
       const { error } = await supabase.from('trusted_devices').upsert(dbDevice);
@@ -242,30 +231,22 @@ function App() {
   };
 
   const handleRevokeDevice = async (deviceId: string) => {
-      setPendingRegistrations(prev => prev.filter(d => d.id !== deviceId));
+      // Optimistic
       setDevices(prev => prev.filter(d => d.id !== deviceId));
       
       const { error } = await supabase.from('trusted_devices').delete().eq('id', deviceId);
       if (error) {
           alert("Failed to delete device: " + error.message);
           fetchDevices();
-          fetchPendingRegistrations();
       }
   };
 
   const handleUpdateDeviceStatus = async (deviceId: string, status: 'approved' | 'pending') => {
-      // Instant Local Update
       setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, status } : d));
-      // Remove from pending registrations if approved
-      if (status === 'approved') {
-          setPendingRegistrations(prev => prev.filter(d => d.id !== deviceId));
-      }
-      
       const { error } = await supabase.from('trusted_devices').update({ status }).eq('id', deviceId);
       if (error) {
           console.error("Status update failed", error);
           fetchDevices();
-          fetchPendingRegistrations();
       }
   };
 
@@ -301,20 +282,20 @@ function App() {
       const { data: adData } = await supabase.from('advertisements').select('*');
 
       // 5. Trusted Devices (Only if logged in)
+      // Use ref to access current ID in case of stale closure during subscription events
       if (userIdRef.current) {
           await fetchDevices(userIdRef.current);
-          await fetchPendingRegistrations();
           fetchLogs();
       }
 
       // --- MAPPING LAYER ---
-      if (artData && artData.length > 0) {
+      if (artData) {
         setArticles(artData.map(a => ({
           id: a.id,
-          userId: a.user_id,
-          slug: a.slug,
+          userId: a.user_id, // Map database column to type
+          slug: a.slug, // Map slug
           title: a.title,
-          englishTitle: a.english_title || undefined,
+          englishTitle: a.english_title || undefined, // Map English Title
           subline: a.subline,
           author: a.author,
           authorAvatar: a.authorAvatar || a.author_avatar,
@@ -327,14 +308,11 @@ function App() {
           isPremium: a.isPremium || a.is_premium || false,
           isFeatured: a.isFeatured || a.is_featured || false,
           isEditorsChoice: a.isEditorsChoice || a.is_editors_choice || false,
-          views: a.views || 0
+          views: a.views || 0 // Map views from DB
         })) as Article[]);
-      } else {
-          // Fallback to Mock Data if DB is empty
-          setArticles(MOCK_ARTICLES);
       }
 
-      if (pageData && pageData.length > 0) {
+      if (pageData) {
         setEPaperPages(pageData.map(p => ({
           id: p.id,
           date: p.date,
@@ -342,9 +320,6 @@ function App() {
           imageUrl: p.imageUrl || p.image_url || 'https://placehold.co/600x800?text=No+Scan',
           regions: []
         })) as EPaperPage[]);
-      } else {
-          // Fallback to Mock Data
-          setEPaperPages(MOCK_EPAPER);
       }
 
       if (clsData) {
@@ -378,9 +353,6 @@ function App() {
       setLastSync(new Date());
     } catch (err) {
       console.error("Critical error in fetchData:", err);
-      // Ensure mock data fallback on critical error
-      setArticles(MOCK_ARTICLES);
-      setEPaperPages(MOCK_EPAPER);
     }
   };
 
@@ -421,19 +393,16 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'classifieds' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, (payload) => {
+          // INSTANT UPDATE LOGIC
+          // Instead of fetching, we process the payload immediately to update state
+          // This ensures popup appears instantly on primary device and redirects instantly on secondary device.
           
           if (!userIdRef.current) return;
 
-          // Special Handling: If new device is inserted with 'awaiting_verification', refresh pending list
-          // This allows Admins to see new registrations instantly
-          if (payload.new && (payload.new as any).status === 'awaiting_verification') {
-              fetchPendingRegistrations();
-          }
-
-          // Existing user-device sync
+          // Only process if it belongs to current user
           if (payload.new && (payload.new as any).user_id !== userIdRef.current) return;
           if (payload.old && !payload.new && (payload.old as any).user_id !== userIdRef.current) {
-              // ...
+              // For delete, we might not have user_id in 'old' depending on replica identity
           }
 
           if (payload.eventType === 'INSERT') {
@@ -451,6 +420,7 @@ function App() {
           }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => {
+          // Refresh logs when new one inserted
           fetchLogs();
       })
       .subscribe();
@@ -461,7 +431,7 @@ function App() {
         if (session) {
           const profile = session.user.user_metadata;
           setUserId(session.user.id);
-          userIdRef.current = session.user.id; 
+          userIdRef.current = session.user.id; // Immediate ref update for downstream calls
           sessionStartTime.current = Date.now();
           
           setUserName(profile.full_name || 'Staff');
@@ -469,11 +439,8 @@ function App() {
           setUserRole(profile.role || UserRole.READER);
           setUserAvatar(profile.avatar_url || null);
           
+          // Trigger device fetch after login, explicitly passing ID to avoid closure staleness
           await fetchDevices(session.user.id);
-          // Don't call fetchPending here immediately, wait for role/devices to settle
-          if (profile.role === UserRole.ADMIN || profile.role === UserRole.EDITOR) {
-              fetchPendingRegistrations();
-          }
           fetchLogs();
         }
       } catch (err) {
@@ -484,12 +451,8 @@ function App() {
     };
     checkInitialSession();
 
-    // Safety timeout to prevent infinite loading screen
-    const safetyTimeout = setTimeout(() => {
-        setLoading(false);
-    }, 4000);
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // HANDLE PASSWORD RECOVERY EVENT
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecovering(true);
         navigate('/reset-password');
@@ -500,17 +463,12 @@ function App() {
           setUserId(session.user.id);
           userIdRef.current = session.user.id;
           handleLogActivity('LOGIN', 'Session Started');
-          await fetchDevices(session.user.id);
-          
-          const role = session.user.user_metadata.role || UserRole.READER;
-          if (role === UserRole.ADMIN || role === UserRole.EDITOR) {
-              fetchPendingRegistrations();
-          }
+          fetchDevices(session.user.id);
           fetchLogs();
       }
 
       if (event === 'SIGNED_OUT') {
-          const duration = Math.round((Date.now() - sessionStartTime.current) / 60000); 
+          const duration = Math.round((Date.now() - sessionStartTime.current) / 60000); // Minutes
           await handleLogActivity('LOGOUT', `Duration: ${duration} mins`);
           
           setUserId(null);
@@ -521,13 +479,12 @@ function App() {
           setUserAvatar(null);
           setDevices([]);
           setActivityLogs([]);
-          setPendingRegistrations([]);
       }
 
       if (session) {
         const profile = session.user.user_metadata;
         setUserId(session.user.id);
-        userIdRef.current = session.user.id; 
+        userIdRef.current = session.user.id; // Sync ref immediately
         
         setUserName(profile.full_name || 'Staff');
         setUserEmail(session.user.email || null);
@@ -537,29 +494,25 @@ function App() {
     });
 
     return () => {
-      clearTimeout(safetyTimeout);
       supabase.removeChannel(channel);
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Empty dep array: runs once on mount.
 
+  // Check device approval AFTER fetching devices
   useEffect(() => {
       if (userId && devices.length > 0) {
           const currentId = getDeviceId();
           const currentDeviceEntry = devices.find(d => d.id === currentId);
-          // Deny access if awaiting verification or blocked
           if (currentDeviceEntry && currentDeviceEntry.status !== 'approved' && currentDeviceEntry.status !== 'pending') {
-               // Only sign out if we are not already on login page (to avoid loop if Login handles the waiting screen)
-               // Actually, Login component handles 'awaiting_verification' mode.
-               // We should redirect to Login but NOT sign out immediately, so Login can show the "Pending" screen.
-               if (!currentPath.includes('/login')) {
+               supabase.auth.signOut().then(() => {
                    navigate('/login');
-               }
+                   alert("Device access revoked.");
+               });
           }
       }
-  }, [devices, userId, currentPath]);
+  }, [devices, userId]);
 
-  // --- HANDLERS (CRUD) ---
   const handleLogin = (role: UserRole, name: string, avatar?: string) => {
       setUserRole(role);
       setUserName(name);
@@ -634,6 +587,7 @@ function App() {
   };
 
   const handleSaveArticle = async (article: Article) => {
+    // Generate slug from English title if available (better for SEO), otherwise fallback to regular title
     const slugBase = article.englishTitle || article.title;
     const articleSlug = article.slug || createSlug(slugBase);
     
@@ -647,7 +601,7 @@ function App() {
     const payload = {
         id: article.id,
         title: article.title,
-        english_title: article.englishTitle,
+        english_title: article.englishTitle, // Save English title
         slug: articleSlug,
         subline: article.subline,
         author: article.author,
@@ -669,6 +623,7 @@ function App() {
       alert("Failed to save article: " + error.message);
       fetchData(true); 
     } else {
+        // Log Edit Action
         handleLogActivity('EDIT', `Article: ${article.title.substring(0, 20)}...`);
     }
   };
@@ -729,7 +684,7 @@ function App() {
     if (!userId) return false;
     const currentDeviceId = getDeviceId();
     const myDevices = devices.filter(d => d.userId === userId);
-    if (myDevices.length === 0) return true; // First time logic handled elsewhere
+    if (myDevices.length === 0) return true; // First time login scenario handled in Login
     const currentEntry = myDevices.find(d => d.id === currentDeviceId);
     return currentEntry?.status === 'approved';
   };
@@ -749,18 +704,15 @@ function App() {
   const currentDeviceId = getDeviceId();
   const currentDeviceEntry = devices.find(d => d.id === currentDeviceId);
   const isPrimary = currentDeviceEntry?.isPrimary ?? false;
-  // Get FIRST pending device only (Normal pending)
+  // Get FIRST pending device only
   const pendingDevice = devices.find(d => d.status === 'pending');
 
   const path = currentPath.toLowerCase();
   
+  // Explicitly typing and initializing content variable to fix TS error
   let content: React.ReactNode = null;
   
-  if (path === '/auth-callback') {
-      // Temporary Redirect State to break loop if user stuck
-      setTimeout(() => navigate('/'), 100);
-      content = <div className="h-screen flex items-center justify-center">Redirecting...</div>;
-  } else if (path === '/reset-password') {
+  if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) {
     content = <Login onLogin={handleLogin} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
@@ -794,6 +746,7 @@ function App() {
         onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} 
         onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
         onAddAdvertisement={async (ad) => { 
+            // Save standard ad properties
             const dbAd = {
                 id: ad.id,
                 title: ad.title,
@@ -831,11 +784,12 @@ function App() {
         onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} 
         onRejectDevice={(id) => handleRevokeDevice(id)} 
         onRevokeDevice={handleRevokeDevice}
+        // Pass userId to EditorDashboard for isolated gallery handling
         userId={userId}
+        // Pass Active Visitors Prop
         activeVisitors={activeVisitors}
+        // Logs
         logs={activityLogs}
-        pendingRegistrations={pendingRegistrations}
-        onApproveRegistration={(id) => handleUpdateDeviceStatus(id, 'approved')}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard 
@@ -850,13 +804,16 @@ function App() {
         userEmail={userEmail}
         devices={devices.filter(d => d.userId === userId)}
         onRevokeDevice={handleRevokeDevice}
-        userId={userId} 
-        activeVisitors={activeVisitors}
+        userId={userId} // Pass userId for isolation
+        activeVisitors={activeVisitors} // Pass Real-Time Analytics
     />;
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   } else if (path.startsWith('/article/')) {
+    // Determine if it's an ID or a Slug
     const slugOrId = currentPath.split('/article/')[1];
+    
+    // Find matching article either by ID or Slug OR by generated slug from title (robust fallback)
     let targetId = slugOrId;
     const foundBySlug = articles.find(a => 
         a.slug === slugOrId || 

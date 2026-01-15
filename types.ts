@@ -21,7 +21,7 @@ export interface TrustedDevice {
   lastActive: string;
   isCurrent: boolean;
   isPrimary: boolean;
-  status: 'approved' | 'pending' | 'awaiting_verification';
+  status: 'approved' | 'pending';
   browser: string;
 }
 
