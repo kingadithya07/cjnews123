@@ -248,8 +248,26 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     if (isCropping && cropperImgRef.current && !cropPreview) {
         if (cropperRef.current) cropperRef.current.destroy();
         const cropper = new Cropper(cropperImgRef.current, {
-            dragMode: 'move', autoCropArea: 0.8, restore: false, guides: true, center: true, highlight: false, cropBoxMovable: true, cropBoxResizable: true, zoomable: true, background: false, responsive: true,
-            ready() { setWorkshopScale(1); },
+            // Optimized Configuration for "Light Weight" & "Smooth" feel
+            viewMode: 1, // Restrict crop box to canvas size
+            dragMode: 'move', // Allow moving image by default
+            autoCropArea: 0.6, // Start with a slightly smaller focused box
+            restore: false,
+            guides: false, // Cleaner look
+            center: false, // Cleaner look
+            highlight: false,
+            cropBoxMovable: true,
+            cropBoxResizable: true,
+            zoomable: true,
+            zoomOnWheel: false, // Prevent accidental scroll zooming on desktop
+            toggleDragModeOnDblclick: false, // Consistent interaction
+            background: false,
+            responsive: true,
+            minContainerWidth: 300,
+            minContainerHeight: 300,
+            ready() { 
+                setWorkshopScale(1); 
+            },
             zoom(e) { setWorkshopScale(e.detail.ratio); }
         } as any);
         cropperRef.current = cropper;
@@ -447,6 +465,65 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
   return (
     <div className="flex flex-col bg-news-paper font-sans h-[100dvh]">
+      <style>{`
+        /* CUSTOM CROPPER STYLES FOR SMOOTH MOBILE UX */
+        
+        /* 1. Large, circular, touch-friendly handles (Points) */
+        .cropper-point {
+            width: 20px !important;
+            height: 20px !important;
+            background-color: #c5a059 !important; /* News Gold */
+            border: 2px solid #fff !important;
+            border-radius: 50% !important;
+            opacity: 1 !important;
+            z-index: 20 !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+        }
+
+        /* 2. Adjust specific corner handle positions to be perfectly centered on corners */
+        .cropper-point.point-ne { top: -10px !important; right: -10px !important; }
+        .cropper-point.point-nw { top: -10px !important; left: -10px !important; }
+        .cropper-point.point-se { bottom: -10px !important; right: -10px !important; }
+        .cropper-point.point-sw { bottom: -10px !important; left: -10px !important; }
+        
+        /* Side handles - slightly smaller but still touchable */
+        .cropper-point.point-n { top: -10px !important; margin-left: -10px !important; }
+        .cropper-point.point-s { bottom: -10px !important; margin-left: -10px !important; }
+        .cropper-point.point-e { right: -10px !important; margin-top: -10px !important; }
+        .cropper-point.point-w { left: -10px !important; margin-top: -10px !important; }
+
+        /* 3. Solid, high-contrast dashed lines */
+        .cropper-line {
+            background-color: transparent !important;
+            border: 1px dashed #c5a059 !important;
+            opacity: 0.8 !important;
+        }
+        
+        /* 4. Instant-load dimming background (Modal) */
+        .cropper-modal {
+            background-color: #000 !important;
+            opacity: 0.75 !important;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        /* 5. Selection box (Face) - Transparent but interactive */
+        .cropper-face {
+            background-color: transparent !important;
+            opacity: 0 !important;
+        }
+        
+        /* 6. Outline borders */
+        .cropper-view-box {
+            outline: 1px solid #c5a059 !important;
+            border-radius: 0 !important;
+        }
+        
+        /* 7. Hide center indicator for cleaner look */
+        .cropper-center {
+            display: none !important;
+        }
+      `}</style>
+
       {viewMode === 'grid' && (
         <div className="flex items-center justify-between px-4 md:px-8 py-3 bg-white border-b border-gray-100 z-10 sticky top-0 shadow-sm shrink-0">
            <div className="flex items-center gap-4">
