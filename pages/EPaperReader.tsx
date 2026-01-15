@@ -260,7 +260,20 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
   const generateBrandedClip = async () => {
     if (!cropperRef.current) return;
     setIsProcessing(true);
-    const croppedCanvas = (cropperRef.current as any).getCroppedCanvas();
+    
+    // Scale Factor for High Resolution Output (3x)
+    // Increases pixel density for sharper text/branding
+    const scaleFactor = 3;
+    const cropData = cropperRef.current.getData();
+
+    const croppedCanvas = (cropperRef.current as any).getCroppedCanvas({
+        width: Math.round(cropData.width * scaleFactor),
+        height: Math.round(cropData.height * scaleFactor),
+        fillColor: '#fff',
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+    });
+
     if (!croppedCanvas) { setIsProcessing(false); return; }
     
     const finalCanvas = document.createElement('canvas');
@@ -270,8 +283,11 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     const clipWidth = croppedCanvas.width;
     const clipHeight = croppedCanvas.height;
 
-    const isNarrow = clipWidth < 450;
-    const baseFooterHeight = Math.max(50, Math.min(clipHeight * 0.12, 120));
+    // Adjusted threshold for narrow column layout logic (scaled)
+    const isNarrow = clipWidth < (450 * scaleFactor);
+    
+    // Scaled footer height calculation
+    const baseFooterHeight = Math.max(50 * scaleFactor, Math.min(clipHeight * 0.12, 150 * scaleFactor));
     const footerHeight = isNarrow ? baseFooterHeight * 1.8 : baseFooterHeight;
     
     finalCanvas.width = clipWidth;
@@ -284,7 +300,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
     ctx.fillStyle = watermarkSettings.backgroundColor || '#1a1a1a';
     ctx.fillRect(0, clipHeight, finalCanvas.width, footerHeight);
     
-    const padding = Math.max(10, clipWidth * 0.05);
+    const padding = Math.max(10 * scaleFactor, clipWidth * 0.05);
     const dateStr = safeFormat(activePage?.date, 'MMMM do, yyyy');
     
     const brandLabel = (watermarkSettings.text || APP_NAME).toUpperCase();
@@ -303,9 +319,10 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
 
     const getFittingFontSize = (text: string, initialSize: number, maxWidth: number, fontFace: string) => {
         let size = initialSize;
+        const minSize = 8 * scaleFactor;
         ctx.font = `bold ${size}px ${fontFace}`;
-        while (ctx.measureText(text).width > maxWidth && size > 8) {
-            size -= 0.5;
+        while (ctx.measureText(text).width > maxWidth && size > minSize) {
+            size -= (0.5 * scaleFactor);
             ctx.font = `bold ${size}px ${fontFace}`;
         }
         return size;
@@ -369,7 +386,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         let fontSize = baseFontSize;
         if ((brandW + dateW + padding) > totalAvailableWidth) {
             const scale = totalAvailableWidth / (brandW + dateW + padding);
-            fontSize = Math.max(10, baseFontSize * scale);
+            fontSize = Math.max(10 * scaleFactor, baseFontSize * scale);
         }
 
         ctx.font = `bold ${fontSize}px "Playfair Display", serif`;
@@ -383,6 +400,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
         ctx.fillText(fullDateStr, clipWidth - padding, textY);
     }
     
+    // Output high quality JPEG
     setCropPreview(finalCanvas.toDataURL('image/jpeg', 0.95));
     setIsProcessing(false);
   };
@@ -661,7 +679,7 @@ const EPaperReader: React.FC<EPaperReaderProps> = ({ pages, onNavigate, watermar
                 </div>
                 {cropPreview && (
                     <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col items-center justify-center p-6 md:p-12 bg-black animate-in slide-in-from-right duration-700 relative overflow-y-auto">
-                        <div className="absolute top-4 right-6 text-[8px] font-black uppercase tracking-[0.4em] text-news-gold">Digital Output</div>
+                        <div className="absolute top-4 right-6 text-[8px] font-black uppercase tracking-[0.4em] text-news-gold">High-Res Output</div>
                         <div className="max-w-full md:max-w-4xl shadow-[0_0_80px_rgba(191,161,123,0.15)] border border-white/5 rounded-sm overflow-hidden bg-white animate-in zoom-in-95 duration-700 mb-6">
                              <img src={cropPreview} className="max-h-[50vh] md:max-h-[65vh] w-auto block" alt="Branded Archival Result" />
                         </div>
