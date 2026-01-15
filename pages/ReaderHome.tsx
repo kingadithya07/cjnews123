@@ -246,7 +246,13 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                   </div>
 
                                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 md:p-10 pt-20 md:pt-24 flex flex-col justify-end items-start z-20">
-                                      <div className="flex items-center gap-3 mb-1.5 md:mb-3">
+                                      <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-xl md:max-w-2xl">
+                                          <h2 className="text-lg md:text-3xl font-display font-black text-white leading-tight mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg line-clamp-2 md:line-clamp-none">
+                                              {article.title}
+                                          </h2>
+                                      </Link>
+
+                                      <div className="flex items-center gap-3 mb-3">
                                           <div className="w-5 h-5 md:w-6 md:h-6 rounded-full border border-white/20 overflow-hidden bg-gray-800 shrink-0">
                                               <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
                                           </div>
@@ -260,19 +266,9 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                           </div>
                                       </div>
 
-                                      <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-xl md:max-w-2xl">
-                                          <h2 className="text-lg md:text-3xl font-display font-black text-white leading-tight mb-2 md:mb-3 group-hover/title:text-news-gold transition-colors tracking-tight drop-shadow-lg line-clamp-2 md:line-clamp-none">
-                                              {article.title}
-                                          </h2>
-                                      </Link>
-
-                                      <p className="hidden sm:block text-gray-300 font-sans text-[10px] md:text-xs font-medium mb-3 md:mb-5 line-clamp-2 max-w-lg leading-relaxed drop-shadow-md">
+                                      <p className="hidden sm:block text-gray-300 font-sans text-[10px] md:text-xs font-medium mb-0 line-clamp-2 max-w-lg leading-relaxed drop-shadow-md">
                                           {plainText}
                                       </p>
-
-                                      <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="flex items-center gap-2 text-white font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em] hover:text-news-gold transition-all group/btn pb-1 border-b border-white/20 hover:border-news-gold">
-                                          Read Story <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform"/>
-                                      </Link>
                                   </div>
                               </div>
                           )})}
