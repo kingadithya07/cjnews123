@@ -266,7 +266,16 @@ function App() {
   // --- ROUTING LOGIC ---
   const getPathFromHash = () => {
      const hash = window.location.hash;
+     
+     // Auth Callback Handling
      if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('error=')) return '/auth-callback'; 
+     
+     // Fallback for Path-based routing (e.g. /invite?token=... instead of /#/invite?token=...)
+     if ((!hash || hash === '#') && window.location.pathname.length > 1) {
+         // Return pathname + search as the route (e.g. /invite?token=123)
+         return window.location.pathname + window.location.search;
+     }
+
      if (!hash || hash === '#') return '/';
      return hash.startsWith('#') ? hash.slice(1) : hash;
   };

@@ -15,7 +15,6 @@ import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
 import CategorySelector from '../components/CategorySelector';
 
-// ... (Props interface remains same)
 interface EditorDashboardProps {
   articles: Article[];
   ePaperPages: EPaperPage[];
@@ -67,7 +66,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId, activeVisitors,
   logs = []
 }) => {
-  // ... (State initialization remains the same)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'ads' | 'taxonomy' | 'analytics' | 'settings'>('articles');
 
@@ -159,7 +157,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       if (storedKey) setCustomApiKey(storedKey);
   }, []);
 
-  // ... (Other handlers like save article, upload page etc. remain the same)
   const handleSaveApiKey = () => {
       localStorage.setItem('newsroom_custom_api_key', customApiKey);
       setShowKeyInput(false);
@@ -174,13 +171,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
   const pendingDevicesCount = devices.filter(d => d.status === 'pending').length;
 
-  // ... (Article Handlers omitted for brevity)
-  // ... (Ad Handlers omitted for brevity)
-  // ... (Taxonomy Handlers omitted for brevity)
-  
-  // NOTE: Keep handleImageUpload, handleContentImageUpload etc.
-
-  // --- UPDATED INVITE HANDLER ---
   const handleGenerateInvite = async () => {
       setIsGeneratingInvite(true);
       setGeneratedLink('');
@@ -188,7 +178,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           const token = generateId();
           const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins
           
-          // Store in Supabase
           const { error } = await supabase.from('staff_invitations').insert({
               token,
               role: inviteRole,
@@ -198,8 +187,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
           if (error) throw error;
 
-          // NEW LINK FORMAT FOR DEDICATED PAGE
-          const link = `${window.location.origin}/#/invite?token=${token}`;
+          // Robust Link Generation: Ensure absolute URL and correct hash formatting
+          // Strips any existing hash from base URL to avoid double hash issues
+          const baseUrl = window.location.href.split('#')[0];
+          const link = `${baseUrl}#/invite?token=${token}`;
           setGeneratedLink(link);
       } catch (e: any) {
           if (e.message && (e.message.includes("Could not find the table") || e.message.includes("relation \"public.staff_invitations\" does not exist"))) {
@@ -212,7 +203,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       }
   };
 
-  // ... (Rest of handlers: Settings, etc.)
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
     try {
@@ -245,7 +235,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       try { alert("Device list synced globally."); } catch (e: any) { alert("Error syncing: " + e.message); } finally { setIsSavingDevices(false); }
   };
 
-  // ... (Render Functions like SidebarItem)
   const SidebarItem = ({ id, label, icon: Icon, badge }: { id: typeof activeTab, label: string, icon: any, badge?: number }) => (
     <button 
         onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
@@ -257,7 +246,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     </button>
   );
 
-  // Dummy functions to keep existing props working if logic was omitted in snippet
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void, loader: (loading: boolean) => void, folder: string = 'gallery') => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -266,16 +254,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           const fileExt = file.name.split('.').pop();
           const folderPrefix = userId ? `users/${userId}/` : '';
           const fileName = `${folderPrefix}${folder}/${generateId()}.${fileExt}`;
-          
           const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
           if (uploadError) throw uploadError;
           const { data } = supabase.storage.from('images').getPublicUrl(fileName);
           setter(data.publicUrl);
-      } catch (error: any) {
-          alert("Upload failed: " + error.message);
-      } finally {
-          loader(false);
-      }
+      } catch (error: any) { alert("Upload failed: " + error.message); } finally { loader(false); }
   };
 
   const handleContentImageUpload = async (file: File): Promise<string> => {
@@ -377,7 +360,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setShowClassifiedModal(false); setNewClassified({});
   };
 
-  // --- RENDER ---
   return (
     <>
     <ImageGalleryModal 
@@ -427,7 +409,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col md:ml-64 h-full overflow-hidden bg-[#f8f9fa]">
-           {/* Mobile Header - ADDED FOR NAVIGATION */}
            <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40 shadow-sm">
                 <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
                 <h1 className="font-serif text-lg font-bold text-gray-900">Editor Dashboard</h1>
@@ -437,7 +418,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
 
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
-              {/* Articles Tab */}
               {activeTab === 'articles' && (
                   <div className="max-w-6xl mx-auto space-y-6">
                       <div className="flex justify-between items-center">
@@ -490,7 +470,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </table>
                       </div>
                       
-                      {/* Mobile List View for Articles */}
                       <div className="md:hidden space-y-4">
                           {articles.map((article) => (
                               <div key={article.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
@@ -519,7 +498,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   </div>
               )}
 
-              {/* Other Tabs (ePaper, Ads, Taxonomy, Analytics) - Render logic unchanged, passing relevant props */}
               {activeTab === 'epaper' && (
                   <div className="max-w-6xl mx-auto space-y-8">
                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -555,7 +533,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
               {activeTab === 'ads' && (
                   <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Banners */}
                       <div className="space-y-6">
                           <div className="flex justify-between items-center">
                               <h2 className="font-serif text-xl font-bold">Banner Ads</h2>
@@ -585,7 +562,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
 
-                      {/* Classifieds */}
                       <div className="space-y-6">
                           <div className="flex justify-between items-center">
                               <h2 className="font-serif text-xl font-bold">Classifieds</h2>
@@ -641,8 +617,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
               {activeTab === 'settings' && (
                   <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
-                      
-                      {/* TEAM MANAGEMENT: INVITES */}
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserPlus className="text-news-gold" /> Team Management</h2>
                           
@@ -696,7 +670,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
 
-                      {/* Third-Party Integrations */}
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Key className="text-news-gold" /> Third-Party Integrations</h2>
                           <div className="space-y-4">
@@ -735,7 +708,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
 
-                      {/* System Config */}
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Settings className="text-news-gold" /> System Configuration</h2>
                           
@@ -774,7 +746,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
 
-                      {/* Master Security Section */}
                       <div className={`bg-white rounded-xl border p-6 md:p-8 shadow-sm relative overflow-hidden ${!isPrimaryDevice ? 'border-gray-200 opacity-70 pointer-events-none' : 'border-red-100'}`}>
                           {!isPrimaryDevice && (
                               <div className="absolute inset-0 bg-gray-50/50 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center">
@@ -842,7 +813,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
 
-                      {/* Trusted Devices Section (Optimized for Mobile) */}
                       <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
                           <div className="flex justify-between items-center mb-6">
                               <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
@@ -886,7 +856,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                               </div>
                                           </div>
                                           <div className="w-full md:w-auto flex justify-end gap-2 border-t border-gray-200 md:border-t-0 pt-2 md:pt-0 mt-2 md:mt-0">
-                                              {/* Only Primary Device can delete other trusted devices */}
                                               {isPrimaryDevice && device.status === 'approved' && !device.isCurrent && onRevokeDevice && (
                                                   <button 
                                                     onClick={() => onRevokeDevice(device.id)} 
@@ -907,7 +876,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
            </div>
       </div>
       
-      {/* Modals remain mostly unchanged - reused from existing props */}
       {showArticleModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
@@ -1114,23 +1082,18 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       {showClassifiedModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
              <div className="bg-white rounded-lg w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-                 <h3 className="font-bold text-lg mb-4">Post Classified Ad</h3>
+                 <h3 className="font-bold text-lg mb-4">New Classified Ad</h3>
                  <div className="space-y-4">
-                     <input type="text" placeholder="Ad Title" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-2 border rounded" />
-                     <textarea placeholder="Ad Content..." value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-2 border rounded min-h-[100px]" />
+                     <input type="text" placeholder="Title" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-2 border rounded" />
+                     <select value={newClassified.category} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="w-full p-2 border rounded">
+                         <option value="">Select Category...</option>
+                         {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                     </select>
+                     <textarea placeholder="Content" value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-2 border rounded h-24"></textarea>
+                     <input type="text" placeholder="Price (Optional)" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="w-full p-2 border rounded" />
+                     <input type="text" placeholder="Location (Optional)" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="w-full p-2 border rounded" />
+                     <input type="text" placeholder="Contact Info (Phone/Email)" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="w-full p-2 border rounded" />
                      
-                     <div className="grid grid-cols-2 gap-4">
-                         <select value={newClassified.category} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="w-full p-2 border rounded">
-                             {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                         </select>
-                         <input type="text" placeholder="Price (Optional)" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="w-full p-2 border rounded" />
-                     </div>
-
-                     <div className="grid grid-cols-2 gap-4">
-                         <input type="text" placeholder="Location" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="w-full p-2 border rounded" />
-                         <input type="text" placeholder="Contact Info" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="w-full p-2 border rounded" />
-                     </div>
-
                      <div className="flex justify-end gap-2 pt-2">
                          <button onClick={() => setShowClassifiedModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
                          <button onClick={handleAddClassified} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Post Ad</button>

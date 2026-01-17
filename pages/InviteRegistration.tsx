@@ -22,15 +22,20 @@ const InviteRegistration: React.FC<InviteRegistrationProps> = ({ onNavigate }) =
 
     useEffect(() => {
         const init = async () => {
-            // 1. Extract Token
+            // 1. Extract Token (Robust Parsing)
+            let extractedToken = null;
+
+            // Try standard URL Search Params first (?token=...)
             const searchParams = new URLSearchParams(window.location.search);
-            let extractedToken = searchParams.get('token');
+            extractedToken = searchParams.get('token');
             
-            // Handle Hash Router params if needed
-            if (!extractedToken && window.location.hash.includes('?')) {
-                const hashParts = window.location.hash.split('?');
-                if (hashParts.length > 1) {
-                    const hashParams = new URLSearchParams(hashParts[1]);
+            // Try extracting from Hash if not found in Search
+            // Example: /#/invite?token=xyz
+            if (!extractedToken) {
+                const hash = window.location.hash;
+                const qIndex = hash.indexOf('?');
+                if (qIndex !== -1) {
+                    const hashParams = new URLSearchParams(hash.slice(qIndex));
                     extractedToken = hashParams.get('token');
                 }
             }
@@ -106,9 +111,6 @@ const InviteRegistration: React.FC<InviteRegistrationProps> = ({ onNavigate }) =
                 
                 setStatus('success');
             } else {
-                // If double opt-in is enabled in Supabase, user might not be created immediately without email verification
-                // But typically for invitations we might want to consider it done or instruct them to check email.
-                // Assuming session creation for now.
                 setStatus('success');
             }
 
