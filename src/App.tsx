@@ -288,6 +288,16 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Safety Timeout for Auth Callback
+  useEffect(() => {
+      if (currentPath === '/auth-callback') {
+          const timer = setTimeout(() => {
+              navigate('/');
+          }, 5000);
+          return () => clearTimeout(timer);
+      }
+  }, [currentPath]);
+
   useEffect(() => {
     fetchData();
     const channel = supabase.channel('newsroom_global_sync')

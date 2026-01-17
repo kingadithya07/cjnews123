@@ -50,8 +50,10 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
 
         try {
             // Trigger Supabase to send a recovery email
+            // We redirect to ROOT to avoid hash conflicts (e.g. /#/reset/#token)
+            // The App component will handle the PASSWORD_RECOVERY event and redirect to /reset-password
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/#/reset-password`
+                redirectTo: `${window.location.origin}/`
             });
             if (error) throw error;
             

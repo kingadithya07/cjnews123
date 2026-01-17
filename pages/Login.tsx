@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, TrustedDevice } from '../types';
-import { Mail, Lock, User, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, KeyRound, Copy, RotateCw, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Newspaper, CheckCircle, Shield, AlertCircle, Loader2, RotateCw, Eye, EyeOff } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import { supabase } from '../supabaseClient';
 import { getDeviceId, getDeviceMetadata } from '../utils';
@@ -15,18 +15,14 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onAddDevice, onEmergencyReset }) => {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'verify_email' | 'awaiting_approval'>('signin');
+  const [mode, setMode] = useState<'signin' | 'verify_email' | 'awaiting_approval'>('signin');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const isMounted = useRef(true);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [name, setName] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.READER);
-  const [avatar, setAvatar] = useState<string | null>(null);
   const [otp, setOtp] = useState('');
   
   const [pendingUser, setPendingUser] = useState<any>(null);
@@ -43,7 +39,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
         }
     };
     checkExistingSession();
-  }, [existingDevices]); // Keep dependency for re-trigger if props change, though we fetch fresh data inside
+  }, [existingDevices]); 
 
   // Instant Refresh Effect: Watch props when waiting for approval
   useEffect(() => {
@@ -61,30 +57,24 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     const currentId = getDeviceId();
     
     // Fetch fresh device list for this specific user directly from DB.
-    const { data: freshDevices, error } = await supabase
+    const { data: freshDevices } = await supabase
         .from('trusted_devices')
         .select('*')
         .eq('user_id', session.user.id);
 
-    // If DB fetch fails, fall back to props, but prefer fresh data
     const userDevices = freshDevices || existingDevices.filter(d => d.userId === session.user.id);
     const thisDevice = userDevices.find((d: any) => d.id === currentId);
 
     if (userDevices.length > 0) {
-        // User has at least one device registered.
-        
         if (thisDevice) {
-            // This device is known. Check status.
             if (thisDevice.status === 'approved') {
                 finalizeLogin(session.user);
             } else {
-                // Device exists but is pending or blocked
                 setPendingUser(session.user);
                 setMode('awaiting_approval');
             }
         } else {
             // UNKNOWN DEVICE (Secondary).
-            // Register as PENDING to trigger approval workflow on Primary Device.
             const meta = getDeviceMetadata();
             try {
                 await onAddDevice({
@@ -99,8 +89,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                     status: 'pending',
                     browser: meta.browser
                 });
-                
-                // Show approval screen
                 setPendingUser(session.user);
                 setMode('awaiting_approval');
             } catch (e) {
@@ -109,8 +97,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
             }
         }
     } else {
-        // No devices found for this user in DB -> This is the FIRST device -> PRIMARY
-        // Only the very first device is auto-registered as Trusted/Primary.
+        // No devices found -> First device -> Primary
         const meta = getDeviceMetadata();
         try {
             await onAddDevice({
@@ -133,7 +120,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
   };
 
   const manualRefresh = async () => {
-      // Force a session refresh and re-check device status
       await supabase.auth.refreshSession();
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -153,35 +139,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setMessage(null);
 
     try {
-      if (mode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { 
-                full_name: name, 
-                role: selectedRole, 
-                avatar_url: avatar
-            }
-          }
-        });
-        if (error) throw error;
-        
-        if (data.session) {
-             handleSessionFound(data.session);
-        } else {
-             setMode('verify_email');
-             setMessage(`Verification code sent to ${email}`);
-        }
-
-      } else if (mode === 'signin') {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         handleSessionFound({ user: data.user });
-      }
     } catch (err: any) {
       setError(err.message || "An authentication error occurred.");
     } finally {
@@ -314,13 +276,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                  <span className="font-serif text-3xl font-black tracking-tighter text-white uppercase italic">CJ <span className="not-italic text-white">NEWSHUB</span></span>
               </div>
               <h2 className="text-3xl md:text-4xl font-serif font-black leading-tight mb-6 uppercase">
-                {mode === 'signup' ? "Public Enrollment" : "Editorial Access"}
+                Editorial Access
               </h2>
               <p className="text-gray-400 text-base md:text-lg leading-relaxed font-light">
-                  {mode === 'signup' 
-                    ? "Join as a Reader or Writer. Editorial roles require an invitation."
-                    : "Secure gateway to the CJ NEWSHUB global publishing suite."
-                  }
+                  Secure gateway to the CJ NEWSHUB global publishing suite. Access is restricted to authorized personnel.
               </p>
            </div>
            <div className="relative z-10 pt-8 border-t border-white/10 mt-8 md:mt-0">
@@ -333,26 +292,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
         <div className="w-full md:w-1/2 p-8 md:p-12 bg-white flex flex-col justify-center">
            <div className="max-w-md mx-auto w-full">
               {error && <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs mb-4 flex items-center gap-3 border border-red-100"><AlertCircle size={18} /> {error}</div>}
-              {message && <div className="bg-green-50 text-green-700 p-4 rounded-xl text-xs mb-4 flex items-center gap-3 border border-green-100"><CheckCircle size={18} /> {message}</div>}
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                 {mode === 'signup' && (
-                    <>
-                       <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Staff Legal Name</label>
-                          <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-news-black transition-all"/>
-                       </div>
-                       <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Role Selection</label>
-                          <div className="grid grid-cols-2 gap-2">
-                             {[UserRole.READER, UserRole.WRITER].map((role) => (
-                                <button key={role} type="button" onClick={() => setSelectedRole(role)} className={`py-2 text-[10px] font-bold uppercase rounded-lg border transition-all ${selectedRole === role ? 'bg-news-black text-white border-news-black shadow-lg' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{role}</button>
-                             ))}
-                          </div>
-                       </div>
-                    </>
-                 )}
-
                  <div>
                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
                     <div className="relative">
@@ -389,20 +330,17 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                     </div>
                  </div>
 
-                 {mode === 'signin' && (
-                    <div className="text-right">
-                       <button type="button" onClick={handleRecoveryClick} className="text-[10px] text-news-accent hover:underline font-black uppercase tracking-widest">Account Recovery</button>
-                    </div>
-                 )}
+                 <div className="text-right">
+                    <button type="button" onClick={handleRecoveryClick} className="text-[10px] text-news-accent hover:underline font-black uppercase tracking-widest">Account Recovery</button>
+                 </div>
 
                  <button type="submit" disabled={loading} className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 flex justify-center items-center gap-3 shadow-xl transition-all">
-                    {loading ? <Loader2 className="animate-spin" size={20}/> : (mode === 'signup' ? "Complete Registration" : "Sign In")}
+                    {loading ? <Loader2 className="animate-spin" size={20}/> : "Sign In"}
                     {!loading && <ArrowRight size={18} />}
                  </button>
               </form>
-
-              <div className="mt-8 text-center text-xs text-gray-500">
-                 {mode === 'signin' ? <p>New user? <button onClick={() => setMode('signup')} className="font-black text-news-black hover:underline uppercase">Register Now</button></p> : <p>Existing user? <button onClick={() => setMode('signin')} className="font-black text-news-black hover:underline uppercase">Sign In</button></p>}
+              <div className="mt-6 text-center">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">Registration is closed to public.</p>
               </div>
            </div>
         </div>
