@@ -427,6 +427,15 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col md:ml-64 h-full overflow-hidden bg-[#f8f9fa]">
+           {/* Mobile Header - ADDED FOR NAVIGATION */}
+           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40 shadow-sm">
+                <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
+                <h1 className="font-serif text-lg font-bold text-gray-900">Editor Dashboard</h1>
+                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
+                     {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover"/> : <UserIcon className="p-1.5 text-gray-400 w-full h-full"/>}
+                </div>
+           </div>
+
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
               {/* Articles Tab */}
               {activeTab === 'articles' && (
@@ -480,6 +489,33 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                 </tbody>
                           </table>
                       </div>
+                      
+                      {/* Mobile List View for Articles */}
+                      <div className="md:hidden space-y-4">
+                          {articles.map((article) => (
+                              <div key={article.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                                  <div className="flex gap-4">
+                                      <div className="w-16 h-16 bg-gray-100 rounded-md overflow-hidden shrink-0">
+                                          <img src={article.imageUrl} className="w-full h-full object-cover" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                          <h4 className="font-bold text-gray-900 text-sm line-clamp-2 leading-tight">{article.title}</h4>
+                                          <div className="flex items-center gap-2 mt-2">
+                                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                  {article.status}
+                                              </span>
+                                              <span className="text-[10px] text-gray-400 uppercase font-bold">{article.categories[0]}</span>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-gray-100">
+                                      <button onClick={() => openEditArticle(article)} className="text-blue-600 text-xs font-bold uppercase flex items-center gap-1"><PenSquare size={14}/> Edit</button>
+                                      <button onClick={() => onDeleteArticle(article.id)} className="text-red-500 text-xs font-bold uppercase flex items-center gap-1"><Trash2 size={14}/> Delete</button>
+                                  </div>
+                              </div>
+                          ))}
+                          {articles.length === 0 && <div className="text-center py-12 text-gray-400">No articles found.</div>}
+                      </div>
                   </div>
               )}
 
@@ -488,11 +524,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                   <div className="max-w-6xl mx-auto space-y-8">
                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                            <h1 className="font-serif text-2xl font-bold text-gray-900">E-Paper Editions</h1>
-                           <div className="flex items-center gap-2 bg-white p-1 rounded border shadow-sm">
-                               <select value={epaperFilterDate} onChange={(e) => setEpaperFilterDate(e.target.value)} className="p-2 bg-transparent text-sm font-bold outline-none border-r pr-4">
+                           <div className="flex items-center gap-2 bg-white p-1 rounded border shadow-sm w-full md:w-auto">
+                               <select value={epaperFilterDate} onChange={(e) => setEpaperFilterDate(e.target.value)} className="p-2 bg-transparent text-sm font-bold outline-none border-r pr-4 flex-1 md:flex-none">
                                    {availableEpaperDates.map(d => <option key={d} value={d}>{format(new Date(d), 'MMM dd, yyyy')}</option>)}
                                </select>
-                               <button onClick={() => setShowAddPageModal(true)} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800">
+                               <button onClick={() => setShowAddPageModal(true)} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800 whitespace-nowrap">
                                    <Upload size={14}/> Upload Page
                                </button>
                            </div>
@@ -803,6 +839,67 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       <Mail size={16} /> Send Reset Link
                                   </button>
                               </div>
+                          </div>
+                      </div>
+
+                      {/* Trusted Devices Section (Optimized for Mobile) */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
+                          <div className="flex justify-between items-center mb-6">
+                              <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
+                              <div className="flex items-center gap-2">
+                                  <button onClick={handleForceSaveDevices} disabled={isSavingDevices} className="bg-news-black text-white p-2 rounded hover:bg-gray-800 transition-colors" title="Force Save Globally">
+                                      {isSavingDevices ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
+                                  </button>
+                                  <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
+                                      {devices.filter(d => d.status === 'approved').length} Active
+                                  </span>
+                              </div>
+                          </div>
+                          
+                          <div className="space-y-4">
+                              {devices.length === 0 && <p className="text-gray-400 text-sm italic">No devices registered.</p>}
+                              {devices.map(device => {
+                                  let Icon = Monitor;
+                                  if (device.deviceType === 'mobile') Icon = Smartphone;
+                                  if (device.deviceType === 'tablet') Icon = Tablet;
+                                  
+                                  return (
+                                      <div key={device.id} className="flex flex-col md:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 gap-4">
+                                          <div className="flex items-center gap-4 w-full md:w-auto">
+                                              <div className={`p-3 rounded-full ${device.isCurrent ? 'bg-news-black text-news-gold' : 'bg-white border text-gray-500'}`}>
+                                                  <Icon size={20} />
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center gap-2 flex-wrap">
+                                                      <span className="font-bold text-sm text-gray-900 truncate">{device.deviceName}</span>
+                                                      {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">THIS DEVICE</span>}
+                                                      {device.isPrimary && <span className="bg-green-100 text-green-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PRIMARY</span>}
+                                                      {device.status === 'pending' && <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PENDING</span>}
+                                                  </div>
+                                                  <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 items-center leading-tight">
+                                                      <span className="whitespace-nowrap">{device.location}</span>
+                                                      <span className="hidden md:inline">•</span>
+                                                      <span className="whitespace-nowrap">{device.browser}</span>
+                                                      <span className="hidden md:inline">•</span>
+                                                      <span className="whitespace-nowrap">{device.lastActive}</span>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                          <div className="w-full md:w-auto flex justify-end gap-2 border-t border-gray-200 md:border-t-0 pt-2 md:pt-0 mt-2 md:mt-0">
+                                              {/* Only Primary Device can delete other trusted devices */}
+                                              {isPrimaryDevice && device.status === 'approved' && !device.isCurrent && onRevokeDevice && (
+                                                  <button 
+                                                    onClick={() => onRevokeDevice(device.id)} 
+                                                    className="flex items-center gap-2 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded transition-colors text-xs font-bold uppercase"
+                                                    title="Delete Device"
+                                                  >
+                                                      <Trash2 size={16}/> <span className="md:hidden">Remove</span>
+                                                  </button>
+                                              )}
+                                          </div>
+                                      </div>
+                                  );
+                              })}
                           </div>
                       </div>
                   </div>
