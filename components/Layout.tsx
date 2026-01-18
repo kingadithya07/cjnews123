@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { UserRole, Article } from '../types';
-import { Newspaper, User, Menu, X, Search, LogIn, Clock, Flame, LayoutDashboard, ChevronDown, Handshake, ArrowUp, ArrowDown, Cloud, CloudRain, Sun, Home, Megaphone } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { UserRole, Article, TrustedDevice } from '../types';
+import { Newspaper, User, Menu, X, Search, LogIn, Clock, Flame, LayoutDashboard, ChevronDown, Handshake, ArrowUp, ArrowDown, Cloud, CloudRain, Sun, Home, Megaphone, Bell, ShieldAlert, Check, Monitor, Smartphone, Tablet } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
@@ -20,6 +20,9 @@ interface LayoutProps {
   lastSync?: Date;
   articles?: Article[];
   categories?: string[];
+  pendingDevices?: TrustedDevice[];
+  onApproveDevice?: (id: string) => void;
+  onRejectDevice?: (id: string) => void;
 }
 
 interface WeatherState {
@@ -82,10 +85,18 @@ const DesktopNavItem: React.FC<NavItemProps> = ({
   </Link>
 );
 
-const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, onForceSync, lastSync, articles = [], categories = [] }) => {
+const Layout: React.FC<LayoutProps> = ({ 
+  children, currentRole, onRoleChange, currentPath, onNavigate, userName, userAvatar, 
+  onForceSync, lastSync, articles = [], categories = [], 
+  pendingDevices = [], onApproveDevice, onRejectDevice 
+}) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [time, setTime] = useState(new Date());
+  
+  // Notification State
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
   
   const [weatherState, setWeatherState] = useState<WeatherState>(() => {
     try {
@@ -143,6 +154,17 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
     handleScroll(); 
     return () => window.removeEventListener('scroll', handleScroll);
   }, [currentPath]);
+
+  // Click outside listener for notifications
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   const scrollToBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
@@ -209,7 +231,61 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          </div>
          <div className="flex items-center gap-6">
              {userName ? (
-                 <div className="flex items-center gap-3">
+                 <div className="flex items-center gap-3 relative">
+                    
+                    {/* Notification Bell */}
+                    {pendingDevices.length > 0 && (
+                      <div className="relative mr-4" ref={notificationRef}>
+                        <button 
+                          onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                          className="text-gray-400 hover:text-news-accent transition-colors relative p-1"
+                        >
+                          <Bell size={16} />
+                          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-bold w-3.5 h-3.5 flex items-center justify-center rounded-full border border-white">
+                            {pendingDevices.length}
+                          </span>
+                        </button>
+
+                        {isNotificationsOpen && (
+                          <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden animate-in fade-in zoom-in-95">
+                            <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Access Requests</span>
+                              <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">{pendingDevices.length} Pending</span>
+                            </div>
+                            <div className="max-h-64 overflow-y-auto">
+                              {pendingDevices.map(device => (
+                                <div key={device.id} className="p-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                                  <div className="flex items-start gap-3 mb-2">
+                                    <div className="p-1.5 bg-gray-100 rounded text-gray-500">
+                                      {device.deviceType === 'mobile' ? <Smartphone size={14}/> : device.deviceType === 'tablet' ? <Tablet size={14}/> : <Monitor size={14}/>}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-bold text-gray-900 truncate">{device.deviceName}</p>
+                                      <p className="text-[9px] text-gray-500 truncate">{device.location} • {device.browser}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2 mt-2">
+                                    <button 
+                                      onClick={() => onApproveDevice && onApproveDevice(device.id)}
+                                      className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[9px] font-bold uppercase py-1.5 rounded flex items-center justify-center gap-1"
+                                    >
+                                      <Check size={10} strokeWidth={3} /> Approve
+                                    </button>
+                                    <button 
+                                      onClick={() => onRejectDevice && onRejectDevice(device.id)}
+                                      className="flex-1 bg-red-100 hover:bg-red-200 text-red-600 text-[9px] font-bold uppercase py-1.5 rounded flex items-center justify-center gap-1"
+                                    >
+                                      <X size={10} strokeWidth={3} /> Block
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {currentRole !== UserRole.READER && (
                         <Link 
                             to={currentRole === UserRole.WRITER ? '/writer' : '/editor'} 
