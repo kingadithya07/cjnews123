@@ -141,6 +141,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [watermarkFontSize, setWatermarkFontSize] = useState(watermarkSettings.fontSize || 30);
   const [isSavingDevices, setIsSavingDevices] = useState(false);
 
+  // Sync profile state when props arrive (Crucial for email confirmation logic)
+  useEffect(() => {
+      if (userName && !profileName) setProfileName(userName);
+      if (userEmail && !profileEmail) setProfileEmail(userEmail);
+      if (userAvatar && !profileAvatar) setProfileAvatar(userAvatar);
+  }, [userName, userEmail, userAvatar]);
+
   // Invitation Generation
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.WRITER);
   const [generatedLink, setGeneratedLink] = useState('');
@@ -188,18 +195,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           });
 
           if (error) throw error;
-
-          // Robust Link Generation: Ensure absolute URL and correct hash formatting
-          // Strips any existing hash from base URL to avoid double hash issues
           const baseUrl = window.location.href.split('#')[0];
           const link = `${baseUrl}#/invite?token=${token}`;
           setGeneratedLink(link);
       } catch (e: any) {
-          if (e.message && (e.message.includes("Could not find the table") || e.message.includes("relation \"public.staff_invitations\" does not exist"))) {
-              alert("SYSTEM ERROR: The invitations table is missing. Please execute the 'SUPABASE_SETUP.sql' script in your Supabase SQL Editor.");
-          } else {
-              alert("Failed to generate invite: " + e.message);
-          }
+          alert("Failed to generate invite: " + e.message);
       } finally {
           setIsGeneratingInvite(false);
       }
@@ -208,17 +208,38 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
     try {
-      const updates: any = { data: { full_name: profileName, avatar_url: profileAvatar } };
+      const updates: any = { 
+          data: { 
+              full_name: profileName.trim(), 
+              avatar_url: profileAvatar.trim() 
+          } 
+      };
+      
       if (newPassword) updates.password = newPassword;
-      if (profileEmail !== userEmail) updates.email = profileEmail;
+      
+      // Robust Email Change Detection
+      const cleanNewEmail = profileEmail.trim().toLowerCase();
+      const cleanOldEmail = (userEmail || '').trim().toLowerCase();
+      
+      if (cleanNewEmail && cleanNewEmail !== cleanOldEmail) {
+          updates.email = cleanNewEmail;
+      }
+
       const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
-      if (profileEmail !== userEmail) alert("Settings updated! A confirmation link has been sent to your new email address.");
-      else alert("Settings updated successfully!");
+      
+      if (updates.email) {
+          alert(`A confirmation link has been dispatched to ${cleanNewEmail}. Your email will remain ${userEmail} until verified.`);
+      } else {
+          alert("Settings updated successfully!");
+      }
       setNewPassword('');
     } catch (err: any) {
-        if (err.message?.includes('security purposes') || err.message?.includes('reauthentication')) alert("Security Alert: To update your password, you must have recently signed in. Please log out and sign in again.");
-        else alert("Error updating profile: " + err.message);
+        if (err.message?.includes('security purposes') || err.message?.includes('reauthentication')) {
+            alert("Security Alert: To update critical credentials, you must have recently signed in. Please log out and sign in again.");
+        } else {
+            alert("Error updating profile: " + err.message);
+        }
     } finally { setIsSavingSettings(false); }
   };
 
@@ -322,25 +343,16 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
   const handleSaveArticleInternal = () => {
       if (!modalTitle) { alert("Title required"); return; }
-      
-      // Auto-append any pending tag in the input field that wasn't entered
       let finalTags = [...modalTags];
       if (tagInput.trim()) {
           const pendingTag = tagInput.trim();
-          if (!finalTags.includes(pendingTag)) {
-              finalTags.push(pendingTag);
-          }
+          if (!finalTags.includes(pendingTag)) finalTags.push(pendingTag);
       }
-
-      // Auto-add selected categories as tags
       if (modalCategories && modalCategories.length > 0) {
           modalCategories.forEach(cat => {
-              if (!finalTags.includes(cat)) {
-                  finalTags.push(cat);
-              }
+              if (!finalTags.includes(cat)) finalTags.push(cat);
           });
       }
-
       const article: Article = {
           id: editArticleId || generateId(),
           userId: userId || undefined,
@@ -360,28 +372,21 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       };
       onSaveArticle(article);
       setShowArticleModal(false);
-      setTagInput(''); // Clear Input
+      setTagInput('');
   };
 
   const handleAddTagToArticle = () => {
       if (!tagInput.trim()) return;
       const newTagValue = tagInput.trim();
-      if (!modalTags.includes(newTagValue)) {
-          setModalTags([...modalTags, newTagValue]);
-      }
+      if (!modalTags.includes(newTagValue)) setModalTags([...modalTags, newTagValue]);
       setTagInput('');
   };
 
   const handleTagInputKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-          e.preventDefault();
-          handleAddTagToArticle();
-      }
+      if (e.key === 'Enter') { e.preventDefault(); handleAddTagToArticle(); }
   };
 
-  const removeArticleTag = (tagToRemove: string) => {
-      setModalTags(modalTags.filter(t => t !== tagToRemove));
-  };
+  const removeArticleTag = (tagToRemove: string) => { setModalTags(modalTags.filter(t => t !== tagToRemove)); };
 
   const handleUploadPage = async () => {
       if (!newPageImage) { alert("Please select an image"); return; }
@@ -424,27 +429,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
   return (
     <>
-    <ImageGalleryModal 
-        isOpen={showImageGallery}
-        onClose={() => setShowImageGallery(false)}
-        onSelectImage={(url) => { setModalImageUrl(url); setShowImageGallery(false); }}
-        uploadFolder="articles"
-        userId={userId}
-    />
-    <ImageGalleryModal 
-        isOpen={showAdImageGallery}
-        onClose={() => setShowAdImageGallery(false)}
-        onSelectImage={(url) => { setNewAd({...newAd, imageUrl: url}); setShowAdImageGallery(false); }}
-        uploadFolder="ads"
-        userId={userId}
-    />
-    <CategorySelector 
-        isOpen={showCategorySelector}
-        onClose={() => setShowCategorySelector(false)}
-        options={categories}
-        selected={modalCategories}
-        onChange={setModalCategories}
-    />
+    <ImageGalleryModal isOpen={showImageGallery} onClose={() => setShowImageGallery(false)} onSelectImage={(url) => { setModalImageUrl(url); setShowImageGallery(false); }} uploadFolder="articles" userId={userId} />
+    <ImageGalleryModal isOpen={showAdImageGallery} onClose={() => setShowAdImageGallery(false)} onSelectImage={(url) => { setNewAd({...newAd, imageUrl: url}); setShowAdImageGallery(false); }} uploadFolder="ads" userId={userId} />
+    <CategorySelector isOpen={showCategorySelector} onClose={() => setShowCategorySelector(false)} options={categories} selected={modalCategories} onChange={setModalCategories} />
 
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
@@ -527,35 +514,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                             </td>
                                         </tr>
                                     ))}
-                                    {articles.length === 0 && <tr><td colSpan={3} className="text-center py-12 text-gray-400">No articles found.</td></tr>}
                                 </tbody>
                           </table>
-                      </div>
-                      
-                      <div className="md:hidden space-y-4">
-                          {articles.map((article) => (
-                              <div key={article.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-                                  <div className="flex gap-4">
-                                      <div className="w-16 h-16 bg-gray-100 rounded-md overflow-hidden shrink-0">
-                                          <img src={article.imageUrl} className="w-full h-full object-cover" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                          <h4 className="font-bold text-gray-900 text-sm line-clamp-2 leading-tight">{article.title}</h4>
-                                          <div className="flex items-center gap-2 mt-2">
-                                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                                  {article.status}
-                                              </span>
-                                              <span className="text-[10px] text-gray-400 uppercase font-bold">{article.categories[0]}</span>
-                                          </div>
-                                      </div>
-                                  </div>
-                                  <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-gray-100">
-                                      <button onClick={() => openEditArticle(article)} className="text-blue-600 text-xs font-bold uppercase flex items-center gap-1"><PenSquare size={14}/> Edit</button>
-                                      <button onClick={() => onDeleteArticle(article.id)} className="text-red-500 text-xs font-bold uppercase flex items-center gap-1"><Trash2 size={14}/> Delete</button>
-                                  </div>
-                              </div>
-                          ))}
-                          {articles.length === 0 && <div className="text-center py-12 text-gray-400">No articles found.</div>}
                       </div>
                   </div>
               )}
@@ -587,7 +547,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                    </div>
                                </div>
                            ))}
-                           {filteredPages.length === 0 && <div className="col-span-full py-12 text-center border-2 border-dashed border-gray-200 rounded-lg text-gray-400">No pages uploaded for this date.</div>}
                        </div>
                   </div>
               )}
@@ -619,29 +578,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       </div>
                                   </div>
                               ))}
-                              {advertisements.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No active banners.</div>}
-                          </div>
-                      </div>
-
-                      <div className="space-y-6">
-                          <div className="flex justify-between items-center">
-                              <h2 className="font-serif text-xl font-bold">Classifieds</h2>
-                              <button onClick={() => { setNewClassified({category: adCategories[0] || 'General'}); setShowClassifiedModal(true); }} className="bg-news-black text-white px-3 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1"><Plus size={14}/> New Listing</button>
-                          </div>
-                          <div className="bg-white rounded border divide-y">
-                              {classifieds.map(ad => (
-                                  <div key={ad.id} className="p-4">
-                                      <div className="flex justify-between items-start">
-                                          <div>
-                                              <p className="font-bold text-sm">{ad.title}</p>
-                                              <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold uppercase">{ad.category}</span>
-                                          </div>
-                                          <button onClick={() => onDeleteClassified(ad.id)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={14}/></button>
-                                      </div>
-                                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">{ad.content}</p>
-                                  </div>
-                              ))}
-                              {classifieds.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No classifieds posted.</div>}
                           </div>
                       </div>
                   </div>
@@ -656,7 +592,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </button>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          {/* Categories */}
                           <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                               <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Categories</h3>
                               <div className="flex gap-2 mb-4">
@@ -671,22 +606,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   ))}
                               </div>
                           </div>
-
-                          {/* Tags */}
-                          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Tag size={18}/> Tags</h3>
-                              <div className="flex gap-2 mb-4">
-                                  <input type="text" placeholder="New Tag" value={newTag} onChange={e => setNewTag(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
-                                  <button onClick={() => { if(newTag && onAddTag) { onAddTag(newTag); setNewTag(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                  {tags.map(tag => (
-                                      <span key={tag} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
-                                          #{tag} <button onClick={() => { if(onDeleteTag) onDeleteTag(tag); }} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
-                                      </span>
-                                  ))}
-                              </div>
-                          </div>
                       </div>
                   </div>
               )}
@@ -695,23 +614,14 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
               {activeTab === 'settings' && (
                   <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
-                      {/* ... Staff Invitation ... */}
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserPlus className="text-news-gold" /> Team Management</h2>
                           <div className="p-5 bg-gray-50 border border-gray-100 rounded-lg">
                               <h3 className="font-bold text-sm text-gray-900 mb-2">Generate Staff Invitation</h3>
-                              <p className="text-xs text-gray-500 mb-4">
-                                  Create a one-time secure link to onboard new team members. The link expires automatically in 15 minutes.
-                              </p>
-                              
                               <div className="flex flex-col md:flex-row gap-4 items-end">
                                   <div className="w-full md:w-1/3">
                                       <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Role</label>
-                                      <select 
-                                          value={inviteRole} 
-                                          onChange={e => setInviteRole(e.target.value as UserRole)}
-                                          className="w-full p-2.5 border border-gray-200 rounded-lg text-sm bg-white font-medium"
-                                      >
+                                      <select value={inviteRole} onChange={e => setInviteRole(e.target.value as UserRole)} className="w-full p-2.5 border border-gray-200 rounded-lg text-sm bg-white font-medium">
                                           <option value={UserRole.WRITER}>Writer</option>
                                           <option value={UserRole.EDITOR}>Editor</option>
                                           <option value={UserRole.ADMIN}>Admin</option>
@@ -721,47 +631,30 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       {generatedLink ? (
                                           <div className="flex-1 flex gap-2">
                                               <input type="text" readOnly value={generatedLink} className="flex-1 p-2.5 border border-green-200 bg-green-50 rounded-lg text-sm text-green-800 font-mono" />
-                                              <button onClick={() => { navigator.clipboard.writeText(generatedLink); alert("Link copied!"); }} className="bg-green-600 text-white px-4 rounded-lg font-bold hover:bg-green-700 flex items-center justify-center">
-                                                  <Copy size={16} />
-                                              </button>
-                                              <button onClick={() => setGeneratedLink('')} className="text-gray-400 hover:text-gray-600 px-2">
-                                                  <X size={16} />
-                                              </button>
+                                              <button onClick={() => { navigator.clipboard.writeText(generatedLink); alert("Link copied!"); }} className="bg-green-600 text-white px-4 rounded-lg font-bold hover:bg-green-700 flex items-center justify-center"><Copy size={16} /></button>
+                                              <button onClick={() => setGeneratedLink('')} className="text-gray-400 hover:text-gray-600 px-2"><X size={16} /></button>
                                           </div>
                                       ) : (
-                                          <button 
-                                              onClick={handleGenerateInvite} 
-                                              disabled={isGeneratingInvite}
-                                              className="flex-1 bg-news-black text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-                                          >
-                                              {isGeneratingInvite ? <Loader2 size={16} className="animate-spin" /> : <Timer size={16} />}
-                                              Generate 15m Link
+                                          <button onClick={handleGenerateInvite} disabled={isGeneratingInvite} className="flex-1 bg-news-black text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                                              {isGeneratingInvite ? <Loader2 size={16} className="animate-spin" /> : <Timer size={16} />} Generate 15m Link
                                           </button>
                                       )}
                                   </div>
                               </div>
-                              {generatedLink && (
-                                  <p className="text-[10px] text-green-600 font-bold mt-2 flex items-center gap-1">
-                                      <Check size={12} /> Link generated. Valid for 15 minutes. Single use only.
-                                  </p>
-                              )}
                           </div>
                       </div>
 
-                      {/* Profile Section */}
                       <div className={`bg-white rounded-xl border p-6 md:p-8 shadow-sm relative overflow-hidden ${!isPrimaryDevice ? 'border-gray-200 opacity-80' : ''}`}>
                           {!isPrimaryDevice && (
-                              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center cursor-not-allowed">
+                              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center">
                                   <ShieldAlert className="text-gray-400 mb-2" size={48} />
                                   <h3 className="font-bold text-gray-800">Profile Locked</h3>
-                                  <p className="text-xs text-gray-500 mt-1 max-w-sm">
-                                      Profile modifications are restricted to the <b>Primary Device</b> only.
-                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">Profile modifications restricted to <b>Primary Device</b>.</p>
                               </div>
                           )}
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pointer-events-auto">
-                             <div className={`space-y-4 ${!isPrimaryDevice ? 'pointer-events-none filter blur-[1px]' : ''}`}>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
                                     <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
@@ -770,15 +663,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Email Address</label>
                                     <div className="relative">
                                         <Mail className="absolute left-3 top-3.5 text-gray-400" size={16} />
-                                        <input 
-                                            type="email" 
-                                            value={profileEmail} 
-                                            onChange={e => setProfileEmail(e.target.value)} 
-                                            className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black font-medium" 
-                                            placeholder="editor@example.com"
-                                        />
+                                        <input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black font-medium" />
                                     </div>
-                                    <p className="text-[10px] text-gray-400 mt-1">Changing this will trigger a confirmation link to the new address.</p>
+                                    <p className="text-[10px] text-gray-400 mt-1">Changing this will trigger a confirmation link.</p>
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar</label>
@@ -788,40 +675,20 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                         </div>
                                         <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
                                             {isAvatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-                                            <span className="hidden sm:inline">Upload Image</span>
-                                            <span className="sm:hidden">Upload</span>
+                                            <span>Upload Image</span>
                                             <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isAvatarUploading} />
                                         </label>
                                     </div>
-                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-xs text-gray-500 outline-none" placeholder="Or paste image URL..." />
                                 </div>
                              </div>
-                             <div className={`space-y-4 ${!isPrimaryDevice ? 'opacity-50 pointer-events-none' : ''}`}>
+                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Change Password</label>
                                     <div className="relative">
                                         <Lock className="absolute left-3 top-3.5 text-gray-400" size={16} />
-                                        <input 
-                                            type={showPassword ? "text" : "password"} 
-                                            value={newPassword} 
-                                            onChange={e => setNewPassword(e.target.value)} 
-                                            className="w-full pl-10 pr-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" 
-                                            placeholder="New Password" 
-                                            disabled={!isPrimaryDevice}
-                                        />
-                                        <button 
-                                            onClick={() => setShowPassword(!showPassword)} 
-                                            className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
-                                            disabled={!isPrimaryDevice}
-                                        >
-                                            {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
-                                        </button>
+                                        <input type={showPassword ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full pl-10 pr-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" placeholder="New Password" disabled={!isPrimaryDevice}/>
+                                        <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-400" disabled={!isPrimaryDevice}>{showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
                                     </div>
-                                    {!isPrimaryDevice && (
-                                        <p className="text-[10px] text-red-500 mt-2 flex items-center gap-1 font-bold">
-                                            <ShieldAlert size={12}/> Security Restricted: Primary Device Only
-                                        </p>
-                                    )}
                                 </div>
                                 <div className="pt-6">
                                     <button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full bg-news-black text-news-gold py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg">
@@ -833,162 +700,17 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           </div>
                       </div>
 
-                      {/* Trusted Devices Section */}
-                      <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
-                          <div className="flex justify-between items-center mb-6">
-                              <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
-                              <div className="flex items-center gap-2">
-                                  <button onClick={handleForceSaveDevices} disabled={isSavingDevices} className="bg-news-black text-white p-2 rounded hover:bg-gray-800 transition-colors" title="Force Save Globally">
-                                      {isSavingDevices ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
-                                  </button>
-                                  <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
-                                      {devices.filter(d => d.status === 'approved').length} Active
-                                  </span>
-                              </div>
-                          </div>
-                          
-                          <div className="space-y-4">
-                              {devices.length === 0 && <p className="text-gray-400 text-sm italic">No devices registered.</p>}
-                              {devices.map(device => {
-                                  let Icon = Monitor;
-                                  if (device.deviceType === 'mobile') Icon = Smartphone;
-                                  if (device.deviceType === 'tablet') Icon = Tablet;
-                                  
-                                  return (
-                                      <div key={device.id} className="flex flex-col md:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 gap-4">
-                                          <div className="flex items-center gap-4 w-full md:w-auto">
-                                              <div className={`p-3 rounded-full ${device.isCurrent ? 'bg-news-black text-news-gold' : 'bg-white border text-gray-500'}`}>
-                                                  <Icon size={20} />
-                                              </div>
-                                              <div className="flex-1 min-w-0">
-                                                  <div className="flex items-center gap-2 flex-wrap">
-                                                      <span className="font-bold text-sm text-gray-900 truncate">{device.deviceName}</span>
-                                                      {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">THIS DEVICE</span>}
-                                                      {device.isPrimary && <span className="bg-green-100 text-green-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PRIMARY DEVICE</span>}
-                                                      {device.status === 'pending' && <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PENDING</span>}
-                                                  </div>
-                                                  <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 items-center">
-                                                      <span>{device.location}</span>
-                                                      <span className="hidden md:inline">•</span>
-                                                      <span>{device.browser}</span>
-                                                      <span className="hidden md:inline">•</span>
-                                                      <span>{device.lastActive}</span>
-                                                  </div>
-                                              </div>
-                                          </div>
-                                          <div className="w-full md:w-auto flex justify-end gap-2">
-                                              {/* Only Primary Device can delete other trusted devices */}
-                                              {isPrimaryDevice && device.status === 'approved' && !device.isCurrent && onRevokeDevice && (
-                                                  <button 
-                                                    onClick={() => onRevokeDevice(device.id)} 
-                                                    className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
-                                                    title="Delete Device"
-                                                  >
-                                                      <Trash2 size={18}/>
-                                                  </button>
-                                              )}
-                                          </div>
-                                      </div>
-                                  );
-                              })}
-                          </div>
-                      </div>
-
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Key className="text-news-gold" /> Third-Party Integrations</h2>
-                          <div className="space-y-4">
-                              <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg">
-                                  <div className="flex justify-between items-start mb-2">
-                                      <div>
-                                          <h3 className="font-bold text-sm text-gray-900">Translation Service (Google Gemini)</h3>
-                                          <p className="text-xs text-gray-500 mt-1">Configure your own API key to enable auto-translation features in the editor.</p>
-                                      </div>
-                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${customApiKey ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                                          {customApiKey ? 'Connected' : 'Not Configured'}
-                                      </span>
-                                  </div>
-                                  <div className="mt-4">
-                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">API Key</label>
-                                      <div className="flex gap-2">
-                                          <input 
-                                            type={showKeyInput ? "text" : "password"} 
-                                            value={customApiKey} 
-                                            onChange={e => setCustomApiKey(e.target.value)} 
-                                            placeholder="Enter your Gemini API Key..."
-                                            className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black"
-                                          />
-                                          <button onClick={() => setShowKeyInput(!showKeyInput)} className="bg-gray-200 text-gray-600 px-3 rounded hover:bg-gray-300">
-                                              {showKeyInput ? <Eye size={16}/> : <LayoutIcon size={16}/>}
-                                          </button>
-                                          <button onClick={handleSaveApiKey} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800">
-                                              <Save size={14}/> Save
-                                          </button>
-                                      </div>
-                                      <p className="text-[10px] text-gray-400 mt-2">
-                                          Key is stored locally in your browser. Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a>.
-                                      </p>
+                          <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg">
+                              <h3 className="font-bold text-sm text-gray-900">Translation Service (Google Gemini)</h3>
+                              <div className="mt-4">
+                                  <div className="flex gap-2">
+                                      <input type={showKeyInput ? "text" : "password"} value={customApiKey} onChange={e => setCustomApiKey(e.target.value)} placeholder="Enter Gemini API Key..." className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                      <button onClick={() => setShowKeyInput(!showKeyInput)} className="bg-gray-200 text-gray-600 px-3 rounded">{showKeyInput ? <Eye size={16}/> : <LayoutIcon size={16}/>}</button>
+                                      <button onClick={handleSaveApiKey} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800"><Save size={14}/> Save</button>
                                   </div>
                               </div>
-                          </div>
-                      </div>
-
-                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
-                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Settings className="text-news-gold" /> System Configuration</h2>
-                          
-                          <div className="space-y-6">
-                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                  <div>
-                                      <h3 className="font-bold text-sm text-gray-900">Global Ad Delivery</h3>
-                                      <p className="text-xs text-gray-500 mt-1">Master switch to enable/disable all advertisement slots across the platform.</p>
-                                  </div>
-                                  <label className="relative inline-flex items-center cursor-pointer">
-                                      <input type="checkbox" checked={globalAdsEnabled} onChange={(e) => onToggleGlobalAds(e.target.checked)} className="sr-only peer" />
-                                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-news-black"></div>
-                                  </label>
-                              </div>
-
-                              <div>
-                                  <h3 className="font-bold text-sm text-gray-900 mb-4">E-Paper Watermark Branding</h3>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                      <div>
-                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Watermark Text</label>
-                                          <input type="text" value={watermarkText} onChange={e => setWatermarkText(e.target.value)} className="w-full p-2 border rounded text-sm" />
-                                      </div>
-                                      <div>
-                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Font Size (px)</label>
-                                          <input type="number" value={watermarkFontSize} onChange={e => setWatermarkFontSize(Number(e.target.value))} className="w-full p-2 border rounded text-sm" />
-                                      </div>
-                                  </div>
-                                  <div className="mt-4">
-                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Logo URL</label>
-                                      <div className="flex gap-2">
-                                          <input type="text" value={watermarkLogo} onChange={e => setWatermarkLogo(e.target.value)} className="flex-1 p-2 border rounded text-sm" />
-                                          <button onClick={() => onUpdateWatermarkSettings({ ...watermarkSettings, text: watermarkText, logoUrl: watermarkLogo, fontSize: watermarkFontSize })} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase">Save Config</button>
-                                      </div>
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className={`bg-white rounded-xl border p-6 md:p-8 shadow-sm relative overflow-hidden ${!isPrimaryDevice ? 'border-gray-200 opacity-70 pointer-events-none' : 'border-red-100'}`}>
-                          {!isPrimaryDevice && (
-                              <div className="absolute inset-0 bg-gray-50/50 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center">
-                                  <ShieldAlert className="text-gray-400 mb-2" size={48} />
-                                  <h3 className="font-bold text-gray-800">Profile Locked</h3>
-                                  <p className="text-xs text-gray-500 mt-1 max-w-sm">
-                                      Profile modifications are restricted to the <b>Primary Device</b> only.
-                                  </p>
-                              </div>
-                          )}
-                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2 text-red-600"><ShieldAlert /> Danger Zone</h2>
-                          <div className="p-4 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
-                              <div>
-                                  <h3 className="font-bold text-sm text-red-900">Reset Credentials</h3>
-                                  <p className="text-xs text-red-700 mt-1">Send a master password reset link to your email.</p>
-                              </div>
-                              <button onClick={handleTriggerResetEmail} className="bg-white border border-red-200 text-red-600 px-4 py-2 rounded text-xs font-bold uppercase hover:bg-red-50">
-                                  Trigger Reset
-                              </button>
                           </div>
                       </div>
                   </div>
@@ -1006,76 +728,20 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
             <div className="p-6 overflow-y-auto space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">
-                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Headline"/>
-                        
+                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif" placeholder="Headline"/>
                         <div className="flex items-center gap-2">
-                            <input type="text" value={modalEnglishTitle} onChange={(e) => setModalEnglishTitle(e.target.value)} className="w-full p-2 border rounded text-sm placeholder:text-gray-300" placeholder="English Title (SEO)" />
-                            <button onClick={handleTranslateTitle} disabled={isTranslating} className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors flex items-center gap-1" title="Auto Translate (Requires API Key)">
+                            <input type="text" value={modalEnglishTitle} onChange={(e) => setModalEnglishTitle(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="English Title (SEO)" />
+                            <button onClick={handleTranslateTitle} disabled={isTranslating} className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors flex items-center gap-1">
                                 {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                             </button>
                         </div>
-
-                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Subline..."></textarea>
-                        
+                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px]" placeholder="Subline..."></textarea>
                         <div className="grid grid-cols-2 gap-4">
                             <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author"/>
                             <button onClick={() => setShowCategorySelector(true)} className="w-full p-2 border rounded text-sm bg-white text-left flex justify-between items-center">
-                                <span className={modalCategories.length === 0 ? 'text-gray-400' : ''}>
-                                    {modalCategories.length === 0 ? 'Select Categories' : `${modalCategories.length} Selected`}
-                                </span>
+                                <span>{modalCategories.length === 0 ? 'Select Categories' : `${modalCategories.length} Selected`}</span>
                                 <ChevronDown size={14} />
                             </button>
-                        </div>
-
-                        {/* Tags Input */}
-                        <div className="flex items-center gap-2 border rounded p-2 bg-white flex-wrap">
-                            {modalTags.map(tag => (
-                                <span key={tag} className="bg-gray-100 text-gray-700 text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
-                                    #{tag} <button onClick={() => removeArticleTag(tag)} className="hover:text-red-500"><X size={10}/></button>
-                                </span>
-                            ))}
-                            <input 
-                                type="text" 
-                                value={tagInput}
-                                onChange={(e) => setTagInput(e.target.value)}
-                                onKeyDown={handleTagInputKeyDown}
-                                className="flex-1 outline-none text-sm min-w-[100px]"
-                                placeholder="Add tag (Any Language/Symbol)..." 
-                            />
-                        </div>
-                    </div>
-                    <div className="md:col-span-1 space-y-4">
-                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center h-[200px] flex flex-col justify-center relative overflow-hidden">
-                            {modalImageUrl ? (
-                                <img src={modalImageUrl} className="w-full h-full object-cover rounded" />
-                            ) : (
-                                <div className="text-gray-400">
-                                    <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
-                                    <p className="text-xs font-bold uppercase">Featured Image</p>
-                                </div>
-                            )}
-                        </div>
-                        <button onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2">
-                            <Library size={14} /> Select from Gallery
-                        </button>
-                        
-                        <div className="bg-gray-50 p-3 rounded border border-gray-100 space-y-3">
-                            <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</label>
-                                <select value={modalStatus} onChange={(e) => setModalStatus(e.target.value as ArticleStatus)} className="w-full p-2 border rounded text-sm bg-white">
-                                    <option value={ArticleStatus.DRAFT}>Draft</option>
-                                    <option value={ArticleStatus.PENDING}>Pending</option>
-                                    <option value={ArticleStatus.PUBLISHED}>Published</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Publish Date</label>
-                                <input type="datetime-local" value={modalPublishedAt.substring(0, 16)} onChange={(e) => setModalPublishedAt(new Date(e.target.value).toISOString())} className="w-full p-2 border rounded text-sm bg-white" />
-                            </div>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" checked={modalIsFeatured} onChange={e => setModalIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
-                                <span className="text-xs font-bold uppercase">Featured Article</span>
-                            </label>
                         </div>
                     </div>
                 </div>
@@ -1089,119 +755,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
             </div>
           </div>
         </div>
-      )}
-
-      {showAddPageModal && (
-          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg w-full max-w-md p-6">
-                  <h3 className="font-bold text-lg mb-4">Upload E-Paper Page</h3>
-                  <div className="space-y-4">
-                      <div>
-                          <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Edition Date</label>
-                          <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full p-2 border rounded" />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Page Number</label>
-                          <input type="number" value={newPageNumber} onChange={e => setNewPageNumber(parseInt(e.target.value))} className="w-full p-2 border rounded" />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Page Image</label>
-                          <div className="flex gap-2">
-                              <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, 'epaper')} className="w-full text-sm" disabled={isPageUploading} />
-                              {isPageUploading && <Loader2 size={20} className="animate-spin text-news-black" />}
-                          </div>
-                      </div>
-                      {newPageImage && <img src={newPageImage} className="w-full h-40 object-contain bg-gray-100 rounded border" />}
-                      <button onClick={handleUploadPage} disabled={isPageUploading} className="w-full bg-news-black text-white py-3 rounded font-bold uppercase text-xs">
-                          {isPageUploading ? 'Uploading...' : 'Add Page'}
-                      </button>
-                      <button onClick={() => setShowAddPageModal(false)} className="w-full text-gray-500 py-2 text-xs font-bold uppercase">Cancel</button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {showAdModal && (
-          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg w-full max-w-lg p-6">
-                  <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-lg">{editingAdId ? 'Edit Banner' : 'New Banner'}</h3>
-                      <button onClick={() => setShowAdModal(false)}><X size={20}/></button>
-                  </div>
-                  <div className="space-y-4">
-                      <input type="text" placeholder="Ad Title (Internal Ref)" value={newAd.title || ''} onChange={e => setNewAd({...newAd, title: e.target.value})} className="w-full p-2 border rounded" />
-                      <div className="flex gap-4">
-                          <div className="flex-1">
-                              <label className="block text-xs font-bold text-gray-500 mb-1">Size</label>
-                              <select value={newAd.size} onChange={e => setNewAd({...newAd, size: e.target.value as AdSize})} className="w-full p-2 border rounded bg-white">
-                                  <option value="BILLBOARD">Billboard (970x250)</option>
-                                  <option value="LEADERBOARD">Leaderboard (728x90)</option>
-                                  <option value="RECTANGLE">Rectangle (300x250)</option>
-                                  <option value="HALF_PAGE">Half Page (300x600)</option>
-                                  <option value="SKYSCRAPER">Skyscraper (160x600)</option>
-                                  <option value="MOBILE_BANNER">Mobile Banner (320x50)</option>
-                              </select>
-                          </div>
-                          <div className="flex-1">
-                              <label className="block text-xs font-bold text-gray-500 mb-1">Placement</label>
-                              <select value={newAd.placement} onChange={e => setNewAd({...newAd, placement: e.target.value as AdPlacement})} className="w-full p-2 border rounded bg-white">
-                                  <option value="GLOBAL">Global (All Pages)</option>
-                                  <option value="HOME">Home Only</option>
-                                  <option value="ARTICLE">Article Pages</option>
-                                  <option value="EPAPER">E-Paper</option>
-                                  <option value="CATEGORY">Specific Category</option>
-                              </select>
-                          </div>
-                      </div>
-                      {newAd.placement === 'CATEGORY' && (
-                          <select value={newAd.targetCategory || ''} onChange={e => setNewAd({...newAd, targetCategory: e.target.value})} className="w-full p-2 border rounded bg-white">
-                              <option value="">Select Category...</option>
-                              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                      )}
-                      
-                      <div className="border-2 border-dashed p-4 rounded text-center">
-                          {newAd.imageUrl ? (
-                              <img src={newAd.imageUrl} className="max-h-32 mx-auto" />
-                          ) : <p className="text-gray-400 text-sm">No image selected</p>}
-                          <button onClick={() => setShowAdImageGallery(true)} className="mt-2 text-xs bg-gray-100 px-3 py-1 rounded border hover:bg-gray-200">Select Image</button>
-                      </div>
-
-                      <input type="text" placeholder="Destination URL (Optional)" value={newAd.linkUrl || ''} onChange={e => setNewAd({...newAd, linkUrl: e.target.value})} className="w-full p-2 border rounded" />
-                      
-                      <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="checkbox" checked={newAd.isActive} onChange={e => setNewAd({...newAd, isActive: e.target.checked})} className="w-4 h-4" />
-                          <span className="text-sm font-bold">Active</span>
-                      </label>
-
-                      <button onClick={handleSaveAd} className="w-full bg-news-black text-white py-3 rounded font-bold uppercase text-xs">Save Banner</button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {showClassifiedModal && (
-          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg w-full max-w-lg p-6">
-                  <h3 className="font-bold text-lg mb-4">New Classified Ad</h3>
-                  <div className="space-y-4">
-                      <input type="text" placeholder="Title" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-2 border rounded" />
-                      <div className="flex gap-4">
-                          <select value={newClassified.category || ''} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="flex-1 p-2 border rounded bg-white">
-                              {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                          <input type="text" placeholder="Price (e.g. $50)" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="flex-1 p-2 border rounded" />
-                      </div>
-                      <textarea placeholder="Description" value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-2 border rounded h-24"></textarea>
-                      <div className="flex gap-4">
-                          <input type="text" placeholder="Location" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="flex-1 p-2 border rounded" />
-                          <input type="text" placeholder="Contact Info" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="flex-1 p-2 border rounded" />
-                      </div>
-                      <button onClick={handleAddClassified} className="w-full bg-news-black text-white py-3 rounded font-bold uppercase text-xs">Post Classified</button>
-                      <button onClick={() => setShowClassifiedModal(false)} className="w-full text-gray-500 py-2 text-xs font-bold uppercase">Cancel</button>
-                  </div>
-              </div>
-          </div>
       )}
     </div>
     </>
