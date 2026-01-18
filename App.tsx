@@ -595,6 +595,9 @@ function App() {
   } else if (path.startsWith('/category/')) {
     const cat = decodeURIComponent(currentPath.split('/category/')[1]);
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedCategory={cat} categories={categories} />;
+  } else if (path.startsWith('/tag/')) {
+    const tag = decodeURIComponent(currentPath.split('/tag/')[1]);
+    content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedTag={tag} categories={categories} />;
   } else if (path === '/epaper') {
     content = <EPaperReader pages={ePaperPages} articles={articles} onNavigate={navigate} watermarkSettings={watermarkSettings} onSaveSettings={handleSaveGlobalConfig} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   } else if (path === '/classifieds') {

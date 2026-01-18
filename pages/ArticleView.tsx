@@ -152,9 +152,14 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {article.tags.map(tag => (
-                            <span key={tag} className="text-[10px] font-bold uppercase tracking-widest text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 hover:bg-gray-100 transition-colors cursor-default">
+                            <Link 
+                                key={tag} 
+                                to={`/tag/${tag}`} 
+                                onNavigate={onNavigate}
+                                className="text-[10px] font-bold uppercase tracking-widest text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 hover:bg-news-black hover:text-white transition-colors cursor-pointer"
+                            >
                                 #{tag}
-                            </span>
+                            </Link>
                         ))}
                     </div>
                 </div>

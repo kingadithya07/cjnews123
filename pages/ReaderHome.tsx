@@ -13,10 +13,11 @@ interface ReaderHomeProps {
   advertisements: Advertisement[];
   globalAdsEnabled: boolean;
   selectedCategory?: string;
+  selectedTag?: string;
   categories?: string[];
 }
 
-const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNavigate, advertisements, globalAdsEnabled, selectedCategory, categories = [] }) => {
+const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNavigate, advertisements, globalAdsEnabled, selectedCategory, selectedTag, categories = [] }) => {
   const safeFormat = (dateValue: any, formatStr: string) => {
     if (!dateValue) return 'N/A';
     const d = new Date(dateValue);
@@ -27,9 +28,11 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
   const [isPaused, setIsPaused] = useState(false);
   const [dateFilter, setDateFilter] = useState('');
 
-  // Articles for the current view (Home or Category)
+  // Articles for the current view (Home or Category or Tag)
   const displayArticles = selectedCategory 
     ? articles.filter(a => a.categories.includes(selectedCategory))
+    : selectedTag
+    ? articles.filter(a => a.tags?.includes(selectedTag))
     : articles;
 
   // Slider Logic
@@ -64,9 +67,17 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       setCurrentSlide((prev) => (prev - 1 + sliderArticles.length) % sliderArticles.length);
   };
 
-  // --- CATEGORY VIEW ---
-  if (selectedCategory) {
-      const filteredCategoryArticles = dateFilter 
+  const handleTagClick = (tag: string, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onNavigate(`/tag/${tag}`);
+  };
+
+  // --- CATEGORY / TAG VIEW ---
+  if (selectedCategory || selectedTag) {
+      const viewTitle = selectedCategory || `#${selectedTag}`;
+      
+      const filteredArticles = dateFilter 
           ? displayArticles.filter(a => a.publishedAt.startsWith(dateFilter))
           : displayArticles;
 
@@ -79,13 +90,13 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
             </div>
 
             <div className="bg-news-black text-white py-12 px-6 rounded-lg shadow-xl relative overflow-hidden">
-                <h1 className="font-serif text-4xl md:text-5xl font-bold uppercase tracking-tight text-center relative z-10">{selectedCategory}</h1>
+                <h1 className="font-serif text-4xl md:text-5xl font-bold uppercase tracking-tight text-center relative z-10">{viewTitle}</h1>
             </div>
 
             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-2 text-gray-500">
                     <Filter size={16} />
-                    <span className="text-xs font-bold uppercase tracking-widest">{filteredCategoryArticles.length} Articles Found</span>
+                    <span className="text-xs font-bold uppercase tracking-widest">{filteredArticles.length} Articles Found</span>
                 </div>
                 <div className="relative flex items-center w-full md:w-auto">
                     <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm font-bold text-gray-700 outline-none w-full" />
@@ -95,7 +106,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
             <AdvertisementBanner ads={advertisements} size="LEADERBOARD" placement="CATEGORY" currentCategory={selectedCategory} globalAdsEnabled={globalAdsEnabled} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredCategoryArticles.map(article => (
+                {filteredArticles.map(article => (
                     <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
                         <div className="aspect-video relative overflow-hidden">
                             <img src={article.imageUrl} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={article.title} />
@@ -106,7 +117,13 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                             {article.tags && article.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mb-3">
                                     {article.tags.slice(0, 3).map(tag => (
-                                        <span key={tag} className="text-[8px] font-black text-news-accent uppercase tracking-tighter bg-red-50 px-1.5 py-0.5 rounded">#{tag}</span>
+                                        <span 
+                                            key={tag} 
+                                            onClick={(e) => handleTagClick(tag, e)}
+                                            className="text-[8px] font-black text-news-accent uppercase tracking-tighter bg-red-50 px-1.5 py-0.5 rounded cursor-pointer hover:underline hover:bg-red-100 relative z-10"
+                                        >
+                                            #{tag}
+                                        </span>
                                     ))}
                                 </div>
                             )}
@@ -134,18 +151,18 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                       {sliderArticles.map((article) => (
                           <div key={article.id} className="w-full shrink-0 relative h-full bg-[#050505]">
                               <img src={article.imageUrl} alt={article.title} className="absolute inset-0 w-full h-full object-contain z-10" />
-                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 md:p-10 pt-24 z-20">
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent px-4 pb-2 pt-20 md:p-10 md:pt-24 z-20">
                                   <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-2xl">
-                                      <h2 className="text-lg md:text-3xl font-display font-black text-white leading-tight mb-2 group-hover/title:text-news-gold transition-colors tracking-tight line-clamp-2 md:line-clamp-none">{article.title}</h2>
+                                      <h2 className="text-lg md:text-3xl font-display font-black text-white leading-tight mb-1 md:mb-2 group-hover/title:text-news-gold transition-colors tracking-tight line-clamp-2 md:line-clamp-none">{article.title}</h2>
                                   </Link>
                                   
                                   {/* Subline or Content Snippet Fallback */}
-                                  <p className="text-gray-300 text-xs md:text-sm mb-3 line-clamp-2 max-w-xl font-medium leading-relaxed drop-shadow-md">
+                                  <p className="text-gray-300 text-xs md:text-sm mb-2 md:mb-3 line-clamp-2 max-w-xl font-medium leading-relaxed drop-shadow-md">
                                       {article.subline || (article.content ? article.content.replace(/<[^>]+>/g, ' ').slice(0, 150) + (article.content.length > 150 ? '...' : '') : '')}
                                   </p>
 
                                   {/* Author & Date Metadata */}
-                                  <div className="flex items-center gap-3 text-gray-300 mb-3 opacity-90">
+                                  <div className="flex items-center gap-3 text-gray-300 mb-1 md:mb-3 opacity-90">
                                       <div className="flex items-center gap-2">
                                           <div className="w-5 h-5 rounded-full overflow-hidden bg-gray-700 border border-gray-600">
                                               {article.authorAvatar ? <img src={article.authorAvatar} className="w-full h-full object-cover" alt={article.author} /> : <User size={12} className="m-1"/>}
@@ -200,7 +217,13 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                            {article.tags && article.tags.length > 0 && (
                                <div className="flex flex-wrap gap-1 mb-2">
                                    {article.tags.slice(0, 2).map(tag => (
-                                       <span key={tag} className="text-[7px] font-bold text-gray-400 uppercase tracking-tighter">#{tag}</span>
+                                       <span 
+                                            key={tag} 
+                                            onClick={(e) => handleTagClick(tag, e)}
+                                            className="text-[7px] font-bold text-gray-400 uppercase tracking-tighter cursor-pointer hover:text-news-accent hover:underline relative z-10"
+                                        >
+                                            #{tag}
+                                        </span>
                                    ))}
                                </div>
                            )}
@@ -245,7 +268,13 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                   {article.tags && article.tags.length > 0 && (
                                       <div className="flex flex-wrap gap-1 mb-2">
                                           {article.tags.slice(0, 2).map(tag => (
-                                              <span key={tag} className="text-[7px] font-black text-gray-400 uppercase">#{tag}</span>
+                                              <span 
+                                                key={tag} 
+                                                onClick={(e) => handleTagClick(tag, e)}
+                                                className="text-[7px] font-black text-gray-400 uppercase cursor-pointer hover:text-news-accent hover:underline relative z-10"
+                                              >
+                                                  #{tag}
+                                              </span>
                                           ))}
                                       </div>
                                   )}
@@ -280,7 +309,13 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                        {article.tags && article.tags.length > 0 && (
                            <div className="flex flex-wrap gap-1.5 mb-3">
                                {article.tags.slice(0, 3).map(tag => (
-                                   <span key={tag} className="text-[9px] font-black text-gray-400 uppercase tracking-[0.1em]">#{tag}</span>
+                                   <span 
+                                        key={tag} 
+                                        onClick={(e) => handleTagClick(tag, e)}
+                                        className="text-[9px] font-black text-gray-400 uppercase tracking-[0.1em] cursor-pointer hover:text-news-accent hover:underline relative z-10"
+                                    >
+                                        #{tag}
+                                    </span>
                                ))}
                            </div>
                        )}
