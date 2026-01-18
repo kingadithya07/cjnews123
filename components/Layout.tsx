@@ -233,58 +233,71 @@ const Layout: React.FC<LayoutProps> = ({
              {userName ? (
                  <div className="flex items-center gap-3 relative">
                     
-                    {/* Notification Bell */}
-                    {pendingDevices.length > 0 && (
-                      <div className="relative mr-4" ref={notificationRef}>
-                        <button 
-                          onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                          className="text-gray-400 hover:text-news-accent transition-colors relative p-1"
-                        >
-                          <Bell size={16} />
+                    {/* Notification Bell - Always visible for logged in users */}
+                    <div className="relative mr-4" ref={notificationRef}>
+                      <button 
+                        onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                        className={`transition-colors relative p-1 ${isNotificationsOpen ? 'text-news-black' : 'text-gray-400 hover:text-news-accent'}`}
+                        title="Notifications"
+                      >
+                        <Bell size={16} />
+                        {pendingDevices.length > 0 && (
                           <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-bold w-3.5 h-3.5 flex items-center justify-center rounded-full border border-white">
                             {pendingDevices.length}
                           </span>
-                        </button>
-
-                        {isNotificationsOpen && (
-                          <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden animate-in fade-in zoom-in-95">
-                            <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Access Requests</span>
-                              <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">{pendingDevices.length} Pending</span>
-                            </div>
-                            <div className="max-h-64 overflow-y-auto">
-                              {pendingDevices.map(device => (
-                                <div key={device.id} className="p-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                                  <div className="flex items-start gap-3 mb-2">
-                                    <div className="p-1.5 bg-gray-100 rounded text-gray-500">
-                                      {device.deviceType === 'mobile' ? <Smartphone size={14}/> : device.deviceType === 'tablet' ? <Tablet size={14}/> : <Monitor size={14}/>}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-bold text-gray-900 truncate">{device.deviceName}</p>
-                                      <p className="text-[9px] text-gray-500 truncate">{device.location} • {device.browser}</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-2 mt-2">
-                                    <button 
-                                      onClick={() => onApproveDevice && onApproveDevice(device.id)}
-                                      className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[9px] font-bold uppercase py-1.5 rounded flex items-center justify-center gap-1"
-                                    >
-                                      <Check size={10} strokeWidth={3} /> Approve
-                                    </button>
-                                    <button 
-                                      onClick={() => onRejectDevice && onRejectDevice(device.id)}
-                                      className="flex-1 bg-red-100 hover:bg-red-200 text-red-600 text-[9px] font-bold uppercase py-1.5 rounded flex items-center justify-center gap-1"
-                                    >
-                                      <X size={10} strokeWidth={3} /> Block
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
                         )}
-                      </div>
-                    )}
+                      </button>
+
+                      {isNotificationsOpen && (
+                        <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden animate-in fade-in zoom-in-95">
+                          <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Notifications</span>
+                            {pendingDevices.length > 0 && (
+                                <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">{pendingDevices.length} Requests</span>
+                            )}
+                          </div>
+                          <div className="max-h-64 overflow-y-auto">
+                            {pendingDevices.length === 0 ? (
+                                <div className="p-6 text-center">
+                                    <div className="bg-gray-50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 text-gray-300">
+                                        <Bell size={16} />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 font-medium">No new notifications</p>
+                                </div>
+                            ) : (
+                                pendingDevices.map(device => (
+                                  <div key={device.id} className="p-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-start gap-3 mb-2">
+                                      <div className="p-1.5 bg-gray-100 rounded text-gray-500">
+                                        {device.deviceType === 'mobile' ? <Smartphone size={14}/> : device.deviceType === 'tablet' ? <Tablet size={14}/> : <Monitor size={14}/>}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-gray-900 truncate">{device.deviceName}</p>
+                                        <p className="text-[9px] text-gray-500 truncate">{device.location} • {device.browser}</p>
+                                        <p className="text-[9px] text-red-500 font-bold mt-1">Requesting Access</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2 mt-2">
+                                      <button 
+                                        onClick={() => onApproveDevice && onApproveDevice(device.id)}
+                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[9px] font-bold uppercase py-1.5 rounded flex items-center justify-center gap-1"
+                                      >
+                                        <Check size={10} strokeWidth={3} /> Approve
+                                      </button>
+                                      <button 
+                                        onClick={() => onRejectDevice && onRejectDevice(device.id)}
+                                        className="flex-1 bg-red-100 hover:bg-red-200 text-red-600 text-[9px] font-bold uppercase py-1.5 rounded flex items-center justify-center gap-1"
+                                      >
+                                        <X size={10} strokeWidth={3} /> Block
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     {currentRole !== UserRole.READER && (
                         <Link 
