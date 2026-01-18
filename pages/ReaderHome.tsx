@@ -202,7 +202,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       {/* --- TOP SECTION: SLIDER & E-PAPER PREVIEW --- */}
       {/* Full width slider on mobile via negative margin (-mx-4) to counteract Layout padding */}
       <div className="max-w-7xl mx-auto -mx-4 md:mx-0">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[500px]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[560px]">
               
               {/* SLIDER COLUMN (2/3 width on desktop) */}
               <div className="lg:col-span-2 w-full h-[250px] sm:h-[350px] md:h-[500px] lg:h-full relative rounded-none md:rounded-2xl overflow-hidden shadow-2xl bg-news-black group border-y md:border border-gray-800"
@@ -294,13 +294,13 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
               <div className="lg:col-span-1 hidden lg:flex flex-col h-full bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden relative group/epaper">
                   {latestEPaper ? (
                       <Link to="/epaper" onNavigate={onNavigate} className="flex-1 flex flex-col h-full relative">
-                          <div className="flex-1 bg-gray-100 p-6 flex items-center justify-center relative overflow-hidden">
+                          <div className="flex-1 bg-gray-100 p-4 flex items-center justify-center relative overflow-hidden">
                                {/* Paper Preview */}
                                <div className="relative shadow-2xl transform group-hover/epaper:scale-105 transition-transform duration-500 origin-bottom">
                                    <img 
                                       src={latestEPaper.imageUrl} 
                                       alt={`E-Paper ${latestEPaper.date}`} 
-                                      className="max-h-[320px] w-auto object-contain rounded-sm"
+                                      className="max-h-[310px] w-auto object-contain rounded-sm"
                                    />
                                    {/* Shine effect */}
                                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover/epaper:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
