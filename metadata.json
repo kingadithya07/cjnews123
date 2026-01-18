@@ -1,7 +1,9 @@
 {
   "name": "CJ NEWSHUB",
-  "description": "A modern publishing platform bridging traditional e-papers with digital articles. Professional global edition newsroom.",
+  "description": "A world-class digital news publishing platform featuring interactive e-paper extraction, advanced editorial dashboards for writers and editors, and real-time visitor analytics.",
   "requestFramePermissions": [
+    "camera",
+    "microphone",
     "geolocation"
   ]
 }
