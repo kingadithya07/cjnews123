@@ -200,6 +200,15 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
         }
     }
 
+    // Auto-add selected categories as tags
+    if (selectedCategories && selectedCategories.length > 0) {
+        selectedCategories.forEach(cat => {
+            if (!finalTags.includes(cat)) {
+                finalTags.push(cat);
+            }
+        });
+    }
+
     const newArticle: Article = {
       id: activeArticleId || generateId(),
       userId: userId || undefined, 

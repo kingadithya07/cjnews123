@@ -332,6 +332,15 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           }
       }
 
+      // Auto-add selected categories as tags
+      if (modalCategories && modalCategories.length > 0) {
+          modalCategories.forEach(cat => {
+              if (!finalTags.includes(cat)) {
+                  finalTags.push(cat);
+              }
+          });
+      }
+
       const article: Article = {
           id: editArticleId || generateId(),
           userId: userId || undefined,
