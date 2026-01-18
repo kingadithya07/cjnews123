@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Article, Advertisement } from '../types';
-import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft, Check, Loader2, Tag } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
@@ -330,13 +330,19 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                 </button>
             </div>
 
+            {/* TAGS SECTION */}
             <div className="mt-10 pt-6 border-t border-gray-100 mb-10">
-                <div className="flex flex-wrap gap-2">
-                    {(article.categories || []).map(cat => (
-                         <span key={cat} className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-wide">#{cat}</span>
-                    ))}
-                    <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-wide">#News</span>
-                    <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full uppercase tracking-wide">#Trending</span>
+                <div className="flex flex-wrap gap-2 items-center">
+                    <Tag size={16} className="text-news-gold mr-1" />
+                    {(article.tags && article.tags.length > 0) ? (
+                        article.tags.map(tag => (
+                             <span key={tag} className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full uppercase tracking-wide border border-gray-200">
+                                 #{tag}
+                             </span>
+                        ))
+                    ) : (
+                        <span className="text-xs text-gray-400 italic">No tags associated with this article.</span>
+                    )}
                 </div>
             </div>
             

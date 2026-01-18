@@ -1031,7 +1031,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                 onChange={(e) => setTagInput(e.target.value)}
                                 onKeyDown={handleTagInputKeyDown}
                                 className="flex-1 outline-none text-sm min-w-[100px]"
-                                placeholder="Add tag..." 
+                                placeholder="Add tag (Any Language/Symbol)..." 
                             />
                         </div>
                     </div>

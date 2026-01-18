@@ -667,7 +667,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                                         onChange={(e) => setTagInput(e.target.value)}
                                         onKeyDown={handleTagInputKeyDown}
                                         className="flex-1 outline-none text-sm min-w-[50px]"
-                                        placeholder="Add..." 
+                                        placeholder="Add tag (Any Language/Symbol)..." 
                                     />
                                 </div>
                             </div>
