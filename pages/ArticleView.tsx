@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Article, Advertisement } from '../types';
-import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft, Check, Loader2, Tag } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Share2, Facebook, Twitter, Linkedin, Link as LinkIcon, User, ArrowRight, Newspaper, AlignLeft, Check, Loader2, Tag as TagIcon } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
@@ -18,27 +18,13 @@ interface ArticleViewProps {
 
 const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onNavigate, advertisements = [], globalAdsEnabled }) => {
   const [article, setArticle] = useState<Article | undefined>(undefined);
-  const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
-  const [moreArticles, setMoreArticles] = useState<Article[]>([]);
-  const [wordCount, setWordCount] = useState(0);
-  const [readTime, setReadTime] = useState(0);
-  const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const isSharing = useRef(false);
 
   useEffect(() => {
     if (!articleId) { setIsLoading(false); return; }
     setIsLoading(true);
     const found = articles.find(a => a.id === articleId);
     setArticle(found);
-    if (found) {
-      const text = (found.content || '').replace(/<[^>]*>/g, ' '); 
-      const count = text.trim().split(/\s+/).length;
-      setWordCount(count);
-      setReadTime(Math.ceil(count / 200));
-      setRelatedArticles(articles.filter(a => a.id !== found.id && a.categories.some(cat => found.categories.includes(cat))).slice(0, 3));
-      setMoreArticles(articles.filter(a => a.id !== found.id).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()).slice(0, 4));
-    }
     setIsLoading(false);
   }, [articleId, articles]);
 
@@ -48,7 +34,6 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
   return (
     <div className="animate-in fade-in duration-500 pb-16">
       
-      {/* Visual Marker: Mobile Top Slot */}
       <AdvertisementBanner ads={advertisements} size="MOBILE_BANNER" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} />
 
       <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12 px-0 w-full">
@@ -64,27 +49,43 @@ const ArticleView: React.FC<ArticleViewProps> = ({ articles = [], articleId, onN
                     <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-400 shrink-0 overflow-hidden">
                         {article.authorAvatar ? <img src={article.authorAvatar} className="w-full h-full object-cover" /> : <User size={20} />}
                     </div>
-                    <span className="font-bold text-gray-900 uppercase text-xs">{article.author}</span>
+                    <div className="flex flex-col">
+                        <span className="font-bold text-gray-900 uppercase text-xs">{article.author}</span>
+                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">{format(new Date(article.publishedAt), 'MMMM dd, yyyy')}</span>
+                    </div>
                 </div>
             </header>
 
             <img src={article.imageUrl} className="w-full h-auto mb-10 shadow-lg rounded" />
 
-            {/* Visual Marker: Inline Content Ad */}
             <AdvertisementBanner ads={advertisements} size="RECTANGLE" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} />
 
             <article 
               className="prose prose-slate max-w-none w-full font-serif text-gray-800 !leading-snug text-lg" 
               dangerouslySetInnerHTML={{ __html: article.content || '<p>Report pending...</p>' }} 
             />
+
+            {/* --- TAG DISPLAY SECTION --- */}
+            {article.tags && article.tags.length > 0 && (
+                <div className="mt-12 pt-8 border-t border-gray-100">
+                    <div className="flex items-center gap-2 mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+                        <TagIcon size={12}/> Story Tags
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {article.tags.map(tag => (
+                            <span key={tag} className="text-[10px] font-bold uppercase tracking-widest text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 hover:bg-gray-100 transition-colors cursor-default">
+                                #{tag}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
             
-            {/* Visual Marker: Bottom Desktop Slot */}
             <AdvertisementBanner ads={advertisements} size="LEADERBOARD" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} />
         </div>
 
         <div className="hidden md:block w-[300px] flex-shrink-0 pt-20">
              <div className="sticky top-24 space-y-6">
-                {/* Visual Markers: Sidebar Ads */}
                 <AdvertisementBanner ads={advertisements} size="RECTANGLE" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} />
                 <AdvertisementBanner ads={advertisements} size="SKYSCRAPER" placement="ARTICLE" globalAdsEnabled={globalAdsEnabled} />
              </div>
