@@ -11,11 +11,11 @@ import Login from './pages/Login';
 import StaffLogin from './pages/StaffLogin';
 import InviteRegistration from './pages/InviteRegistration';
 import ResetPassword from './pages/ResetPassword';
-import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, ActivityLog, AdSize, AdPlacement } from './types';
+import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, ActivityLog } from './types';
 import { APP_NAME } from './constants';
 import { generateId, getDeviceId, createSlug, getDeviceMetadata, getPublicIP } from './utils';
 import { supabase } from './supabaseClient';
-import { ShieldAlert, Smartphone, Monitor, Check, MapPin, Tablet, Loader2 } from 'lucide-react';
+import { Loader2, ShieldAlert, Monitor, Check, MapPin } from 'lucide-react';
 
 const GLOBAL_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -58,13 +58,14 @@ function App() {
       if (!userIdRef.current) return;
       const meta = getDeviceMetadata();
       const ip = await getPublicIP();
-      const newLog: ActivityLog = { id: generateId(), userId: userIdRef.current, deviceName: meta.name, action, details: details || '', ip, location: 'Local', timestamp: new Date().toISOString() };
       try {
-          await supabase.from('activity_logs').insert({ user_id: newLog.userId, device_name: newLog.deviceName, action: newLog.action, details: newLog.details, ip: newLog.ip, location: newLog.location, timestamp: newLog.timestamp });
+          await supabase.from('activity_logs').insert({ user_id: userIdRef.current, device_name: meta.name, action, details: details || '', ip, location: 'Detected via IP', timestamp: new Date().toISOString() });
       } catch (e) { console.warn("Log failed"); }
   };
 
-  const mapDbDevice = (d: any): TrustedDevice => ({ id: d.id, userId: d.user_id, deviceName: d.device_name, deviceType: d.device_type, location: d.location, lastActive: d.last_active, status: d.status, browser: d.browser, isPrimary: d.is_primary, isCurrent: d.id === getDeviceId() });
+  const mapDbDevice = (d: any): TrustedDevice => ({
+      id: d.id, userId: d.user_id, deviceName: d.device_name, deviceType: d.device_type, location: d.location, lastActive: d.last_active, status: d.status, browser: d.browser, isPrimary: d.is_primary, isCurrent: d.id === getDeviceId() 
+  });
 
   const fetchDevices = async (uidOverride?: string) => {
       const targetUserId = uidOverride || userIdRef.current;
@@ -78,9 +79,7 @@ function App() {
       if (Array.isArray(input)) return input.filter(Boolean);
       if (typeof input === 'string') {
           let cleaned = input.trim();
-          if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
-              cleaned = cleaned.substring(1, cleaned.length - 1);
-          }
+          if (cleaned.startsWith('{') && cleaned.endsWith('}')) cleaned = cleaned.substring(1, cleaned.length - 1);
           return cleaned.split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean);
       }
       return [];
@@ -97,7 +96,7 @@ function App() {
               if (parsed.tags) setTags(parsed.tags);
               if (parsed.adCategories) setAdCategories(parsed.adCategories);
               if (parsed.adsEnabled !== undefined) setGlobalAdsEnabled(parsed.adsEnabled);
-          } catch (e) {}
+          } catch (e) { console.error("Parse settings error", e); }
       }
       
       const { data: artData } = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).order('publishedAt', { ascending: false });
@@ -108,7 +107,7 @@ function App() {
       if (artData) setArticles(artData.map(a => ({ id: a.id, userId: a.user_id, slug: a.slug, title: a.title, englishTitle: a.english_title, subline: a.subline, author: a.author, authorAvatar: a.author_avatar, content: a.content, categories: a.category ? a.category.split(',').map((s: string) => s.trim()) : ['General'], tags: parseTags(a.tags), imageUrl: a.image_url || a.imageUrl, publishedAt: a.published_at || a.publishedAt, status: a.status as ArticleStatus, summary: a.summary, isPremium: a.is_premium || a.isPremium, isFeatured: a.is_featured || a.isFeatured, isEditorsChoice: a.is_editors_choice || a.isEditorsChoice, views: a.views || 0 })));
       if (pageData) setEPaperPages(pageData.map(p => ({ id: p.id, date: p.date, pageNumber: p.page_number || p.pageNumber, imageUrl: p.image_url || p.imageUrl, regions: [] })));
       if (clsData) setClassifieds(clsData.map(c => ({ id: c.id, title: c.title, category: c.category, content: c.content, price: c.price, location: c.location, contactInfo: c.contact_info || c.contactInfo, postedAt: c.posted_at || c.postedAt })));
-      if (adData) setAdvertisements(adData.map(ad => ({ id: ad.id, imageUrl: ad.image_url || ad.imageUrl, link_url: ad.link_url || ad.linkUrl, title: ad.title, size: ad.size, placement: ad.placement, targetCategory: ad.target_category || ad.targetCategory, isActive: ad.is_active !== undefined ? ad.is_active : true })));
+      if (adData) setAdvertisements(adData.map(ad => ({ id: ad.id, imageUrl: ad.image_url || ad.imageUrl, linkUrl: ad.link_url || ad.linkUrl, title: ad.title, size: ad.size, placement: ad.placement, targetCategory: ad.target_category || ad.targetCategory, isActive: ad.is_active !== undefined ? ad.is_active : true })));
       setLastSync(new Date());
     } catch (err) { console.error("Sync error", err); }
   };
@@ -120,7 +119,6 @@ function App() {
     fetchData();
     const sub = supabase.channel('global_sync').on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData(true)).subscribe();
     
-    // Auth initialization
     supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
             setUserId(session.user.id);
@@ -133,7 +131,6 @@ function App() {
         setLoading(false);
     });
 
-    // Enhanced Listener: Listens for SIGNED_IN and USER_UPDATED to sync profile data instantly
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (session) {
             setUserId(session.user.id);
@@ -150,6 +147,7 @@ function App() {
   }, []);
 
   const handleSaveGlobalConfig = async (w?: WatermarkSettings, adsEnabledOverride?: boolean) => {
+      // Use override if provided, otherwise fall back to current state
       const watermarkToSave = w || watermarkSettings;
       const adsEnabled = adsEnabledOverride !== undefined ? adsEnabledOverride : globalAdsEnabled;
       
@@ -169,7 +167,18 @@ function App() {
       };
       
       const { error } = await supabase.from('articles').upsert(payload);
-      if (!error) fetchData(true);
+      if (error) {
+          alert(`Failed to save settings: ${error.message}`);
+      } else {
+          // If we manually re-fetch data, it might overwrite the local state immediately
+          // but we ensure the DB is updated with the correct boolean
+          await fetchData(true);
+      }
+  };
+
+  const handleToggleGlobalAds = (e: boolean) => {
+      setGlobalAdsEnabled(e);
+      handleSaveGlobalConfig(undefined, e); // Pass explicitly to ensure it doesn't use old state
   };
 
   const handleSaveArticle = async (article: Article) => {
@@ -192,7 +201,7 @@ function App() {
   else if (path === '/login' || (userId && !isDeviceAuthorized())) content = <Login onLogin={(r, n, a) => { setUserRole(r); setUserName(n); setUserAvatar(a || null); }} onNavigate={navigate} existingDevices={devices} onAddDevice={async d => { await supabase.from('trusted_devices').upsert({ id: d.id, user_id: d.userId, device_name: d.deviceName, device_type: d.deviceType, location: d.location, last_active: d.lastActive, status: d.status, browser: d.browser, is_primary: d.isPrimary }); fetchDevices(); }} onEmergencyReset={() => navigate('/reset-password')} />;
   else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN)) content = <EditorDashboard 
       articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} 
-      onToggleGlobalAds={e => { setGlobalAdsEnabled(e); handleSaveGlobalConfig(undefined, e); }} onUpdateWatermarkSettings={w => { setWatermarkSettings(w); handleSaveGlobalConfig(w); }} 
+      onToggleGlobalAds={handleToggleGlobalAds} onUpdateWatermarkSettings={w => { setWatermarkSettings(w); handleSaveGlobalConfig(w); }} 
       onUpdatePage={p => supabase.from('epaper_pages').update({ date: p.date, page_number: p.pageNumber }).eq('id', p.id).then(() => fetchData(true))} 
       onAddPage={p => supabase.from('epaper_pages').insert({ id: p.id, date: p.date, page_number: p.pageNumber, image_url: p.imageUrl, user_id: userId }).then(() => fetchData(true))} 
       onDeletePage={id => supabase.from('epaper_pages').delete().eq('id', id).then(() => fetchData(true))} 
