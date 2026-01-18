@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ClassifiedAd } from '../types';
+import { ClassifiedAd, Advertisement } from '../types';
 import { MapPin, Phone, Tag, Clock, DollarSign, Filter, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import AdvertisementBanner from '../components/Advertisement';
@@ -8,9 +8,11 @@ import AdvertisementBanner from '../components/Advertisement';
 interface ClassifiedsHomeProps {
   classifieds: ClassifiedAd[];
   adCategories: string[];
+  advertisements: Advertisement[];
+  globalAdsEnabled: boolean;
 }
 
-const ClassifiedsHome: React.FC<ClassifiedsHomeProps> = ({ classifieds, adCategories }) => {
+const ClassifiedsHome: React.FC<ClassifiedsHomeProps> = ({ classifieds, adCategories, advertisements, globalAdsEnabled }) => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -47,13 +49,14 @@ const ClassifiedsHome: React.FC<ClassifiedsHomeProps> = ({ classifieds, adCatego
 
       <div className="max-w-7xl mx-auto px-4">
         
-        {/* Banner Ad */}
-        {/* We need global ad state here, assuming it's available via props or context in a real app. 
-            For now, mocking globalAdsEnabled as true as it's not passed directly to this component in App.tsx yet. 
-            Ideally, update App.tsx to pass advertisements and globalAdsEnabled. 
-            I'll add a check for window props if not passed, or just render it assuming parent handles visibility via data. */}
-        {/* NOTE: App.tsx doesn't pass ads to ClassifiedsHome yet. I need to rely on the parent updating App.tsx as well or update App.tsx in this batch. */}
-        {/* Since I can only return changed files, I will assume App.tsx is updated to pass these props. */}
+        {/* Banner Ad for Classifieds Section */}
+        <AdvertisementBanner 
+            ads={advertisements} 
+            size="LEADERBOARD" 
+            placement="CLASSIFIEDS"
+            globalAdsEnabled={globalAdsEnabled}
+            className="mb-8"
+        />
         
         {/* Controls */}
         <div className="flex flex-col md:flex-row gap-6 mb-10 items-center justify-between">

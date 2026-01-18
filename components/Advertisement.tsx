@@ -24,11 +24,18 @@ const AdvertisementBanner: React.FC<AdvertisementProps> = ({ ads, size, placemen
       if (slotSize === 'RECTANGLE' && ad.size === 'RECTANGLE') return true;
 
       // 3. Desktop Compatibility Fallbacks
-      // Allow LEADERBOARD (728x90) in BILLBOARD (970x250)
+      // Allow LEADERBOARD (728x90) in BILLBOARD (970x250) - Fits easily
       if (slotSize === 'BILLBOARD' && ad.size === 'LEADERBOARD') return true;
       
+      // Allow BILLBOARD (970x250) in LEADERBOARD (728x90) - Scale down or overflow logic handled by container usually, 
+      // but ensures the ad is visible rather than hidden if user misconfigures.
+      if (slotSize === 'LEADERBOARD' && ad.size === 'BILLBOARD') return true;
+
+      // Allow RECTANGLE (300x250) in HALF_PAGE (300x600) - Stack vertically or center
+      if (slotSize === 'HALF_PAGE' && ad.size === 'RECTANGLE') return true;
+      
       // 4. Mobile Compatibility
-      // Allow MOBILE_BANNER (320x50) in bigger mobile slots if we had them, or RECTANGLE slots on mobile
+      // Allow MOBILE_BANNER (320x50) in RECTANGLE slots (300x250) - Fits easily
       if (slotSize === 'RECTANGLE' && ad.size === 'MOBILE_BANNER') return true;
 
       return false;
