@@ -56,6 +56,7 @@ export interface Article {
   authorAvatar?: string; // New field for author profile picture
   content: string; // Markdown or plain text
   categories: string[]; // Changed from single category to array
+  tags?: string[]; // Array of tags
   imageUrl: string;
   publishedAt: string;
   status: ArticleStatus;

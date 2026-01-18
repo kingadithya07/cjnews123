@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement, ActivityLog } from '../types';
 import { 
@@ -78,6 +77,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const [modalContent, setModalContent] = useState('');
   const [modalAuthor, setModalAuthor] = useState('Editor');
   const [modalCategories, setModalCategories] = useState<string[]>([]);
+  const [modalTags, setModalTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [modalStatus, setModalStatus] = useState<ArticleStatus>(ArticleStatus.PUBLISHED);
   const [modalIsFeatured, setModalIsFeatured] = useState(false);
@@ -272,11 +273,11 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setModalPublishedAt(new Date().toISOString()); setShowArticleModal(true);
+      setEditArticleId(null); setModalTitle(''); setModalEnglishTitle(''); setModalSubline(''); setModalContent(''); setModalAuthor(userName || 'Editor'); setModalCategories([categories[0] || 'General']); setModalTags([]); setTagInput(''); setModalImageUrl(''); setModalStatus(ArticleStatus.PUBLISHED); setModalIsFeatured(false); setModalPublishedAt(new Date().toISOString()); setShowArticleModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setModalPublishedAt(article.publishedAt); setShowArticleModal(true);
+      setEditArticleId(article.id); setModalTitle(article.title); setModalEnglishTitle(article.englishTitle || ''); setModalSubline(article.subline || ''); setModalContent(article.content); setModalAuthor(article.author); setModalCategories(article.categories); setModalTags(article.tags || []); setTagInput(''); setModalImageUrl(article.imageUrl); setModalStatus(article.status); setModalIsFeatured(article.isFeatured || false); setModalPublishedAt(article.publishedAt); setShowArticleModal(true);
   };
 
   const handleTranslateTitle = async () => {
@@ -310,6 +311,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           author: modalAuthor,
           content: modalContent,
           categories: modalCategories.length > 0 ? modalCategories : ['General'],
+          tags: modalTags, // Pass tags
           imageUrl: modalImageUrl || 'https://picsum.photos/800/400',
           publishedAt: modalPublishedAt,
           status: modalStatus,
@@ -319,6 +321,26 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       };
       onSaveArticle(article);
       setShowArticleModal(false);
+  };
+
+  const handleAddTagToArticle = () => {
+      if (!tagInput.trim()) return;
+      const newTagValue = tagInput.trim();
+      if (!modalTags.includes(newTagValue)) {
+          setModalTags([...modalTags, newTagValue]);
+      }
+      setTagInput('');
+  };
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ',') {
+          e.preventDefault();
+          handleAddTagToArticle();
+      }
+  };
+
+  const removeArticleTag = (tagToRemove: string) => {
+      setModalTags(modalTags.filter(t => t !== tagToRemove));
   };
 
   const handleUploadPage = async () => {
@@ -511,7 +533,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                </button>
                            </div>
                        </div>
-                       
                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
                            {filteredPages.map(page => (
                                <div key={page.id} className="group relative bg-white rounded-lg shadow-sm border overflow-hidden">
@@ -594,7 +615,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               {isSavingTaxonomy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes
                           </button>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          {/* Categories */}
                           <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                               <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Categories</h3>
                               <div className="flex gap-2 mb-4">
@@ -609,6 +631,22 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                   ))}
                               </div>
                           </div>
+
+                          {/* Tags */}
+                          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Tag size={18}/> Tags</h3>
+                              <div className="flex gap-2 mb-4">
+                                  <input type="text" placeholder="New Tag" value={newTag} onChange={e => setNewTag(e.target.value)} className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black" />
+                                  <button onClick={() => { if(newTag && onAddTag) { onAddTag(newTag); setNewTag(''); } }} className="bg-news-black text-white p-2 rounded hover:bg-gray-800"><Plus size={18}/></button>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                  {tags.map(tag => (
+                                      <span key={tag} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs font-bold text-gray-700 flex items-center gap-2 group">
+                                          #{tag} <button onClick={() => { if(onDeleteTag) onDeleteTag(tag); }} className="text-gray-400 hover:text-red-500"><X size={12}/></button>
+                                      </span>
+                                  ))}
+                              </div>
+                          </div>
                       </div>
                   </div>
               )}
@@ -617,9 +655,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
               {activeTab === 'settings' && (
                   <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
+                      {/* ... Staff Invitation ... */}
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserPlus className="text-news-gold" /> Team Management</h2>
-                          
                           <div className="p-5 bg-gray-50 border border-gray-100 rounded-lg">
                               <h3 className="font-bold text-sm text-gray-900 mb-2">Generate Staff Invitation</h3>
                               <p className="text-xs text-gray-500 mb-4">
@@ -750,165 +788,51 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           {!isPrimaryDevice && (
                               <div className="absolute inset-0 bg-gray-50/50 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center">
                                   <ShieldAlert className="text-gray-400 mb-2" size={48} />
-                                  <h3 className="font-bold text-gray-800">Security Locked</h3>
+                                  <h3 className="font-bold text-gray-800">Profile Locked</h3>
                                   <p className="text-xs text-gray-500 mt-1 max-w-sm">
-                                      Sensitive actions like password resets and recovery are restricted to the <b>Primary Device</b> only.
+                                      Profile modifications are restricted to the <b>Primary Device</b> only.
                                   </p>
                               </div>
                           )}
-                          <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                              <Lock size={120} />
-                          </div>
-                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2 text-red-700">
-                              <ShieldCheck className="text-red-600" /> Master Security
-                          </h2>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-                              <div className="space-y-4">
-                                  <div>
-                                      <h3 className="font-bold text-gray-900 text-sm mb-1">Direct Password Update</h3>
-                                      <p className="text-xs text-gray-500 mb-4">Set a new master password for immediate access.</p>
-                                      <div className="relative">
-                                          <Key className="absolute left-3 top-3.5 text-gray-400" size={16} />
-                                          <input 
-                                              type={showPassword ? "text" : "password"} 
-                                              value={newPassword} 
-                                              onChange={e => setNewPassword(e.target.value)} 
-                                              className="w-full pl-10 pr-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all font-bold" 
-                                              placeholder="Enter New Master Password" 
-                                              disabled={!isPrimaryDevice}
-                                          />
-                                          <button 
-                                              onClick={() => setShowPassword(!showPassword)} 
-                                              className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
-                                              disabled={!isPrimaryDevice}
-                                          >
-                                              {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
-                                          </button>
-                                      </div>
-                                  </div>
-                                  <button 
-                                      onClick={handleSaveSettings} 
-                                      disabled={isSavingSettings || !newPassword || !isPrimaryDevice} 
-                                      className="w-full bg-red-600 text-white py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-700 transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                      {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
-                                      Update Credentials
-                                  </button>
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2 text-red-600"><ShieldAlert /> Danger Zone</h2>
+                          <div className="p-4 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
+                              <div>
+                                  <h3 className="font-bold text-sm text-red-900">Reset Credentials</h3>
+                                  <p className="text-xs text-red-700 mt-1">Send a master password reset link to your email.</p>
                               </div>
-
-                              <div className="bg-red-50 p-6 rounded-xl border border-red-100 flex flex-col justify-center">
-                                  <h3 className="font-bold text-red-900 text-sm mb-2">Recovery Protocol</h3>
-                                  <p className="text-xs text-red-700 mb-4">
-                                      If the direct update fails due to security timeouts, trigger a system-wide reset link to your registered email.
-                                  </p>
-                                  <button 
-                                      onClick={handleTriggerResetEmail}
-                                      disabled={!isPrimaryDevice}
-                                      className="w-full bg-white text-red-600 border border-red-200 py-3 rounded-lg font-bold uppercase text-[10px] tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                      <Mail size={16} /> Send Reset Link
-                                  </button>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
-                          <div className="flex justify-between items-center mb-6">
-                              <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
-                              <div className="flex items-center gap-2">
-                                  <button onClick={handleForceSaveDevices} disabled={isSavingDevices} className="bg-news-black text-white p-2 rounded hover:bg-gray-800 transition-colors" title="Force Save Globally">
-                                      {isSavingDevices ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
-                                  </button>
-                                  <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
-                                      {devices.filter(d => d.status === 'approved').length} Active
-                                  </span>
-                              </div>
-                          </div>
-                          
-                          <div className="space-y-4">
-                              {devices.length === 0 && <p className="text-gray-400 text-sm italic">No devices registered.</p>}
-                              {devices.map(device => {
-                                  let Icon = Monitor;
-                                  if (device.deviceType === 'mobile') Icon = Smartphone;
-                                  if (device.deviceType === 'tablet') Icon = Tablet;
-                                  
-                                  return (
-                                      <div key={device.id} className="flex flex-col md:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 gap-4">
-                                          <div className="flex items-center gap-4 w-full md:w-auto">
-                                              <div className={`p-3 rounded-full ${device.isCurrent ? 'bg-news-black text-news-gold' : 'bg-white border text-gray-500'}`}>
-                                                  <Icon size={20} />
-                                              </div>
-                                              <div className="flex-1 min-w-0">
-                                                  <div className="flex items-center gap-2 flex-wrap">
-                                                      <span className="font-bold text-sm text-gray-900 truncate">{device.deviceName}</span>
-                                                      {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">THIS DEVICE</span>}
-                                                      {device.isPrimary && <span className="bg-green-100 text-green-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PRIMARY</span>}
-                                                      {device.status === 'pending' && <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PENDING</span>}
-                                                  </div>
-                                                  <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 items-center leading-tight">
-                                                      <span className="whitespace-nowrap">{device.location}</span>
-                                                      <span className="hidden md:inline">•</span>
-                                                      <span className="whitespace-nowrap">{device.browser}</span>
-                                                      <span className="hidden md:inline">•</span>
-                                                      <span className="whitespace-nowrap">{device.lastActive}</span>
-                                                  </div>
-                                              </div>
-                                          </div>
-                                          <div className="w-full md:w-auto flex justify-end gap-2 border-t border-gray-200 md:border-t-0 pt-2 md:pt-0 mt-2 md:mt-0">
-                                              {isPrimaryDevice && device.status === 'approved' && !device.isCurrent && onRevokeDevice && (
-                                                  <button 
-                                                    onClick={() => onRevokeDevice(device.id)} 
-                                                    className="flex items-center gap-2 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded transition-colors text-xs font-bold uppercase"
-                                                    title="Delete Device"
-                                                  >
-                                                      <Trash2 size={16}/> <span className="md:hidden">Remove</span>
-                                                  </button>
-                                              )}
-                                          </div>
-                                      </div>
-                                  );
-                              })}
+                              <button onClick={handleTriggerResetEmail} className="bg-white border border-red-200 text-red-600 px-4 py-2 rounded text-xs font-bold uppercase hover:bg-red-50">
+                                  Trigger Reset
+                              </button>
                           </div>
                       </div>
                   </div>
               )}
            </div>
       </div>
-      
+
       {showArticleModal && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
-             <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
                 <h3 className="font-bold text-gray-900">{editArticleId ? 'Edit Article' : 'New Article'}</h3>
                 <button onClick={() => setShowArticleModal(false)} className="p-2 -mr-2 text-gray-500 hover:text-black"><X size={20}/></button>
             </div>
-             <div className="p-4 md:p-6 overflow-y-auto space-y-4">
+            <div className="p-6 overflow-y-auto space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">
-                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Article Headline"/>
+                        <input type="text" value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Headline"/>
                         
-                         <div className="flex items-center gap-2">
-                            <input 
-                                type="text" 
-                                value={modalEnglishTitle} 
-                                onChange={(e) => setModalEnglishTitle(e.target.value)} 
-                                className="w-full p-2 border rounded text-sm placeholder:text-gray-300" 
-                                placeholder="English Title (for SEO & URL)" 
-                            />
-                            <button 
-                                onClick={handleTranslateTitle} 
-                                disabled={isTranslating} 
-                                className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors flex items-center gap-1" 
-                                title="Auto Translate (Requires API Key)"
-                            >
+                        <div className="flex items-center gap-2">
+                            <input type="text" value={modalEnglishTitle} onChange={(e) => setModalEnglishTitle(e.target.value)} className="w-full p-2 border rounded text-sm placeholder:text-gray-300" placeholder="English Title (SEO)" />
+                            <button onClick={handleTranslateTitle} disabled={isTranslating} className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors flex items-center gap-1" title="Auto Translate (Requires API Key)">
                                 {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                             </button>
                         </div>
 
-                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
+                        <textarea value={modalSubline} onChange={(e) => setModalSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Subline..."></textarea>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <input type="text" value={modalAuthor} onChange={(e) => setModalAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author"/>
                             <button onClick={() => setShowCategorySelector(true)} className="w-full p-2 border rounded text-sm bg-white text-left flex justify-between items-center">
                                 <span className={modalCategories.length === 0 ? 'text-gray-400' : ''}>
                                     {modalCategories.length === 0 ? 'Select Categories' : `${modalCategories.length} Selected`}
@@ -916,193 +840,183 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                 <ChevronDown size={14} />
                             </button>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                             <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</label>
-                                <select 
-                                    value={modalStatus} 
-                                    onChange={(e) => setModalStatus(e.target.value as ArticleStatus)} 
-                                    className="w-full p-2 border rounded text-sm bg-white"
-                                >
-                                    <option value={ArticleStatus.DRAFT}>Draft</option>
-                                    <option value={ArticleStatus.PENDING}>Pending Review</option>
-                                    <option value={ArticleStatus.PUBLISHED}>Published</option>
-                                </select>
-                             </div>
-                             <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tags</label>
-                                <input type="text" placeholder="Add tags..." className="w-full p-2 border rounded text-sm" />
-                             </div>
+
+                        {/* Tags Input */}
+                        <div className="flex items-center gap-2 border rounded p-2 bg-white flex-wrap">
+                            {modalTags.map(tag => (
+                                <span key={tag} className="bg-gray-100 text-gray-700 text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+                                    #{tag} <button onClick={() => removeArticleTag(tag)} className="hover:text-red-500"><X size={10}/></button>
+                                </span>
+                            ))}
+                            <input 
+                                type="text" 
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={handleTagInputKeyDown}
+                                className="flex-1 outline-none text-sm min-w-[100px]"
+                                placeholder="Add tag..." 
+                            />
                         </div>
                     </div>
-                     <div className="md:col-span-1">
-                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-[200px] flex flex-col justify-between">
+                    <div className="md:col-span-1 space-y-4">
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center h-[200px] flex flex-col justify-center relative overflow-hidden">
                             {modalImageUrl ? (
-                                <div className="relative group w-full h-full">
-                                    <img src={modalImageUrl} className="w-full h-full object-cover rounded shadow" />
-                                    <button onClick={() => setModalImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
+                                <img src={modalImageUrl} className="w-full h-full object-cover rounded" />
                             ) : (
-                                <div className="py-4 text-gray-400 flex flex-col items-center justify-center h-full">
+                                <div className="text-gray-400">
                                     <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
                                     <p className="text-xs font-bold uppercase">Featured Image</p>
                                 </div>
                             )}
                         </div>
-                        <div className="mt-2">
-                            <button type="button" onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                                <Library size={14} />
-                                <span>Select from Gallery</span>
-                            </button>
-                        </div>
-                        <div className="mt-4 space-y-2">
-                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
-                                <label className="flex items-center gap-2 cursor-pointer w-full">
-                                    <input type="checkbox" checked={modalIsFeatured} onChange={e => setModalIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
-                                    <div className="flex items-center gap-2">
-                                        <Star size={12} className={modalIsFeatured ? "text-news-accent fill-news-accent" : "text-gray-400"} />
-                                        <span className="text-xs font-bold uppercase">Featured</span>
-                                    </div>
-                                </label>
+                        <button onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2">
+                            <Library size={14} /> Select from Gallery
+                        </button>
+                        
+                        <div className="bg-gray-50 p-3 rounded border border-gray-100 space-y-3">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</label>
+                                <select value={modalStatus} onChange={(e) => setModalStatus(e.target.value as ArticleStatus)} className="w-full p-2 border rounded text-sm bg-white">
+                                    <option value={ArticleStatus.DRAFT}>Draft</option>
+                                    <option value={ArticleStatus.PENDING}>Pending</option>
+                                    <option value={ArticleStatus.PUBLISHED}>Published</option>
+                                </select>
                             </div>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Publish Date</label>
+                                <input type="datetime-local" value={modalPublishedAt.substring(0, 16)} onChange={(e) => setModalPublishedAt(new Date(e.target.value).toISOString())} className="w-full p-2 border rounded text-sm bg-white" />
+                            </div>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={modalIsFeatured} onChange={e => setModalIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
+                                <span className="text-xs font-bold uppercase">Featured Article</span>
+                            </label>
                         </div>
                     </div>
                 </div>
-                 <div className="relative">
-                  <RichTextEditor 
-                    content={modalContent} 
-                    onChange={setModalContent} 
-                    className="min-h-[300px] md:min-h-[400px]" 
-                    onImageUpload={handleContentImageUpload} 
-                    userId={userId}
-                    uploadFolder="articles"
-                  />
-                </div>
-             </div>
-             <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
-                <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold text-gray-600">Cancel</button>
-                <button onClick={handleSaveArticleInternal} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">
-                  Save Article
-                </button>
-             </div>
+                <RichTextEditor content={modalContent} onChange={setModalContent} onImageUpload={handleContentImageUpload} className="min-h-[400px]" userId={userId} uploadFolder="articles" />
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
+              <button onClick={() => setShowArticleModal(false)} className="px-5 py-2 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded">Cancel</button>
+              <button onClick={handleSaveArticleInternal} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">
+                  {editArticleId ? 'Update Article' : 'Publish Article'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {showAddPageModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-             <div className="bg-white rounded-lg w-full max-w-md p-6 animate-in zoom-in-95">
-                 <h3 className="font-bold text-lg mb-4">Upload E-Paper Page</h3>
-                 <div className="space-y-4">
-                     <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full p-2 border rounded" />
-                     <input type="number" min="1" value={newPageNumber} onChange={e => setNewPageNumber(parseInt(e.target.value))} className="w-full p-2 border rounded" placeholder="Page Number" />
-                     
-                     <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center">
-                         {newPageImage ? (
-                             <img src={newPageImage} className="max-h-48 mx-auto object-contain mb-2" />
-                         ) : <p className="text-gray-400 text-xs">No image selected</p>}
-                         <label className="block mt-2">
-                             <span className="bg-gray-200 px-3 py-1 rounded text-xs font-bold cursor-pointer">Choose Image</span>
-                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, `epaper/${newPageDate}`)} />
-                         </label>
-                         {isPageUploading && <p className="text-xs text-blue-500 mt-2 flex items-center justify-center gap-1"><Loader2 size={12} className="animate-spin" /> Uploading...</p>}
-                     </div>
-
-                     <div className="flex justify-end gap-2 pt-2">
-                         <button onClick={() => setShowAddPageModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
-                         <button onClick={handleUploadPage} disabled={isPageUploading} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold disabled:opacity-50">Upload</button>
-                     </div>
-                 </div>
-             </div>
-        </div>
+          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg w-full max-w-md p-6">
+                  <h3 className="font-bold text-lg mb-4">Upload E-Paper Page</h3>
+                  <div className="space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Edition Date</label>
+                          <input type="date" value={newPageDate} onChange={e => setNewPageDate(e.target.value)} className="w-full p-2 border rounded" />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Page Number</label>
+                          <input type="number" value={newPageNumber} onChange={e => setNewPageNumber(parseInt(e.target.value))} className="w-full p-2 border rounded" />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Page Image</label>
+                          <div className="flex gap-2">
+                              <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setNewPageImage, setIsPageUploading, 'epaper')} className="w-full text-sm" disabled={isPageUploading} />
+                              {isPageUploading && <Loader2 size={20} className="animate-spin text-news-black" />}
+                          </div>
+                      </div>
+                      {newPageImage && <img src={newPageImage} className="w-full h-40 object-contain bg-gray-100 rounded border" />}
+                      <button onClick={handleUploadPage} disabled={isPageUploading} className="w-full bg-news-black text-white py-3 rounded font-bold uppercase text-xs">
+                          {isPageUploading ? 'Uploading...' : 'Add Page'}
+                      </button>
+                      <button onClick={() => setShowAddPageModal(false)} className="w-full text-gray-500 py-2 text-xs font-bold uppercase">Cancel</button>
+                  </div>
+              </div>
+          </div>
       )}
 
       {showAdModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-             <div className="bg-white rounded-lg w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-                 <h3 className="font-bold text-lg mb-4">{editingAdId ? 'Edit Advertisement' : 'New Advertisement'}</h3>
-                 <div className="space-y-4">
-                     <input type="text" placeholder="Ad Title (Internal Ref)" value={newAd.title || ''} onChange={e => setNewAd({...newAd, title: e.target.value})} className="w-full p-2 border rounded" />
-                     <input type="text" placeholder="Target Link URL (Optional)" value={newAd.linkUrl || ''} onChange={e => setNewAd({...newAd, linkUrl: e.target.value})} className="w-full p-2 border rounded" />
-                     
-                     <div className="grid grid-cols-2 gap-4">
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 block mb-1">Size</label>
-                             <select value={newAd.size} onChange={e => setNewAd({...newAd, size: e.target.value as AdSize})} className="w-full p-2 border rounded text-sm">
-                                 <option value="BILLBOARD">Billboard (970x250)</option>
-                                 <option value="LEADERBOARD">Leaderboard (728x90)</option>
-                                 <option value="RECTANGLE">Rectangle (300x250)</option>
-                                 <option value="HALF_PAGE">Half Page (300x600)</option>
-                                 <option value="SKYSCRAPER">Skyscraper (160x600)</option>
-                                 <option value="MOBILE_BANNER">Mobile Banner (320x50)</option>
-                             </select>
-                         </div>
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 block mb-1">Placement</label>
-                             <select value={newAd.placement} onChange={e => setNewAd({...newAd, placement: e.target.value as AdPlacement})} className="w-full p-2 border rounded text-sm">
-                                 <option value="GLOBAL">Global (All Pages)</option>
-                                 <option value="HOME">Home Page</option>
-                                 <option value="ARTICLE">Article Pages</option>
-                                 <option value="EPAPER">E-Paper</option>
-                                 <option value="CATEGORY">Specific Category</option>
-                             </select>
-                         </div>
-                     </div>
+          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg w-full max-w-lg p-6">
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-lg">{editingAdId ? 'Edit Banner' : 'New Banner'}</h3>
+                      <button onClick={() => setShowAdModal(false)}><X size={20}/></button>
+                  </div>
+                  <div className="space-y-4">
+                      <input type="text" placeholder="Ad Title (Internal Ref)" value={newAd.title || ''} onChange={e => setNewAd({...newAd, title: e.target.value})} className="w-full p-2 border rounded" />
+                      <div className="flex gap-4">
+                          <div className="flex-1">
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Size</label>
+                              <select value={newAd.size} onChange={e => setNewAd({...newAd, size: e.target.value as AdSize})} className="w-full p-2 border rounded bg-white">
+                                  <option value="BILLBOARD">Billboard (970x250)</option>
+                                  <option value="LEADERBOARD">Leaderboard (728x90)</option>
+                                  <option value="RECTANGLE">Rectangle (300x250)</option>
+                                  <option value="HALF_PAGE">Half Page (300x600)</option>
+                                  <option value="SKYSCRAPER">Skyscraper (160x600)</option>
+                                  <option value="MOBILE_BANNER">Mobile Banner (320x50)</option>
+                              </select>
+                          </div>
+                          <div className="flex-1">
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Placement</label>
+                              <select value={newAd.placement} onChange={e => setNewAd({...newAd, placement: e.target.value as AdPlacement})} className="w-full p-2 border rounded bg-white">
+                                  <option value="GLOBAL">Global (All Pages)</option>
+                                  <option value="HOME">Home Only</option>
+                                  <option value="ARTICLE">Article Pages</option>
+                                  <option value="EPAPER">E-Paper</option>
+                                  <option value="CATEGORY">Specific Category</option>
+                              </select>
+                          </div>
+                      </div>
+                      {newAd.placement === 'CATEGORY' && (
+                          <select value={newAd.targetCategory || ''} onChange={e => setNewAd({...newAd, targetCategory: e.target.value})} className="w-full p-2 border rounded bg-white">
+                              <option value="">Select Category...</option>
+                              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                      )}
+                      
+                      <div className="border-2 border-dashed p-4 rounded text-center">
+                          {newAd.imageUrl ? (
+                              <img src={newAd.imageUrl} className="max-h-32 mx-auto" />
+                          ) : <p className="text-gray-400 text-sm">No image selected</p>}
+                          <button onClick={() => setShowAdImageGallery(true)} className="mt-2 text-xs bg-gray-100 px-3 py-1 rounded border hover:bg-gray-200">Select Image</button>
+                      </div>
 
-                     {newAd.placement === 'CATEGORY' && (
-                         <select value={newAd.targetCategory} onChange={e => setNewAd({...newAd, targetCategory: e.target.value})} className="w-full p-2 border rounded text-sm">
-                             <option value="">Select Category...</option>
-                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                         </select>
-                     )}
+                      <input type="text" placeholder="Destination URL (Optional)" value={newAd.linkUrl || ''} onChange={e => setNewAd({...newAd, linkUrl: e.target.value})} className="w-full p-2 border rounded" />
+                      
+                      <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={newAd.isActive} onChange={e => setNewAd({...newAd, isActive: e.target.checked})} className="w-4 h-4" />
+                          <span className="text-sm font-bold">Active</span>
+                      </label>
 
-                     <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative">
-                         {newAd.imageUrl ? (
-                             <img src={newAd.imageUrl} className="max-h-32 mx-auto object-contain mb-2" />
-                         ) : <p className="text-gray-400 text-xs">No banner image</p>}
-                         <button onClick={() => setShowAdImageGallery(true)} className="bg-gray-200 px-3 py-1 rounded text-xs font-bold">Select from Gallery</button>
-                     </div>
-
-                     <div className="flex items-center gap-2">
-                         <input type="checkbox" checked={newAd.isActive} onChange={e => setNewAd({...newAd, isActive: e.target.checked})} id="adActive" />
-                         <label htmlFor="adActive" className="text-sm font-bold">Active</label>
-                     </div>
-
-                     <div className="flex justify-end gap-2 pt-2">
-                         <button onClick={() => setShowAdModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
-                         <button onClick={handleSaveAd} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Save Ad</button>
-                     </div>
-                 </div>
-             </div>
-        </div>
+                      <button onClick={handleSaveAd} className="w-full bg-news-black text-white py-3 rounded font-bold uppercase text-xs">Save Banner</button>
+                  </div>
+              </div>
+          </div>
       )}
 
       {showClassifiedModal && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-             <div className="bg-white rounded-lg w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-                 <h3 className="font-bold text-lg mb-4">New Classified Ad</h3>
-                 <div className="space-y-4">
-                     <input type="text" placeholder="Title" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-2 border rounded" />
-                     <select value={newClassified.category} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="w-full p-2 border rounded">
-                         <option value="">Select Category...</option>
-                         {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                     </select>
-                     <textarea placeholder="Content" value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-2 border rounded h-24"></textarea>
-                     <input type="text" placeholder="Price (Optional)" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="w-full p-2 border rounded" />
-                     <input type="text" placeholder="Location (Optional)" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="w-full p-2 border rounded" />
-                     <input type="text" placeholder="Contact Info (Phone/Email)" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="w-full p-2 border rounded" />
-                     
-                     <div className="flex justify-end gap-2 pt-2">
-                         <button onClick={() => setShowClassifiedModal(false)} className="px-4 py-2 text-gray-600 text-sm font-bold">Cancel</button>
-                         <button onClick={handleAddClassified} className="px-4 py-2 bg-news-black text-white rounded text-sm font-bold">Post Ad</button>
-                     </div>
-                 </div>
-             </div>
-        </div>
+          <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg w-full max-w-lg p-6">
+                  <h3 className="font-bold text-lg mb-4">New Classified Ad</h3>
+                  <div className="space-y-4">
+                      <input type="text" placeholder="Title" value={newClassified.title || ''} onChange={e => setNewClassified({...newClassified, title: e.target.value})} className="w-full p-2 border rounded" />
+                      <div className="flex gap-4">
+                          <select value={newClassified.category || ''} onChange={e => setNewClassified({...newClassified, category: e.target.value})} className="flex-1 p-2 border rounded bg-white">
+                              {adCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                          <input type="text" placeholder="Price (e.g. $50)" value={newClassified.price || ''} onChange={e => setNewClassified({...newClassified, price: e.target.value})} className="flex-1 p-2 border rounded" />
+                      </div>
+                      <textarea placeholder="Description" value={newClassified.content || ''} onChange={e => setNewClassified({...newClassified, content: e.target.value})} className="w-full p-2 border rounded h-24"></textarea>
+                      <div className="flex gap-4">
+                          <input type="text" placeholder="Location" value={newClassified.location || ''} onChange={e => setNewClassified({...newClassified, location: e.target.value})} className="flex-1 p-2 border rounded" />
+                          <input type="text" placeholder="Contact Info" value={newClassified.contactInfo || ''} onChange={e => setNewClassified({...newClassified, contactInfo: e.target.value})} className="flex-1 p-2 border rounded" />
+                      </div>
+                      <button onClick={handleAddClassified} className="w-full bg-news-black text-white py-3 rounded font-bold uppercase text-xs">Post Classified</button>
+                      <button onClick={() => setShowClassifiedModal(false)} className="w-full text-gray-500 py-2 text-xs font-bold uppercase">Cancel</button>
+                  </div>
+              </div>
+          </div>
       )}
-
     </div>
     </>
   );

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -233,6 +232,7 @@ function App() {
           id: a.id, userId: a.user_id, slug: a.slug, title: a.title, englishTitle: a.english_title || undefined, subline: a.subline,
           author: a.author, authorAvatar: a.authorAvatar || a.author_avatar, content: a.content,
           categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
+          tags: a.tags ? (Array.isArray(a.tags) ? a.tags : a.tags.split(',').map((s: string) => s.trim()).filter(Boolean)) : [],
           imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
           publishedAt: a.publishedAt || a.published_at || new Date().toISOString(),
           status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
@@ -381,13 +381,137 @@ function App() {
   const handleLogin = (role: UserRole, name: string, avatar?: string) => { setUserRole(role); setUserName(name); if (avatar) setUserAvatar(avatar); };
   
   // (Other handlers for save/delete omitted for brevity but passed to components)
-  const handleSaveGlobalConfig = async (w?: WatermarkSettings) => { /* ... */ };
-  const handleToggleGlobalAds = async (e: boolean) => { /* ... */ };
-  const handleSaveArticle = async (a: Article) => { /* ... */ };
-  const handleDeleteArticle = async (id: string) => { /* ... */ };
-  const handleAddPage = async (p: EPaperPage) => { /* ... */ };
-  const handleDeletePage = async (id: string) => { /* ... */ };
-  const handleUpdatePage = async (p: EPaperPage) => { /* ... */ };
+  const handleSaveGlobalConfig = async (w?: WatermarkSettings) => { 
+      const watermarkToSave = w || watermarkSettings;
+      if (w) setWatermarkSettings(w);
+
+      const payload = {
+          id: GLOBAL_SETTINGS_ID,
+          title: 'SYSTEM_CONFIG',
+          subline: 'Global System Configuration',
+          content: JSON.stringify({ 
+              watermark: watermarkToSave,
+              categories: categories,
+              tags: tags,
+              adCategories: adCategories,
+              adsEnabled: globalAdsEnabled
+          }),
+          author: 'SYSTEM',
+          category: 'Config',
+          imageUrl: 'https://placehold.co/100?text=Config',
+          image_url: 'https://placehold.co/100?text=Config',
+          publishedAt: new Date().toISOString(),
+          published_at: new Date().toISOString(),
+          status: ArticleStatus.PUBLISHED, 
+          user_id: userId,
+          summary: 'Internal system configuration'
+      };
+
+      const { error } = await supabase.from('articles').upsert(payload);
+      if (error) {
+          alert(`Failed to save settings globally: ${error.message}`);
+      } else {
+          fetchData(true);
+      }
+  };
+  
+  const handleToggleGlobalAds = async (e: boolean) => { 
+      setGlobalAdsEnabled(e);
+      handleSaveGlobalConfig(); // Reuse the same save function to persist everything
+  };
+
+  const handleSaveArticle = async (article: Article) => {
+    // Generate slug from English title if available (better for SEO), otherwise fallback to regular title
+    const slugBase = article.englishTitle || article.title;
+    const articleSlug = article.slug || createSlug(slugBase);
+    
+    const articleWithSlug = { ...article, slug: articleSlug };
+
+    setArticles(prev => {
+        const exists = prev.find(a => a.id === article.id);
+        return exists ? prev.map(a => a.id === article.id ? articleWithSlug : a) : [articleWithSlug, ...prev];
+    });
+
+    const payload = {
+        id: article.id,
+        title: article.title,
+        english_title: article.englishTitle, // Save English title
+        slug: articleSlug,
+        subline: article.subline,
+        author: article.author,
+        author_avatar: article.authorAvatar,
+        content: article.content,
+        category: article.categories.join(', '), 
+        imageUrl: article.imageUrl,
+        image_url: article.imageUrl,
+        publishedAt: article.publishedAt,
+        published_at: article.publishedAt,
+        status: article.status,
+        user_id: userId,
+        is_featured: article.isFeatured,
+        is_editors_choice: article.isEditorsChoice
+    };
+
+    const { error } = await supabase.from('articles').upsert(payload);
+    if (error) {
+      alert("Failed to save article: " + error.message);
+      fetchData(true); 
+    } else {
+        // Log Edit Action
+        handleLogActivity('EDIT', `Article: ${article.title.substring(0, 20)}...`);
+    }
+  };
+  
+  const handleDeleteArticle = async (id: string) => { 
+      const previousArticles = [...articles];
+      setArticles(prev => prev.filter(a => a.id !== id));
+      try {
+          const { error } = await supabase.from('articles').delete().eq('id', id);
+          if (error) throw error;
+      } catch (error: any) {
+          alert(`Failed to delete: ${error.message}`);
+          setArticles(previousArticles);
+          fetchData(true);
+      }
+  };
+  
+  const handleAddPage = async (p: EPaperPage) => { 
+    setEPaperPages(prev => [p, ...prev]);
+    const payload = {
+      id: p.id,
+      date: p.date,
+      pageNumber: p.pageNumber,
+      page_number: p.pageNumber,
+      imageUrl: p.imageUrl,
+      image_url: p.imageUrl,
+      user_id: userId
+    };
+    const { error } = await supabase.from('epaper_pages').insert(payload);
+    if (error) {
+      alert("Backend Sync Error: " + error.message);
+      fetchData(true); 
+    }
+  };
+  
+  const handleDeletePage = async (id: string) => { 
+    const prevPages = [...ePaperPages];
+    setEPaperPages(prev => prev.filter(p => p.id !== id));
+    const { error } = await supabase.from('epaper_pages').delete().eq('id', id);
+    if (error) {
+      alert("Failed to delete page: " + error.message);
+      setEPaperPages(prevPages);
+    }
+  };
+  
+  const handleUpdatePage = async (page: EPaperPage) => { 
+    const { error } = await supabase.from('epaper_pages').update({
+        date: page.date,
+        pageNumber: page.pageNumber,
+        page_number: page.pageNumber
+    }).eq('id', page.id);
+    if (error) console.error("Page update error:", error.message);
+    fetchData(true); 
+  };
 
   const isDeviceAuthorized = () => {
     if (!userId) return false;
