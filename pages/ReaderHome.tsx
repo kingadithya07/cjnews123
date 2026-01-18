@@ -150,7 +150,11 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                   <div className="flex h-full transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
                       {sliderArticles.map((article) => (
                           <div key={article.id} className="w-full shrink-0 relative h-full bg-[#050505]">
-                              <img src={article.imageUrl} alt={article.title} className="absolute inset-0 w-full h-full object-contain z-10" />
+                              <img 
+                                src={article.imageUrl} 
+                                alt={article.title} 
+                                className="absolute inset-0 w-full h-full object-contain object-top md:object-center z-10" 
+                              />
                               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent px-4 pb-2 pt-20 md:p-10 md:pt-24 z-20">
                                   <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-2xl">
                                       <h2 className="text-lg md:text-3xl font-display font-black text-white leading-tight mb-1 md:mb-2 group-hover/title:text-news-gold transition-colors tracking-tight line-clamp-2 md:line-clamp-none">{article.title}</h2>
