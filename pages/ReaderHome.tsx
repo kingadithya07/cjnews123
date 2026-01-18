@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Article, EPaperPage, Advertisement } from '../types';
-import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, ArrowLeft, Newspaper, Calendar, X, Filter, Tag as TagIcon } from 'lucide-react';
+import { ArrowRight, TrendingUp, Clock, ChevronRight, ChevronLeft, MapPin, User, Star, ArrowLeft, Newspaper, Calendar, X, Filter, Tag as TagIcon, LayoutGrid } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from '../components/Link';
 import AdvertisementBanner from '../components/Advertisement';
@@ -23,28 +23,31 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
     return isValid(d) ? format(d, formatStr) : 'N/A';
   };
 
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [dateFilter, setDateFilter] = useState('');
+
+  // Articles for the current view (Home or Category)
   const displayArticles = selectedCategory 
     ? articles.filter(a => a.categories.includes(selectedCategory))
     : articles;
 
+  // Slider Logic
   const featuredCandidates = displayArticles.filter(a => a.isFeatured);
   const sliderArticles = featuredCandidates.length > 0 
       ? featuredCandidates.slice(0, 5) 
       : displayArticles.slice(0, 5);
 
   const sliderIds = new Set(sliderArticles.map(a => a.id));
+
+  // Trending Logic
   const trendingArticles = displayArticles.filter(a => !sliderIds.has(a.id)).slice(0, 6);
   const trendingIds = new Set(trendingArticles.map(a => a.id));
-  const mainFeedArticles = displayArticles.filter(a => !sliderIds.has(a.id) && !trendingIds.has(a.id)).slice(0, 14);
-  const homeCategorySections = !selectedCategory ? categories.filter(c => c !== 'General') : [];
+
   const latestEPaper = ePaperPages.find(p => p.pageNumber === 1) || ePaperPages[0];
 
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [dateFilter, setDateFilter] = useState('');
-
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || sliderArticles.length === 0) return;
     const timer = setInterval(() => {
         setCurrentSlide((prev) => (prev + 1) % (sliderArticles.length || 1));
     }, 6000);
@@ -61,6 +64,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       setCurrentSlide((prev) => (prev - 1 + sliderArticles.length) % sliderArticles.length);
   };
 
+  // --- CATEGORY VIEW ---
   if (selectedCategory) {
       const filteredCategoryArticles = dateFilter 
           ? displayArticles.filter(a => a.publishedAt.startsWith(dateFilter))
@@ -99,7 +103,6 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                         </div>
                         <div className="p-5">
                             <h3 className="font-serif font-bold text-lg leading-snug text-gray-900 group-hover:text-news-accent transition-colors mb-2">{article.title}</h3>
-                            {/* --- CARD TAGS --- */}
                             {article.tags && article.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mb-3">
                                     {article.tags.slice(0, 3).map(tag => (
@@ -118,10 +121,12 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
       );
   }
 
+  // --- HOMEPAGE VIEW ---
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+    <div className="space-y-12 animate-in fade-in duration-500 pb-12">
       <AdvertisementBanner ads={advertisements} size="MOBILE_BANNER" placement="HOME" globalAdsEnabled={globalAdsEnabled} />
 
+      {/* Hero Section */}
       <div className="max-w-7xl mx-auto -mx-4 md:mx-0">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[560px]">
               <div className="lg:col-span-2 w-full h-[250px] sm:h-[350px] md:h-[500px] lg:h-full relative rounded-none md:rounded-2xl overflow-hidden shadow-2xl bg-news-black group border-y md:border border-gray-800" onMouseEnter={() => setIsPaused(true)} onMouseLeave={() => setIsPaused(false)}>
@@ -144,8 +149,12 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                           </div>
                       ))}
                   </div>
-                  <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronLeft size={20} /></button>
-                  <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
+                  {sliderArticles.length > 1 && (
+                    <>
+                      <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronLeft size={20} /></button>
+                      <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
+                    </>
+                  )}
               </div>
               <div className="lg:col-span-1 hidden lg:flex flex-col h-full bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden relative">
                   {latestEPaper && (
@@ -162,13 +171,14 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
           </div>
       </div>
 
+      {/* Trending Row */}
       <div className="max-w-7xl mx-auto px-4 md:px-0">
            <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-3">
                <TrendingUp className="text-news-accent" size={20}/>
                <h3 className="text-lg font-black uppercase tracking-widest text-gray-900">Trending Now</h3>
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {trendingArticles.map((article, idx) => (
+               {trendingArticles.map((article) => (
                    <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group flex gap-4 items-start p-4 bg-white rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-all">
                        <div className="w-20 h-20 shrink-0 rounded-md overflow-hidden bg-gray-200 relative border border-gray-100">
                            <img src={article.imageUrl} loading="lazy" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
@@ -191,11 +201,64 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
       <AdvertisementBanner ads={advertisements} size="BILLBOARD" placement="HOME" globalAdsEnabled={globalAdsEnabled} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 px-4 md:px-0 max-w-7xl mx-auto">
+      {/* --- ALL CATEGORIES SECTION --- */}
+      <div className="max-w-7xl mx-auto px-4 md:px-0 space-y-16">
+          {categories.map((category, catIndex) => {
+              const categoryArticles = articles
+                  .filter(a => a.categories.includes(category))
+                  .filter(a => !sliderIds.has(a.id)) // Don't repeat hero articles in sections
+                  .slice(0, 4);
+
+              if (categoryArticles.length === 0) return null;
+
+              return (
+                  <section key={category} className="space-y-6">
+                      <div className="flex justify-between items-end border-b-2 border-news-black/10 pb-2">
+                          <h2 className="text-2xl font-serif font-black uppercase tracking-tight text-news-blue flex items-center gap-3">
+                              <span className="w-2 h-8 bg-news-gold rounded-full"></span>
+                              {category}
+                          </h2>
+                          <Link to={`/category/${category}`} onNavigate={onNavigate} className="text-[10px] font-black uppercase text-news-accent hover:underline flex items-center gap-1 mb-1">
+                              View All {category} <ChevronRight size={14}/>
+                          </Link>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                          {categoryArticles.map((article) => (
+                              <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group flex flex-col">
+                                  <div className="aspect-[16/10] overflow-hidden rounded-lg mb-3 shadow-sm border border-gray-100">
+                                      <img src={article.imageUrl} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt={article.title} />
+                                  </div>
+                                  <h3 className="font-bold text-sm leading-tight text-gray-900 group-hover:text-news-accent transition-colors line-clamp-2 mb-2">{article.title}</h3>
+                                  {article.tags && article.tags.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mb-2">
+                                          {article.tags.slice(0, 2).map(tag => (
+                                              <span key={tag} className="text-[7px] font-black text-gray-400 uppercase">#{tag}</span>
+                                          ))}
+                                      </div>
+                                  )}
+                                  <div className="text-[9px] text-gray-400 font-bold uppercase mt-auto flex items-center gap-1">
+                                      <Clock size={10} /> {safeFormat(article.publishedAt, 'MMM d, yyyy')}
+                                  </div>
+                              </Link>
+                          ))}
+                      </div>
+
+                      {/* Periodic Ad insertion between major categories */}
+                      {catIndex % 3 === 2 && (
+                           <AdvertisementBanner ads={advertisements} size="LEADERBOARD" placement="HOME" globalAdsEnabled={globalAdsEnabled} />
+                      )}
+                  </section>
+              );
+          })}
+      </div>
+
+      {/* Bottom Layout with Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 px-4 md:px-0 max-w-7xl mx-auto pt-10 border-t border-gray-100">
         <div className="lg:col-span-8 space-y-8">
-            <h3 className="text-[10px] font-black text-gray-900 mb-6 flex items-center uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Latest Stories</h3>
+            <h3 className="text-[10px] font-black text-gray-900 mb-6 flex items-center uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Latest Global Dispatches</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
-               {mainFeedArticles.map(article => (
+               {displayArticles.filter(a => !sliderIds.has(a.id) && !trendingIds.has(a.id)).slice(0, 10).map(article => (
                    <Link key={article.id} to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="group block flex flex-col h-full">
                        <div className="overflow-hidden mb-4 relative shadow-sm rounded-lg">
                             <img src={article.imageUrl} loading="lazy" className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700 aspect-video object-cover"/>
@@ -216,8 +279,10 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
             </div>
         </div>
         <div className="lg:col-span-4 space-y-10">
-             <AdvertisementBanner ads={advertisements} size="HALF_PAGE" placement="HOME" globalAdsEnabled={globalAdsEnabled} className="!my-0"/>
-             <AdvertisementBanner ads={advertisements} size="RECTANGLE" placement="HOME" globalAdsEnabled={globalAdsEnabled} className="!my-0"/>
+             <div className="sticky top-20 space-y-10">
+                <AdvertisementBanner ads={advertisements} size="HALF_PAGE" placement="HOME" globalAdsEnabled={globalAdsEnabled} className="!my-0"/>
+                <AdvertisementBanner ads={advertisements} size="RECTANGLE" placement="HOME" globalAdsEnabled={globalAdsEnabled} className="!my-0"/>
+             </div>
         </div>
       </div>
     </div>
