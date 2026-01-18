@@ -26,6 +26,7 @@ function App() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRecovering, setIsRecovering] = useState(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
   
   const userIdRef = useRef<string | null>(null);
@@ -51,6 +52,7 @@ function App() {
   });
   
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const sessionStartTime = useRef<number>(Date.now());
 
   useEffect(() => { userIdRef.current = userId; }, [userId]);
 
@@ -58,11 +60,26 @@ function App() {
       if (!userIdRef.current) return;
       const meta = getDeviceMetadata();
       const ip = await getPublicIP();
-      const newLog: ActivityLog = { id: generateId(), userId: userIdRef.current, deviceName: meta.name, action, details: details || '', ip, location: 'Local', timestamp: new Date().toISOString() };
+      const newLog: ActivityLog = { id: generateId(), userId: userIdRef.current, deviceName: meta.name, action, details: details || '', ip, location: 'Detected via IP', timestamp: new Date().toISOString() };
+      setActivityLogs(prev => [newLog, ...prev]);
       try {
           await supabase.from('activity_logs').insert({ user_id: newLog.userId, device_name: newLog.deviceName, action: newLog.action, details: newLog.details, ip: newLog.ip, location: newLog.location, timestamp: newLog.timestamp });
-      } catch (e) { console.warn("Log failed"); }
+      } catch (e) { console.warn("Log system unavailable"); }
   };
+
+  const fetchLogs = async () => {
+      if (!userIdRef.current) return;
+      try {
+          const { data, error } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(50);
+          if (!error && data) setActivityLogs(data.map((l: any) => ({ id: l.id, userId: l.user_id, deviceName: l.device_name, action: l.action, details: l.details, ip: l.ip, location: l.location, timestamp: l.timestamp })));
+      } catch (e) {}
+  };
+
+  useEffect(() => {
+    const channel = supabase.channel('cj_newsroom_visitors');
+    channel.on('presence', { event: 'sync' }, () => { setActiveVisitors(Object.keys(channel.presenceState()).length || 1); }).subscribe(async (status) => { if (status === 'SUBSCRIBED') await channel.track({ online_at: new Date().toISOString(), device_id: getDeviceId(), role: userRole }); });
+    return () => { supabase.removeChannel(channel); };
+  }, [userRole]);
 
   const mapDbDevice = (d: any): TrustedDevice => ({ id: d.id, userId: d.user_id, deviceName: d.device_name, deviceType: d.device_type, location: d.location, lastActive: d.last_active, status: d.status, browser: d.browser, isPrimary: d.is_primary, isCurrent: d.id === getDeviceId() });
 
@@ -73,11 +90,35 @@ function App() {
       if (data) setDevices(data.map(mapDbDevice));
   };
 
+  const handleAddDevice = async (device: TrustedDevice) => {
+      setDevices(prev => { if (prev.some(d => d.id === device.id)) return prev; return [...prev, { ...device, isCurrent: true }]; });
+      const { error } = await supabase.from('trusted_devices').upsert({ id: device.id, user_id: device.userId, device_name: device.deviceName, device_type: device.deviceType, location: device.location, last_active: device.lastActive, status: device.status, browser: device.browser, is_primary: device.isPrimary });
+      if (error) fetchDevices(device.userId);
+  };
+
+  const handleRevokeDevice = async (deviceId: string) => {
+      setDevices(prev => prev.filter(d => d.id !== deviceId));
+      const { error } = await supabase.from('trusted_devices').delete().eq('id', deviceId);
+      if (error) fetchDevices();
+  };
+
+  const handleUpdateDeviceStatus = async (deviceId: string, status: 'approved' | 'pending') => {
+      setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, status } : d));
+      const { error } = await supabase.from('trusted_devices').update({ status }).eq('id', deviceId);
+      if (error) fetchDevices();
+  };
+
   const parseTags = (input: any): string[] => {
       if (!input) return [];
       if (Array.isArray(input)) return input.filter(Boolean);
       if (typeof input === 'string') {
-          let cleaned = input.trim();
+          const trimmed = input.trim();
+          // Try JSON parse first (e.g. ["tag1", "tag2"])
+          if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+              try { return JSON.parse(trimmed); } catch (e) {}
+          }
+          // Fallback to Postgres array format {tag1,tag2} or comma separated
+          let cleaned = trimmed;
           if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
               cleaned = cleaned.substring(1, cleaned.length - 1);
           }
@@ -105,10 +146,12 @@ function App() {
       const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
 
+      if (userIdRef.current) { await fetchDevices(userIdRef.current); fetchLogs(); }
+
       if (artData) setArticles(artData.map(a => ({ id: a.id, userId: a.user_id, slug: a.slug, title: a.title, englishTitle: a.english_title, subline: a.subline, author: a.author, authorAvatar: a.author_avatar, content: a.content, categories: a.category ? a.category.split(',').map((s: string) => s.trim()) : ['General'], tags: parseTags(a.tags), imageUrl: a.image_url || a.imageUrl, publishedAt: a.published_at || a.publishedAt, status: a.status as ArticleStatus, summary: a.summary, isPremium: a.is_premium || a.isPremium, isFeatured: a.is_featured || a.isFeatured, isEditorsChoice: a.is_editors_choice || a.isEditorsChoice, views: a.views || 0 })));
       if (pageData) setEPaperPages(pageData.map(p => ({ id: p.id, date: p.date, pageNumber: p.page_number || p.pageNumber, imageUrl: p.image_url || p.imageUrl, regions: [] })));
       if (clsData) setClassifieds(clsData.map(c => ({ id: c.id, title: c.title, category: c.category, content: c.content, price: c.price, location: c.location, contactInfo: c.contact_info || c.contactInfo, postedAt: c.posted_at || c.postedAt })));
-      if (adData) setAdvertisements(adData.map(ad => ({ id: ad.id, imageUrl: ad.image_url || ad.imageUrl, link_url: ad.link_url || ad.linkUrl, title: ad.title, size: ad.size, placement: ad.placement, targetCategory: ad.target_category || ad.targetCategory, isActive: ad.is_active !== undefined ? ad.is_active : true })));
+      if (adData) setAdvertisements(adData.map(ad => ({ id: ad.id, imageUrl: ad.image_url || ad.imageUrl, linkUrl: ad.link_url || ad.linkUrl, title: ad.title, size: ad.size, placement: ad.placement, targetCategory: ad.target_category || ad.targetCategory, isActive: ad.is_active !== undefined ? ad.is_active : true })));
       setLastSync(new Date());
     } catch (err) { console.error("Sync error", err); }
   };
@@ -118,59 +161,30 @@ function App() {
 
   useEffect(() => {
     fetchData();
-    const sub = supabase.channel('global_sync').on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData(true)).subscribe();
-    
-    // Auth initialization
+    const sub = supabase.channel('newsroom_global_sync').on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData(true)).subscribe();
     supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
-            setUserId(session.user.id);
-            setUserName(session.user.user_metadata.full_name);
-            setUserAvatar(session.user.user_metadata.avatar_url);
-            setUserEmail(session.user.email);
-            setUserRole(session.user.user_metadata.role || UserRole.READER);
-            fetchDevices(session.user.id);
+            setUserId(session.user.id); setUserName(session.user.user_metadata.full_name); setUserAvatar(session.user.user_metadata.avatar_url); setUserEmail(session.user.email); setUserRole(session.user.user_metadata.role || UserRole.READER); fetchDevices(session.user.id);
         }
         setLoading(false);
     });
-
-    // Enhanced Listener: Listens for SIGNED_IN and USER_UPDATED to sync profile data instantly
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (session) {
-            setUserId(session.user.id);
-            setUserName(session.user.user_metadata.full_name);
-            setUserAvatar(session.user.user_metadata.avatar_url);
-            setUserEmail(session.user.email);
-            setUserRole(session.user.user_metadata.role || UserRole.READER);
-        } else {
-            setUserId(null); setUserName(null); setUserAvatar(null); setUserEmail(null); setUserRole(UserRole.READER);
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') { setIsRecovering(true); navigate('/reset-password'); }
+        if (session) { setUserId(session.user.id); setUserName(session.user.user_metadata.full_name); setUserAvatar(session.user.user_metadata.avatar_url); setUserEmail(session.user.email); setUserRole(session.user.user_metadata.role || UserRole.READER); } 
+        else { setUserId(null); setUserName(null); setUserAvatar(null); setUserEmail(null); setUserRole(UserRole.READER); }
     });
-
     return () => { sub.unsubscribe(); subscription.unsubscribe(); };
   }, []);
 
   const handleSaveGlobalConfig = async (w?: WatermarkSettings, adsEnabledOverride?: boolean) => {
       const watermarkToSave = w || watermarkSettings;
-      const adsEnabled = adsEnabledOverride !== undefined ? adsEnabledOverride : globalAdsEnabled;
-      
-      const payload = { 
-          id: GLOBAL_SETTINGS_ID, 
-          title: 'SYSTEM_CONFIG', 
-          content: JSON.stringify({ 
-              watermark: watermarkToSave, 
-              categories, 
-              tags, 
-              adCategories, 
-              adsEnabled: adsEnabled 
-          }), 
-          author: 'SYSTEM', 
-          status: ArticleStatus.PUBLISHED, 
-          published_at: new Date().toISOString() 
-      };
-      
-      const { error } = await supabase.from('articles').upsert(payload);
-      if (!error) fetchData(true);
+      const adsEnabledToSave = adsEnabledOverride !== undefined ? adsEnabledOverride : globalAdsEnabled;
+      const payload = { id: GLOBAL_SETTINGS_ID, title: 'SYSTEM_CONFIG', content: JSON.stringify({ watermark: watermarkToSave, categories, tags, adCategories, adsEnabled: adsEnabledToSave }), author: 'SYSTEM', status: ArticleStatus.PUBLISHED, published_at: new Date().toISOString() };
+      await supabase.from('articles').upsert(payload);
+      fetchData(true);
   };
+
+  const handleToggleGlobalAds = (e: boolean) => { setGlobalAdsEnabled(e); handleSaveGlobalConfig(undefined, e); };
 
   const handleSaveArticle = async (article: Article) => {
     const slug = article.slug || createSlug(article.englishTitle || article.title);
@@ -189,26 +203,10 @@ function App() {
 
   if (path === '/reset-password') content = <ResetPassword onNavigate={navigate} devices={devices} />;
   else if (path.startsWith('/invite')) content = <InviteRegistration onNavigate={navigate} />;
-  else if (path === '/login' || (userId && !isDeviceAuthorized())) content = <Login onLogin={(r, n, a) => { setUserRole(r); setUserName(n); setUserAvatar(a || null); }} onNavigate={navigate} existingDevices={devices} onAddDevice={async d => { await supabase.from('trusted_devices').upsert({ id: d.id, user_id: d.userId, device_name: d.deviceName, device_type: d.deviceType, location: d.location, last_active: d.lastActive, status: d.status, browser: d.browser, is_primary: d.isPrimary }); fetchDevices(); }} onEmergencyReset={() => navigate('/reset-password')} />;
-  else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN)) content = <EditorDashboard 
-      articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} 
-      onToggleGlobalAds={e => { setGlobalAdsEnabled(e); handleSaveGlobalConfig(undefined, e); }} onUpdateWatermarkSettings={w => { setWatermarkSettings(w); handleSaveGlobalConfig(w); }} 
-      onUpdatePage={p => supabase.from('epaper_pages').update({ date: p.date, page_number: p.pageNumber }).eq('id', p.id).then(() => fetchData(true))} 
-      onAddPage={p => supabase.from('epaper_pages').insert({ id: p.id, date: p.date, page_number: p.pageNumber, image_url: p.imageUrl, user_id: userId }).then(() => fetchData(true))} 
-      onDeletePage={id => supabase.from('epaper_pages').delete().eq('id', id).then(() => fetchData(true))} 
-      onDeleteArticle={id => supabase.from('articles').delete().eq('id', id).then(() => fetchData(true))} 
-      onSaveArticle={handleSaveArticle} 
-      onAddCategory={c => { setCategories(p => [...p, c]); handleSaveGlobalConfig(); }} 
-      onDeleteCategory={c => { setCategories(p => p.filter(o => o !== c)); handleSaveGlobalConfig(); }} 
-      onSaveTaxonomy={async () => handleSaveGlobalConfig()}
-      onAddClassified={async c => { await supabase.from('classifieds').insert({ id: c.id, title: c.title, category: c.category, content: c.content, price: c.price, location: c.location, contact_info: c.contactInfo, posted_at: c.postedAt }); fetchData(true); }} 
-      onDeleteClassified={async id => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
-      onAddAdvertisement={async ad => { await supabase.from('advertisements').insert({ id: ad.id, title: ad.title, image_url: ad.imageUrl, link_url: ad.linkUrl, size: ad.size, placement: ad.placement, target_category: ad.targetCategory, is_active: ad.isActive }); fetchData(true); }} 
-      onUpdateAdvertisement={async ad => { await supabase.from('advertisements').update({ title: ad.title, image_url: ad.imageUrl, link_url: ad.linkUrl, size: ad.size, placement: ad.placement, target_category: ad.targetCategory, is_active: ad.isActive }).eq('id', ad.id); fetchData(true); }} 
-      onDeleteAdvertisement={async id => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
-      onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onApproveDevice={id => supabase.from('trusted_devices').update({ status: 'approved' }).eq('id', id).then(() => fetchDevices())} onRejectDevice={id => supabase.from('trusted_devices').delete().eq('id', id).then(() => fetchDevices())} onRevokeDevice={id => supabase.from('trusted_devices').delete().eq('id', id).then(() => fetchDevices())} userId={userId} activeVisitors={activeVisitors} logs={activityLogs}
-  />;
-  else if (path === '/writer' && userRole === UserRole.WRITER) content = <WriterDashboard onSave={handleSaveArticle} onDelete={id => supabase.from('articles').delete().eq('id', id).then(() => fetchData(true))} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onRevokeDevice={id => supabase.from('trusted_devices').delete().eq('id', id).then(() => fetchDevices())} userId={userId} activeVisitors={activeVisitors}/>;
+  else if (path.startsWith('/staff/login')) content = <StaffLogin onLogin={(r, n, a) => { setUserRole(r); setUserName(n); setUserAvatar(a); }} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
+  else if (path === '/login' || (userId && !isDeviceAuthorized() && !isRecovering)) content = <Login onLogin={(r, n, a) => { setUserRole(r); setUserName(n); setUserAvatar(a); }} onNavigate={navigate} existingDevices={devices} onAddDevice={handleAddDevice} onEmergencyReset={() => navigate('/reset-password')} />;
+  else if (path === '/editor' && (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN)) content = <EditorDashboard articles={articles} ePaperPages={ePaperPages} categories={categories} tags={tags} adCategories={adCategories} classifieds={classifieds} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} watermarkSettings={watermarkSettings} onToggleGlobalAds={handleToggleGlobalAds} onUpdateWatermarkSettings={w => { setWatermarkSettings(w); handleSaveGlobalConfig(w); }} onUpdatePage={p => supabase.from('epaper_pages').update({ date: p.date, page_number: p.pageNumber }).eq('id', p.id).then(() => fetchData(true))} onAddPage={p => supabase.from('epaper_pages').insert({ id: p.id, date: p.date, page_number: p.pageNumber, image_url: p.imageUrl, user_id: userId }).then(() => fetchData(true))} onDeletePage={id => supabase.from('epaper_pages').delete().eq('id', id).then(() => fetchData(true))} onDeleteArticle={id => supabase.from('articles').delete().eq('id', id).then(() => fetchData(true))} onSaveArticle={handleSaveArticle} onAddCategory={c => { setCategories(p => [...p, c]); handleSaveGlobalConfig(); }} onDeleteCategory={c => { setCategories(p => p.filter(o => o !== c)); handleSaveGlobalConfig(); }} onAddTag={t => setTags(p => [...p, t])} onDeleteTag={t => setTags(p => p.filter(o => o !== t))} onSaveTaxonomy={async () => handleSaveGlobalConfig()} onAddClassified={async c => { await supabase.from('classifieds').insert({ id: c.id, title: c.title, category: c.category, content: c.content, price: c.price, location: c.location, contact_info: c.contactInfo, posted_at: c.postedAt }); fetchData(true); }} onDeleteClassified={async id => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} onAddAdvertisement={async ad => { await supabase.from('advertisements').insert({ id: ad.id, title: ad.title, image_url: ad.imageUrl, link_url: ad.linkUrl, size: ad.size, placement: ad.placement, target_category: ad.targetCategory, is_active: ad.isActive }); fetchData(true); }} onUpdateAdvertisement={async ad => { await supabase.from('advertisements').update({ title: ad.title, image_url: ad.imageUrl, link_url: ad.linkUrl, size: ad.size, placement: ad.placement, target_category: ad.targetCategory, is_active: ad.isActive }).eq('id', ad.id); fetchData(true); }} onDeleteAdvertisement={async id => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onApproveDevice={id => handleUpdateDeviceStatus(id, 'approved')} onRejectDevice={id => handleRevokeDevice(id)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors} logs={activityLogs} />;
+  else if (path === '/writer' && userRole === UserRole.WRITER) content = <WriterDashboard onSave={handleSaveArticle} onDelete={id => supabase.from('articles').delete().eq('id', id).then(() => fetchData(true))} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors}/>;
   else if (path === '/' || path === '/home') content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   else if (path.startsWith('/article/')) content = <ArticleView articles={articles} articleId={articles.find(a => a.slug === path.split('/article/')[1] || a.id === path.split('/article/')[1])?.id} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} />;
   else if (path.startsWith('/category/')) content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} selectedCategory={decodeURIComponent(path.split('/category/')[1])} categories={categories} />;
@@ -217,7 +215,7 @@ function App() {
   else content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
 
   return (
-    <Layout currentRole={userRole} onRoleChange={setUserRole} currentPath={currentPath} onNavigate={navigate} userName={userName} userAvatar={userAvatar} onForceSync={() => fetchData(true)} lastSync={lastSync} articles={articles} categories={categories} pendingDevices={devices.filter(d => d.status === 'pending' && d.userId === userId)} onApproveDevice={id => supabase.from('trusted_devices').update({ status: 'approved' }).eq('id', id).then(() => fetchDevices())} onRejectDevice={id => supabase.from('trusted_devices').delete().eq('id', id).then(() => fetchDevices())}>
+    <Layout currentRole={userRole} onRoleChange={setUserRole} currentPath={currentPath} onNavigate={navigate} userName={userName} userAvatar={userAvatar} onForceSync={() => fetchData(true)} lastSync={lastSync} articles={articles} categories={categories} pendingDevices={devices.filter(d => d.status === 'pending' && d.userId === userId)} onApproveDevice={id => handleUpdateDeviceStatus(id, 'approved')} onRejectDevice={id => handleRevokeDevice(id)}>
       {content}
     </Layout>
   );

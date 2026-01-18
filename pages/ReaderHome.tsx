@@ -136,8 +136,28 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                               <img src={article.imageUrl} alt={article.title} className="absolute inset-0 w-full h-full object-contain z-10" />
                               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 md:p-10 pt-24 z-20">
                                   <Link to={`/article/${article.slug || article.id}`} onNavigate={onNavigate} className="block group/title max-w-2xl">
-                                      <h2 className="text-lg md:text-3xl font-display font-black text-white leading-tight mb-3 group-hover/title:text-news-gold transition-colors tracking-tight line-clamp-2 md:line-clamp-none">{article.title}</h2>
+                                      <h2 className="text-lg md:text-3xl font-display font-black text-white leading-tight mb-2 group-hover/title:text-news-gold transition-colors tracking-tight line-clamp-2 md:line-clamp-none">{article.title}</h2>
                                   </Link>
+                                  
+                                  {/* Subline or Content Snippet Fallback */}
+                                  <p className="text-gray-300 text-xs md:text-sm mb-3 line-clamp-2 max-w-xl font-medium leading-relaxed drop-shadow-md">
+                                      {article.subline || (article.content ? article.content.replace(/<[^>]+>/g, ' ').slice(0, 150) + (article.content.length > 150 ? '...' : '') : '')}
+                                  </p>
+
+                                  {/* Author & Date Metadata */}
+                                  <div className="flex items-center gap-3 text-gray-300 mb-3 opacity-90">
+                                      <div className="flex items-center gap-2">
+                                          <div className="w-5 h-5 rounded-full overflow-hidden bg-gray-700 border border-gray-600">
+                                              {article.authorAvatar ? <img src={article.authorAvatar} className="w-full h-full object-cover" alt={article.author} /> : <User size={12} className="m-1"/>}
+                                          </div>
+                                          <span className="text-[10px] font-bold uppercase tracking-widest">{article.author}</span>
+                                      </div>
+                                      <span className="text-[10px] opacity-50">•</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
+                                          <Clock size={10} /> {safeFormat(article.publishedAt, 'MMM d, yyyy')}
+                                      </span>
+                                  </div>
+
                                   {article.tags && article.tags.length > 0 && (
                                       <div className="flex flex-wrap gap-2 mb-4">
                                           {article.tags.slice(0, 4).map(tag => (
