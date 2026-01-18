@@ -212,13 +212,19 @@ function App() {
       if (!input) return [];
       if (Array.isArray(input)) return input;
       if (typeof input === 'string') {
-          // Handle Postgres array string format {tag1,tag2}
           let cleaned = input.trim();
+          
+          // Handle Postgres array string format {tag1,tag2}
           if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
               cleaned = cleaned.substring(1, cleaned.length - 1);
           }
-          // Split by comma, handle potential quotes from Postgres output, filter empty
-          return cleaned.split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean);
+          // Handle JSON array string format [tag1,tag2] (common from some JSONB inputs)
+          else if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
+              cleaned = cleaned.substring(1, cleaned.length - 1);
+          }
+          
+          // Split by comma, remove quotes (both single and double), filter empty
+          return cleaned.split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
       }
       return [];
   };

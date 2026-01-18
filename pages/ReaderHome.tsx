@@ -75,7 +75,7 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
 
   // --- CATEGORY / TAG VIEW ---
   if (selectedCategory || selectedTag) {
-      const viewTitle = selectedCategory || `#${selectedTag}`;
+      const viewTitle = selectedCategory || `${selectedTag}`;
       
       const filteredArticles = dateFilter 
           ? displayArticles.filter(a => a.publishedAt.startsWith(dateFilter))
@@ -180,8 +180,8 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                   </div>
                   {sliderArticles.length > 1 && (
                     <>
-                      <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronLeft size={20} /></button>
-                      <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/20 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all z-30 border border-white/10"><ChevronRight size={20} /></button>
+                      <button onClick={prevSlide} className="absolute left-0 top-1/2 -translate-y-1/2 w-8 h-10 md:w-10 md:h-10 md:left-2 flex items-center justify-center transition-all z-30 bg-transparent text-white/40 hover:text-white md:bg-black/20 md:hover:bg-black/50 md:backdrop-blur-sm md:rounded-full md:border md:border-white/10"><ChevronLeft size={24} /></button>
+                      <button onClick={nextSlide} className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-10 md:w-10 md:h-10 md:right-2 flex items-center justify-center transition-all z-30 bg-transparent text-white/40 hover:text-white md:bg-black/20 md:hover:bg-black/50 md:backdrop-blur-sm md:rounded-full md:border md:border-white/10"><ChevronRight size={24} /></button>
                     </>
                   )}
               </div>
