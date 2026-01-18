@@ -375,8 +375,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
           <div className="flex-1 whitespace-nowrap overflow-hidden flex items-center relative group">
               <div className="animate-marquee inline-flex items-center group-hover:[animation-play-state:paused]">
                   {breakingNews.length > 0 ? (
-                      // Render items twice to ensure gapless loop feeling
-                      [...breakingNews, ...breakingNews].map((a, i) => (
+                      breakingNews.map((a, i) => (
                       <Link 
                           key={`${a.id}-${i}`} 
                           to={`/article/${a.slug || a.id}`} 
