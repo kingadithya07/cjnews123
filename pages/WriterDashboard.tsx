@@ -47,6 +47,10 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [publishedAt, setPublishedAt] = useState<string>(new Date().toISOString());
+  
+  // Tag State
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
 
   // Settings State
   const [profileName, setProfileName] = useState(userName || '');
@@ -79,7 +83,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   };
 
   // Filter articles for this writer only if userId is provided
-  // If no userId provided (rare), fallback to showing all or empty to be safe
   const myArticles = userId 
     ? existingArticles.filter(a => a.userId === userId)
     : existingArticles;
@@ -116,7 +119,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const handleContentImageUpload = async (file: File): Promise<string> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${generateId()}.${fileExt}`;
-    // Store content images in dedicated 'articles' folder, isolated by user
     const folderPrefix = userId ? `users/${userId}/` : '';
     const filePath = `${folderPrefix}articles/${fileName}`;
     const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
@@ -129,7 +131,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
       if (!title) return;
       
       const keyToUse = customApiKey;
-      
       if (!keyToUse) {
           const proceed = confirm("Translation requires a third-party API Key. Would you like to configure it now in Settings?");
           if (proceed) {
@@ -141,7 +142,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
 
       setIsTranslating(true);
       try {
-          // Direct fetch to Gemini API to avoid SDK dependency
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keyToUse}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -155,45 +155,71 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
           });
 
           const data = await response.json();
-          
-          if (data.error) {
-              throw new Error(data.error.message || "API Error");
-          }
+          if (data.error) throw new Error(data.error.message || "API Error");
 
           const translated = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-          if (translated) {
-              setEnglishTitle(translated);
-          } else {
-              throw new Error("No translation returned.");
-          }
+          if (translated) setEnglishTitle(translated);
+          else throw new Error("No translation returned.");
       } catch (e: any) {
           console.error("Translation failed", e);
-          alert(`Auto-translation failed: ${e.message}. Please enter manually or check your API Key.`);
+          alert(`Auto-translation failed: ${e.message}.`);
       } finally {
           setIsTranslating(false);
       }
   };
 
+  const handleAddTag = () => {
+      if (!tagInput.trim()) return;
+      const newTag = tagInput.trim();
+      if (!tags.includes(newTag)) {
+          setTags([...tags, newTag]);
+      }
+      setTagInput('');
+  };
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAddTag();
+      }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+      setTags(tags.filter(t => t !== tagToRemove));
+  };
+
   const handleSave = () => {
     if (!title) { alert("Headline is required"); return; }
+    
+    // Auto-append any pending tag in the input field that wasn't entered
+    let finalTags = [...tags];
+    if (tagInput.trim()) {
+        const pendingTag = tagInput.trim();
+        if (!finalTags.includes(pendingTag)) {
+            finalTags.push(pendingTag);
+        }
+    }
+
     const newArticle: Article = {
       id: activeArticleId || generateId(),
-      userId: userId || undefined, // Associate article with current user
+      userId: userId || undefined, 
       title, 
       englishTitle,
       subline,
       author, 
       content, 
       categories: selectedCategories.length > 0 ? selectedCategories : ['General'],
+      tags: finalTags,
       imageUrl: imageUrl || 'https://picsum.photos/800/400',
-      publishedAt: publishedAt, // Preserve original date
+      publishedAt: publishedAt,
       status: status,
       isFeatured: isFeatured,
-      isEditorsChoice: false, // Removed from UI, default false
+      isEditorsChoice: false,
       authorAvatar: profileAvatar || undefined 
     };
     onSave(newArticle);
     setShowEditorModal(false);
+    setTagInput(''); // Clear input
   };
 
   const handleDelete = (id: string) => {
@@ -203,11 +229,11 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   };
 
   const openNewArticle = () => {
-      setActiveArticleId(null); setTitle(''); setEnglishTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setPublishedAt(new Date().toISOString()); setShowEditorModal(true);
+      setActiveArticleId(null); setTitle(''); setEnglishTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setTags([]); setTagInput(''); setPublishedAt(new Date().toISOString()); setShowEditorModal(true);
   };
 
   const openEditArticle = (article: Article) => {
-      setActiveArticleId(article.id); setTitle(article.title); setEnglishTitle(article.englishTitle || ''); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setPublishedAt(article.publishedAt); setShowEditorModal(true);
+      setActiveArticleId(article.id); setTitle(article.title); setEnglishTitle(article.englishTitle || ''); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setTags(article.tags || []); setTagInput(''); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setPublishedAt(article.publishedAt); setShowEditorModal(true);
   };
 
   const handleSelectFromGallery = (url: string) => {
@@ -219,26 +245,16 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
     setIsSavingSettings(true);
     try {
       const updates: any = { 
-        data: { 
-          full_name: profileName,
-          avatar_url: profileAvatar
-        } 
+        data: { full_name: profileName, avatar_url: profileAvatar } 
       };
-      if (newPassword) {
-        updates.password = newPassword;
-      }
-      if (profileEmail !== userEmail) {
-          updates.email = profileEmail;
-      }
+      if (newPassword) updates.password = newPassword;
+      if (profileEmail !== userEmail) updates.email = profileEmail;
 
       const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
       
-      if (profileEmail !== userEmail) {
-          alert("Settings updated! A confirmation link has been sent to your new email address.");
-      } else {
-          alert("Settings updated successfully!");
-      }
+      if (profileEmail !== userEmail) alert("Settings updated! A confirmation link has been sent to your new email address.");
+      else alert("Settings updated successfully!");
       setNewPassword('');
     } catch (err: any) {
       alert("Error updating profile: " + err.message);
@@ -249,14 +265,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
 
   const handleForceSaveDevices = async () => {
       setIsSavingDevices(true);
-      try {
-          // Sync logic is handled via App.tsx usually, but this triggers a simple alert in this mocked version
-          alert("Device list synced globally.");
-      } catch (e: any) {
-          alert("Error syncing: " + e.message);
-      } finally {
-          setIsSavingDevices(false);
-      }
+      try { alert("Device list synced globally."); } catch (e: any) { alert("Error syncing: " + e.message); } finally { setIsSavingDevices(false); }
   };
 
   const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
@@ -276,7 +285,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
         onClose={() => setShowImageGallery(false)}
         onSelectImage={handleSelectFromGallery}
         uploadFolder="articles"
-        userId={userId} // Pass userId for isolation
+        userId={userId} 
     />
     <CategorySelector 
         isOpen={showCategorySelector}
@@ -286,7 +295,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
         onChange={setSelectedCategories}
     />
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      {/* Optimized Sidebar for Desktop (w-64 instead of w-72) */}
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
           <div className="flex justify-between items-center p-6 border-b border-gray-800">
               <h1 className="font-serif text-2xl font-bold text-white">Writer</h1>
@@ -307,9 +315,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
           </div>
       </div>
 
-      {/* Main Content Area - Optimized margins and padding */}
       <div className="flex-1 flex flex-col md:ml-64 h-full overflow-hidden bg-[#f8f9fa]">
-           {/* Mobile Header */}
            <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40 shadow-sm">
                 <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
                 <h1 className="font-serif text-lg font-bold text-gray-900">Writer Dashboard</h1>
@@ -320,7 +326,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
 
            <div className="md:p-6 overflow-y-auto flex-1 p-4">
               {activeTab === 'articles' && (
-                  /* Articles List - Same as before */
                   <div className="max-w-6xl mx-auto">
                       <div className="flex justify-between items-center mb-6">
                            <h1 className="font-serif text-2xl md:text-3xl font-bold text-gray-900 hidden md:block">My Articles</h1>
@@ -330,7 +335,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                            </button>
                       </div>
 
-                      {/* Mobile Card View (Optimized) */}
                       <div className="grid grid-cols-1 gap-4 md:hidden">
                            {myArticles.map(article => (
                                <div key={article.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col">
@@ -359,7 +363,6 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                            {myArticles.length === 0 && <div className="text-center py-10 text-gray-400 bg-white rounded border border-dashed"><p className="text-sm">No articles found in your workspace.</p></div>}
                       </div>
 
-                      {/* Desktop Table View */}
                       <div className="hidden md:block bg-white rounded border overflow-x-auto">
                           <table className="w-full text-left min-w-[700px]">
                                 <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
@@ -652,7 +655,21 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tags</label>
-                                <input type="text" placeholder="Add tags..." className="w-full p-2 border rounded text-sm" />
+                                <div className="flex items-center gap-2 border rounded p-2 bg-white flex-wrap">
+                                    {tags.map(tag => (
+                                        <span key={tag} className="bg-gray-100 text-gray-700 text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+                                            #{tag} <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X size={10}/></button>
+                                        </span>
+                                    ))}
+                                    <input 
+                                        type="text" 
+                                        value={tagInput}
+                                        onChange={(e) => setTagInput(e.target.value)}
+                                        onKeyDown={handleTagInputKeyDown}
+                                        className="flex-1 outline-none text-sm min-w-[50px]"
+                                        placeholder="Add..." 
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>

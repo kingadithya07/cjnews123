@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -206,6 +207,22 @@ function App() {
       if (error) { console.error("Status update failed", error); fetchDevices(); }
   };
 
+  // Helper to safely parse tags from various DB formats
+  const parseTags = (input: any): string[] => {
+      if (!input) return [];
+      if (Array.isArray(input)) return input;
+      if (typeof input === 'string') {
+          // Handle Postgres array string format {tag1,tag2}
+          let cleaned = input.trim();
+          if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+              cleaned = cleaned.substring(1, cleaned.length - 1);
+          }
+          // Split by comma, handle potential quotes from Postgres output, filter empty
+          return cleaned.split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean);
+      }
+      return [];
+  };
+
   // --- DATA SYNC ---
   const fetchData = async (force: boolean = false) => {
     try {
@@ -232,7 +249,7 @@ function App() {
           id: a.id, userId: a.user_id, slug: a.slug, title: a.title, englishTitle: a.english_title || undefined, subline: a.subline,
           author: a.author, authorAvatar: a.authorAvatar || a.author_avatar, content: a.content,
           categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
-          tags: a.tags ? (Array.isArray(a.tags) ? a.tags : a.tags.split(',').map((s: string) => s.trim()).filter(Boolean)) : [],
+          tags: parseTags(a.tags), // Robust parsing for tags
           imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
           publishedAt: a.publishedAt || a.published_at || new Date().toISOString(),
           status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
@@ -441,7 +458,8 @@ function App() {
         author: article.author,
         author_avatar: article.authorAvatar,
         content: article.content,
-        category: article.categories.join(', '), 
+        category: article.categories.join(', '),
+        tags: article.tags, // Added tags field
         imageUrl: article.imageUrl,
         image_url: article.imageUrl,
         publishedAt: article.publishedAt,

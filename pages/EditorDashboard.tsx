@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement, ActivityLog } from '../types';
 import { 
@@ -221,6 +222,25 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
     } finally { setIsSavingSettings(false); }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsAvatarUploading(true);
+    try {
+        const fileExt = file.name.split('.').pop();
+        const folderPrefix = userId ? `users/${userId}/` : '';
+        const fileName = `${folderPrefix}avatars/${generateId()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+        setProfileAvatar(data.publicUrl);
+    } catch (error: any) {
+        alert("Avatar Upload Failed: " + error.message);
+    } finally {
+        setIsAvatarUploading(false);
+    }
+  };
+
   const handleTriggerResetEmail = async () => {
       try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -302,6 +322,16 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
   const handleSaveArticleInternal = () => {
       if (!modalTitle) { alert("Title required"); return; }
+      
+      // Auto-append any pending tag in the input field that wasn't entered
+      let finalTags = [...modalTags];
+      if (tagInput.trim()) {
+          const pendingTag = tagInput.trim();
+          if (!finalTags.includes(pendingTag)) {
+              finalTags.push(pendingTag);
+          }
+      }
+
       const article: Article = {
           id: editArticleId || generateId(),
           userId: userId || undefined,
@@ -311,7 +341,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           author: modalAuthor,
           content: modalContent,
           categories: modalCategories.length > 0 ? modalCategories : ['General'],
-          tags: modalTags, // Pass tags
+          tags: finalTags,
           imageUrl: modalImageUrl || 'https://picsum.photos/800/400',
           publishedAt: modalPublishedAt,
           status: modalStatus,
@@ -321,6 +351,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       };
       onSaveArticle(article);
       setShowArticleModal(false);
+      setTagInput(''); // Clear Input
   };
 
   const handleAddTagToArticle = () => {
@@ -333,7 +364,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   };
 
   const handleTagInputKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === ',') {
+      if (e.key === 'Enter') {
           e.preventDefault();
           handleAddTagToArticle();
       }
@@ -705,6 +736,152 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       <Check size={12} /> Link generated. Valid for 15 minutes. Single use only.
                                   </p>
                               )}
+                          </div>
+                      </div>
+
+                      {/* Profile Section */}
+                      <div className={`bg-white rounded-xl border p-6 md:p-8 shadow-sm relative overflow-hidden ${!isPrimaryDevice ? 'border-gray-200 opacity-80' : ''}`}>
+                          {!isPrimaryDevice && (
+                              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center cursor-not-allowed">
+                                  <ShieldAlert className="text-gray-400 mb-2" size={48} />
+                                  <h3 className="font-bold text-gray-800">Profile Locked</h3>
+                                  <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                                      Profile modifications are restricted to the <b>Primary Device</b> only.
+                                  </p>
+                              </div>
+                          )}
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pointer-events-auto">
+                             <div className={`space-y-4 ${!isPrimaryDevice ? 'pointer-events-none filter blur-[1px]' : ''}`}>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
+                                    <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Email Address</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                                        <input 
+                                            type="email" 
+                                            value={profileEmail} 
+                                            onChange={e => setProfileEmail(e.target.value)} 
+                                            className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black font-medium" 
+                                            placeholder="editor@example.com"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1">Changing this will trigger a confirmation link to the new address.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
+                                            {profileAvatar ? <img src={profileAvatar} className="w-full h-full object-cover" /> : <UserIcon className="w-full h-full p-3 text-gray-300" />}
+                                        </div>
+                                        <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+                                            {isAvatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                                            <span className="hidden sm:inline">Upload Image</span>
+                                            <span className="sm:hidden">Upload</span>
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isAvatarUploading} />
+                                        </label>
+                                    </div>
+                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-xs text-gray-500 outline-none" placeholder="Or paste image URL..." />
+                                </div>
+                             </div>
+                             <div className={`space-y-4 ${!isPrimaryDevice ? 'opacity-50 pointer-events-none' : ''}`}>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Change Password</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                                        <input 
+                                            type={showPassword ? "text" : "password"} 
+                                            value={newPassword} 
+                                            onChange={e => setNewPassword(e.target.value)} 
+                                            className="w-full pl-10 pr-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" 
+                                            placeholder="New Password" 
+                                            disabled={!isPrimaryDevice}
+                                        />
+                                        <button 
+                                            onClick={() => setShowPassword(!showPassword)} 
+                                            className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                                            disabled={!isPrimaryDevice}
+                                        >
+                                            {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
+                                        </button>
+                                    </div>
+                                    {!isPrimaryDevice && (
+                                        <p className="text-[10px] text-red-500 mt-2 flex items-center gap-1 font-bold">
+                                            <ShieldAlert size={12}/> Security Restricted: Primary Device Only
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="pt-6">
+                                    <button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full bg-news-black text-news-gold py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                        {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
+                                        {isSavingSettings ? 'Saving...' : 'Update Profile'}
+                                    </button>
+                                </div>
+                             </div>
+                          </div>
+                      </div>
+
+                      {/* Trusted Devices Section */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
+                          <div className="flex justify-between items-center mb-6">
+                              <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
+                              <div className="flex items-center gap-2">
+                                  <button onClick={handleForceSaveDevices} disabled={isSavingDevices} className="bg-news-black text-white p-2 rounded hover:bg-gray-800 transition-colors" title="Force Save Globally">
+                                      {isSavingDevices ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
+                                  </button>
+                                  <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
+                                      {devices.filter(d => d.status === 'approved').length} Active
+                                  </span>
+                              </div>
+                          </div>
+                          
+                          <div className="space-y-4">
+                              {devices.length === 0 && <p className="text-gray-400 text-sm italic">No devices registered.</p>}
+                              {devices.map(device => {
+                                  let Icon = Monitor;
+                                  if (device.deviceType === 'mobile') Icon = Smartphone;
+                                  if (device.deviceType === 'tablet') Icon = Tablet;
+                                  
+                                  return (
+                                      <div key={device.id} className="flex flex-col md:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 gap-4">
+                                          <div className="flex items-center gap-4 w-full md:w-auto">
+                                              <div className={`p-3 rounded-full ${device.isCurrent ? 'bg-news-black text-news-gold' : 'bg-white border text-gray-500'}`}>
+                                                  <Icon size={20} />
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center gap-2 flex-wrap">
+                                                      <span className="font-bold text-sm text-gray-900 truncate">{device.deviceName}</span>
+                                                      {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">THIS DEVICE</span>}
+                                                      {device.isPrimary && <span className="bg-green-100 text-green-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PRIMARY DEVICE</span>}
+                                                      {device.status === 'pending' && <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PENDING</span>}
+                                                  </div>
+                                                  <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 items-center">
+                                                      <span>{device.location}</span>
+                                                      <span className="hidden md:inline">•</span>
+                                                      <span>{device.browser}</span>
+                                                      <span className="hidden md:inline">•</span>
+                                                      <span>{device.lastActive}</span>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                          <div className="w-full md:w-auto flex justify-end gap-2">
+                                              {/* Only Primary Device can delete other trusted devices */}
+                                              {isPrimaryDevice && device.status === 'approved' && !device.isCurrent && onRevokeDevice && (
+                                                  <button 
+                                                    onClick={() => onRevokeDevice(device.id)} 
+                                                    className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                                                    title="Delete Device"
+                                                  >
+                                                      <Trash2 size={18}/>
+                                                  </button>
+                                              )}
+                                          </div>
+                                      </div>
+                                  );
+                              })}
                           </div>
                       </div>
 
