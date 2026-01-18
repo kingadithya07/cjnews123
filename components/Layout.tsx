@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { UserRole, Article } from '../types';
-import { Newspaper, User, Menu, X, Search, LogIn, LogOut, Clock, Flame, FileText, LockKeyhole, Shield, PenTool, Home, Megaphone, Sun, Cloud, CloudRain, CloudSun, Wind, MapPin, Globe, Loader2, Thermometer, Droplets, Briefcase, MoreHorizontal, RefreshCcw, Bell, LayoutDashboard, ChevronDown, Handshake, ArrowUp, ArrowDown } from 'lucide-react';
+import { Newspaper, User, Menu, X, Search, LogIn, Clock, Flame, LayoutDashboard, ChevronDown, Handshake, ArrowUp, ArrowDown, Cloud, CloudRain, Sun, Home, Megaphone } from 'lucide-react';
 import { APP_NAME } from '../constants';
 import Link from './Link';
 import { format } from 'date-fns';
@@ -40,7 +40,6 @@ interface NavItemProps {
   onNavigate: (path: string) => void;
 }
 
-// Updated NavItem: Smaller font size (text-[9px]), adjusted icon size
 const NavItem: React.FC<NavItemProps> = ({ 
   to, 
   label, 
@@ -62,7 +61,6 @@ const NavItem: React.FC<NavItemProps> = ({
   </Link>
 );
 
-// Desktop Nav Item (styled differently)
 const DesktopNavItem: React.FC<NavItemProps> = ({ 
   to, 
   label, 
@@ -109,11 +107,9 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
 
-  // Scroll Buttons State
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
-  // Constants for Navigation
   const MAX_VISIBLE_CATS = 6;
   const visibleCats = categories.slice(0, MAX_VISIBLE_CATS);
   const hiddenCats = categories.slice(MAX_VISIBLE_CATS);
@@ -133,7 +129,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
     return () => clearInterval(timer);
   }, []);
 
-  // Handle Scroll Logic for Up/Down Arrows
   useEffect(() => {
     const handleScroll = () => {
         const scrollTop = window.scrollY;
@@ -141,14 +136,13 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
         const fullHeight = document.documentElement.scrollHeight;
         
         setShowScrollTop(scrollTop > 300);
-        // Show bottom button if we are not near the bottom AND the page is long enough
         setShowScrollBottom((scrollTop + windowHeight) < (fullHeight - 300) && fullHeight > windowHeight * 1.5);
     };
     
     window.addEventListener('scroll', handleScroll);
-    handleScroll(); // Initial check
+    handleScroll(); 
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [currentPath]); // Re-run when path changes (content changes)
+  }, [currentPath]);
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   const scrollToBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
@@ -193,7 +187,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
     } catch (err: any) { setWeatherError(err.message); } finally { setIsWeatherLoading(false); }
   }, []);
 
-  // Auto-refresh weather on mount if data is stale (older than 15 mins)
   useEffect(() => {
       if (Date.now() - weatherState.lastUpdated > 900000) {
           fetchWeatherData(weatherState.location);
@@ -207,7 +200,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
   return (
     <div className="min-h-screen flex flex-col bg-news-paper overflow-x-hidden w-full relative">
       
-      {/* TOP BAR: DATE & LOGIN */}
       <div className="bg-white border-b border-gray-100 py-2.5 px-4 md:px-6 flex justify-between items-center text-[10px] font-bold tracking-widest uppercase text-gray-400">
          <div className="flex gap-4 items-center">
             <span>{format(new Date(), 'dd MMM yyyy')}</span>
@@ -218,7 +210,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          <div className="flex items-center gap-6">
              {userName ? (
                  <div className="flex items-center gap-3">
-                    {/* Dashboard Link Moved Here - Visible on Mobile */}
                     {currentRole !== UserRole.READER && (
                         <Link 
                             to={currentRole === UserRole.WRITER ? '/writer' : '/editor'} 
@@ -244,22 +235,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          </div>
       </div>
 
-      {/* BRAND HEADER */}
       <header className="bg-white px-4 md:px-6 py-4 md:py-8 border-b border-gray-100 relative z-20">
          <div className="max-w-7xl mx-auto flex items-center justify-between">
-             
-             {/* LEFT: SPACER (Formerly Search) - Keeps layout balanced on desktop */}
              <div className="hidden md:block w-1/4">
-                 {/* Empty spacer for balance */}
              </div>
 
-             {/* CENTER: LOGO - Left on Mobile, Center on Desktop */}
              <div className="flex-1 md:w-1/2 text-left md:text-center min-w-0 pr-2 md:pr-0 flex items-center justify-start md:justify-center">
                  <Link to="/" onNavigate={onNavigate} className="inline-block group">
                     <h1 className="font-serif text-2xl md:text-5xl font-extrabold tracking-tighter text-news-blue leading-none uppercase whitespace-nowrap">
                         <span className="text-news-gold">CJ</span> NEWSHUB
                     </h1>
-                    {/* Subline - Visible on mobile now */}
                     <div className="flex items-center md:justify-center justify-start gap-2 md:gap-4 mt-2 md:mt-3">
                         <span className="hidden md:block h-[1px] bg-gray-200 w-12"></span>
                         <span className="text-[7px] md:text-[9px] uppercase tracking-[0.4em] text-gray-400 font-bold italic">Global Editorial Excellence</span>
@@ -268,10 +253,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                  </Link>
              </div>
 
-             {/* RIGHT: WEATHER & SUBSCRIBE & MOBILE MENU */}
              <div className="w-auto md:w-1/4 flex justify-end items-center gap-3 md:gap-6 shrink-0">
-                 
-                 {/* Mobile Search - Visible on small screens */}
                  <button 
                     onClick={() => setIsSearchOpen(true)} 
                     className="md:hidden text-gray-500 hover:text-news-blue p-2 -mr-1"
@@ -279,7 +261,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                     <Search size={20} />
                  </button>
 
-                 {/* Mobile Weather Widget (Compact) - Visible on small screens */}
                  <button onClick={() => setIsWeatherModalOpen(true)} className="flex md:hidden items-center gap-1.5 text-right group border-r border-gray-100 pr-2 mr-1">
                     <div className="flex flex-col items-end gap-0.5">
                         <span className="text-[8px] font-black text-gray-800 uppercase tracking-tight max-w-[70px] truncate leading-none">{weatherState.location}</span>
@@ -293,7 +274,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                      <Sun size={16} className="text-news-gold shrink-0" />}
                  </button>
 
-                 {/* Desktop Weather (Full) */}
                  <button onClick={() => setIsWeatherModalOpen(true)} className="hidden md:flex items-center gap-3 text-left group">
                     {weatherState.condition.includes('Rain') ? <CloudRain size={24} className="text-news-blue group-hover:scale-110 transition-transform" /> : 
                      weatherState.condition.includes('Cloud') ? <Cloud size={24} className="text-gray-400 group-hover:scale-110 transition-transform" /> :
@@ -309,13 +289,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                     </div>
                  </button>
 
-                 {/* Subscribe - Desktop Only */}
                  <button className="hidden md:flex bg-news-accent text-white px-6 py-2.5 rounded text-[11px] font-black uppercase tracking-wider shadow-lg hover:bg-red-800 transition-all flex-col items-center leading-tight">
                     <span>SUBSCRIBE</span>
                     <span className="text-[8px] opacity-80">NOW</span>
                  </button>
 
-                 {/* Mobile Menu Toggle */}
                  <button 
                     className="md:hidden text-news-blue p-2 -mr-2 hover:bg-gray-100 rounded transition-colors"
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -326,19 +304,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          </div>
       </header>
 
-      {/* DESKTOP NAVIGATION */}
       <nav className="hidden md:block bg-white border-b border-gray-200 sticky top-0 z-50">
          <div className="max-w-7xl mx-auto px-6 h-12 flex justify-center items-center gap-6 overflow-visible">
              <DesktopNavItem to="/" label="HOME" isActive={isActive('/')} onNavigate={onNavigate} />
              <DesktopNavItem to="/epaper" label="E-PAPER" icon={Newspaper} isActive={isActive('/epaper')} onNavigate={onNavigate} />
              
-             {/* Dynamic Categories */}
              <div className="h-3 w-[1px] bg-gray-200 mx-2"></div>
              {visibleCats.map(cat => (
                  <DesktopNavItem key={cat} to={`/category/${cat}`} label={cat} isActive={isActive(`/category/${cat}`)} onNavigate={onNavigate} />
              ))}
 
-             {/* More Dropdown */}
              {hiddenCats.length > 0 && (
                  <div className="relative group h-full flex items-center">
                      <button className="text-[9px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 text-gray-500 hover:text-news-blue transition-colors outline-none">
@@ -361,7 +336,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
                  </div>
              )}
 
-             {/* Desktop Search Trigger - Moved to Right */}
              <button 
                 onClick={() => setIsSearchOpen(true)}
                 className="text-[9px] font-extrabold uppercase tracking-[0.15em] flex items-center gap-1.5 transition-colors duration-200 h-full border-b-2 border-transparent text-gray-500 hover:text-news-blue ml-4"
@@ -371,7 +345,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
          </div>
       </nav>
 
-      {/* MOBILE NAVIGATION MENU (HAMBURGER) */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white border-b border-gray-200 p-6 animate-in slide-in-from-top-2 shadow-lg h-auto max-h-[80vh] overflow-y-auto">
              <div className="flex flex-col gap-1">
@@ -395,30 +368,35 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
       )}
 
       {/* TICKER */}
-      <div className="bg-news-blue text-white h-11 flex items-center overflow-hidden border-b border-gray-800">
-          <div className="bg-news-gold text-black px-5 h-full font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 shrink-0 z-10">
+      <div className="bg-news-blue text-white h-11 flex items-center overflow-hidden border-b border-gray-800 relative z-10">
+          <div className="bg-news-gold text-black px-5 h-full font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 shrink-0 z-20 shadow-xl">
               <Flame size={14} /> BREAKING
           </div>
-          <div className="flex-1 whitespace-nowrap overflow-hidden flex items-center">
-              <div className="animate-marquee inline-flex items-center">
-                  {breakingNews.length > 0 ? breakingNews.map((a, i) => (
+          <div className="flex-1 whitespace-nowrap overflow-hidden flex items-center relative group">
+              <div className="animate-marquee inline-flex items-center group-hover:[animation-play-state:paused]">
+                  {breakingNews.length > 0 ? (
+                      // Render items twice to ensure gapless loop feeling
+                      [...breakingNews, ...breakingNews].map((a, i) => (
                       <Link 
-                          key={a.id} 
+                          key={`${a.id}-${i}`} 
                           to={`/article/${a.slug || a.id}`} 
                           onNavigate={onNavigate} 
-                          className="inline-flex items-center group hover:bg-white/5 transition-colors px-2 py-1 rounded"
+                          className="inline-flex items-center group/item hover:bg-white/5 transition-colors px-4 py-1.5 rounded mx-2"
                       >
-                          <span className={`mx-2 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${i % 3 === 0 ? 'bg-[#0b1f36] text-gray-300' : i % 3 === 1 ? 'bg-[#12314f] text-gray-300' : 'bg-[#0f2b46] text-gray-400'}`}>
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded mr-3 ${i % 3 === 0 ? 'bg-[#0b1f36] text-gray-300' : i % 3 === 1 ? 'bg-[#12314f] text-gray-300' : 'bg-[#0f2b46] text-gray-400'}`}>
                               {a.categories[0]}
                           </span>
-                          <span className="text-[11px] font-bold text-gray-200 mr-8 uppercase group-hover:text-white group-hover:underline decoration-news-gold underline-offset-4">{a.title} <span className="text-gray-500 ml-2 no-underline">+++</span></span>
+                          <span className="text-[11px] font-bold text-gray-200 uppercase group-hover/item:text-white group-hover/item:underline decoration-news-gold underline-offset-4 tracking-wide">{a.title} <span className="text-news-gold/50 ml-3 no-underline">///</span></span>
                       </Link>
-                  )) : <span className="mx-8 text-[11px] font-bold text-gray-400 uppercase">No recent dispatches in the last 5 days...</span>}
+                  ))) : (
+                      <span className="mx-8 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                          No recent breaking dispatches in the last 5 days...
+                      </span>
+                  )}
               </div>
           </div>
       </div>
 
-      {/* MOBILE ICON NAVIGATION BAR */}
       <div className="md:hidden bg-white border-b border-gray-200 py-3 flex justify-around items-center shadow-sm relative z-30">
           <Link to="/" onNavigate={onNavigate} className={`flex flex-col items-center gap-1.5 min-w-[60px] ${isActive('/') ? 'text-news-blue' : 'text-gray-400 hover:text-gray-600'}`}>
               <Home size={18} />
@@ -447,8 +425,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
             <div className="lg:col-span-12">
                 {children}
             </div>
-            
-            {/* Global Partners Section Removed as per request */}
         </div>
       </main>
 
@@ -462,7 +438,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
         </div>
       </footer>
 
-      {/* Floating Scroll Actions */}
       <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 print:hidden pointer-events-none">
           {showScrollTop && (
               <button 
@@ -500,7 +475,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentRole, onRoleChange, cu
         </div>
       )}
 
-      {/* Global Search Modal */}
       <SearchModal 
         isOpen={isSearchOpen} 
         onClose={() => setIsSearchOpen(false)} 
