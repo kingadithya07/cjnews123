@@ -272,7 +272,7 @@ function App() {
       if (adData) {
         setAdvertisements(adData.map(ad => ({
           id: ad.id, imageUrl: ad.imageUrl || ad.image_url, linkUrl: ad.linkUrl || ad.link_url, title: ad.title,
-          size: ad.size, customWidth: ad.customWidth, customHeight: ad.customHeight, placement: ad.placement, targetCategory: ad.targetCategory,
+          size: ad.size, customWidth: ad.customWidth, customHeight: ad.customHeight, placement: ad.placement, targetCategory: ad.targetCategory || ad.target_category,
           isActive: ad.isActive !== undefined ? ad.isActive : (ad.is_active !== undefined ? ad.is_active : true)
         })) as Advertisement[]);
       }
@@ -577,8 +577,55 @@ function App() {
         onToggleGlobalAds={handleToggleGlobalAds} onUpdateWatermarkSettings={(w) => handleSaveGlobalConfig(w)} onUpdatePage={handleUpdatePage} onAddPage={handleAddPage} onDeletePage={handleDeletePage} onDeleteArticle={handleDeleteArticle} onSaveArticle={handleSaveArticle} 
         onAddCategory={c => setCategories(p => [...p, c])} onDeleteCategory={c => setCategories(p => p.filter(o => o !== c))} onAddTag={t => setTags(p => [...p, t])} onDeleteTag={t => setTags(p => p.filter(o => o !== t))} 
         onAddAdCategory={c => setAdCategories(p => [...p, c])} onDeleteAdCategory={c => setAdCategories(p => p.filter(o => o !== c))} onSaveTaxonomy={() => handleSaveGlobalConfig()} 
-        onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
-        onAddAdvertisement={async (ad) => { /* save ad */ fetchData(true); }} onUpdateAdvertisement={async (ad) => { /* update ad */ fetchData(true); }} onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
+        
+        onAddClassified={async (c) => { 
+            const dbPayload = {
+                id: c.id,
+                title: c.title,
+                category: c.category,
+                content: c.content,
+                price: c.price,
+                location: c.location,
+                contact_info: c.contactInfo, // map snake_case
+                posted_at: c.postedAt
+            };
+            const { error } = await supabase.from('classifieds').insert(dbPayload); 
+            if (error) console.error("Classified save error", error);
+            fetchData(true); 
+        }} 
+        onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
+        
+        onAddAdvertisement={async (ad) => { 
+            const dbPayload = {
+                id: ad.id,
+                title: ad.title,
+                image_url: ad.imageUrl,
+                link_url: ad.linkUrl,
+                size: ad.size,
+                placement: ad.placement,
+                target_category: ad.targetCategory,
+                is_active: ad.isActive
+            };
+            const { error } = await supabase.from('advertisements').insert(dbPayload);
+            if (error) console.error("Ad save error:", error);
+            fetchData(true); 
+        }} 
+        onUpdateAdvertisement={async (ad) => { 
+             const dbPayload = {
+                title: ad.title,
+                image_url: ad.imageUrl,
+                link_url: ad.linkUrl,
+                size: ad.size,
+                placement: ad.placement,
+                target_category: ad.targetCategory,
+                is_active: ad.isActive
+            };
+             const { error } = await supabase.from('advertisements').update(dbPayload).eq('id', ad.id);
+            if (error) console.error("Ad update error:", error);
+            fetchData(true); 
+        }} 
+        onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
+        
         onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} onRejectDevice={(id) => handleRevokeDevice(id)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors} logs={activityLogs}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
