@@ -157,14 +157,6 @@ const ReaderHome: React.FC<ReaderHomeProps> = ({ articles, ePaperPages, onNaviga
                                           <Clock size={10} /> {safeFormat(article.publishedAt, 'MMM d, yyyy')}
                                       </span>
                                   </div>
-
-                                  {article.tags && article.tags.length > 0 && (
-                                      <div className="flex flex-wrap gap-2 mb-4">
-                                          {article.tags.slice(0, 4).map(tag => (
-                                              <span key={tag} className="text-[7px] md:text-[9px] font-black text-news-gold border border-news-gold/30 px-2 py-0.5 rounded uppercase tracking-widest">#{tag}</span>
-                                          ))}
-                                      </div>
-                                  )}
                               </div>
                           </div>
                       ))}
