@@ -357,7 +357,13 @@ function App() {
           const duration = Math.round((Date.now() - sessionStartTime.current) / 60000); 
           await handleLogActivity('LOGOUT', `Duration: ${duration} mins`);
           setUserId(null); userIdRef.current = null; setUserName(null); setUserEmail(null); setUserRole(UserRole.READER); setUserAvatar(null); setDevices([]); setActivityLogs([]); setAllStaffUsers([]);
-          navigate('/'); // Instant navigation to home on logout
+          
+          // Only navigate to home if NOT on the invite page.
+          // The invite page performs a forced sign-out to ensure a clean registration state.
+          // If we redirect here, we break the invite flow.
+          if (!window.location.hash.includes('invite')) {
+              navigate('/'); 
+          }
       }
       if (session) {
         setUserId(session.user.id); userIdRef.current = session.user.id; 
@@ -523,11 +529,7 @@ function App() {
 
   const currentDeviceId = getDeviceId();
   const currentDeviceEntry = devices.find(d => d.id === currentDeviceId);
-  
-  // FIX: Strict Primary Check. Must be explicitly marked primary AND approved in DB.
-  // This prevents 'pending' devices from acting as Primary even if local logic confused them.
-  const isPrimary = (currentDeviceEntry?.isPrimary === true) && (currentDeviceEntry?.status === 'approved');
-  
+  const isPrimary = currentDeviceEntry?.isPrimary ?? false;
   const pendingDevice = devices.find(d => d.status === 'pending');
   const path = currentPath.toLowerCase();
   
