@@ -57,6 +57,8 @@ interface EditorDashboardProps {
   logs?: ActivityLog[];
   users?: UserProfile[]; // List of registered users
   onBlockUser?: (userId: string) => void;
+  translationApiKey?: string;
+  onUpdateTranslationKey?: (key: string) => void;
 }
 
 const EditorDashboard: React.FC<EditorDashboardProps> = ({ 
@@ -66,7 +68,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   onAddClassified, onDeleteClassified, onAddAdvertisement, onUpdateAdvertisement, onDeleteAdvertisement,
   onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar, userEmail,
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId, activeVisitors,
-  logs = [], users = [], onBlockUser
+  logs = [], users = [], onBlockUser, translationApiKey = '', onUpdateTranslationKey
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'ads' | 'taxonomy' | 'analytics' | 'settings' | 'team'>('articles');
@@ -153,18 +155,20 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const isPrimaryDevice = currentDevice?.isPrimary || false;
 
   // Custom API State
-  const [customApiKey, setCustomApiKey] = useState('');
+  const [localApiKey, setLocalApiKey] = useState(translationApiKey);
   const [showKeyInput, setShowKeyInput] = useState(false);
 
+  // Update local state when prop changes
   useEffect(() => {
-      const storedKey = localStorage.getItem('newsroom_custom_api_key');
-      if (storedKey) setCustomApiKey(storedKey);
-  }, []);
+      setLocalApiKey(translationApiKey);
+  }, [translationApiKey]);
 
   const handleSaveApiKey = () => {
-      localStorage.setItem('newsroom_custom_api_key', customApiKey);
-      setShowKeyInput(false);
-      alert("API Key saved locally.");
+      if(onUpdateTranslationKey) {
+          onUpdateTranslationKey(localApiKey);
+          setShowKeyInput(false);
+          alert("API Key updated globally.");
+      }
   };
 
   useEffect(() => {
@@ -313,7 +317,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
   const handleTranslateTitle = async () => {
       if (!modalTitle) return;
-      const keyToUse = customApiKey;
+      const keyToUse = translationApiKey;
       if (!keyToUse) {
           const proceed = confirm("Translation requires a third-party API Key. Would you like to configure it now in Settings?");
           if (proceed) { setShowArticleModal(false); setActiveTab('settings'); }
@@ -862,8 +866,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                           <h3 className="font-bold text-sm text-gray-900">Translation Service (Google Gemini)</h3>
                                           <p className="text-xs text-gray-500 mt-1">Configure your API key to enable auto-translation features for writers.</p>
                                       </div>
-                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${customApiKey ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                                          {customApiKey ? 'Connected' : 'Not Configured'}
+                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${translationApiKey ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                                          {translationApiKey ? 'Connected' : 'Not Configured'}
                                       </span>
                                   </div>
                                   <div className="mt-4">
@@ -871,8 +875,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       <div className="flex gap-2">
                                           <input 
                                             type={showKeyInput ? "text" : "password"} 
-                                            value={customApiKey} 
-                                            onChange={e => setCustomApiKey(e.target.value)} 
+                                            value={localApiKey} 
+                                            onChange={e => setLocalApiKey(e.target.value)} 
                                             placeholder="Enter your Gemini API Key..."
                                             className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black"
                                           />
@@ -884,7 +888,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                           </button>
                                       </div>
                                       <p className="text-[10px] text-gray-400 mt-2">
-                                          Key is stored locally. Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a>.
+                                          Key is stored securely. Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a>.
                                       </p>
                                   </div>
                               </div>

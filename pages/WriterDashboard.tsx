@@ -23,11 +23,12 @@ interface WriterDashboardProps {
   onRevokeDevice?: (id: string) => void;
   userId?: string | null; // Passed for data isolation
   activeVisitors?: number; // Added for Analytics
+  translationApiKey?: string;
 }
 
 const WriterDashboard: React.FC<WriterDashboardProps> = ({ 
     onSave, onDelete, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName, userEmail,
-    devices = [], onRevokeDevice, userId, activeVisitors
+    devices = [], onRevokeDevice, userId, activeVisitors, translationApiKey = ''
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'settings'>('articles');
@@ -62,18 +63,9 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [isSavingDevices, setIsSavingDevices] = useState(false);
   
-  // Custom API State
-  const [customApiKey, setCustomApiKey] = useState('');
-
   // Identify Current Device & Status
   const currentDevice = devices.find(d => d.isCurrent);
   const isPrimaryDevice = currentDevice?.isPrimary || false;
-
-  // Load custom key on mount
-  useEffect(() => {
-      const storedKey = localStorage.getItem('newsroom_custom_api_key');
-      if (storedKey) setCustomApiKey(storedKey);
-  }, []);
 
   // Filter articles for this writer only if userId is provided
   const myArticles = userId 
@@ -123,7 +115,7 @@ const WriterDashboard: React.FC<WriterDashboardProps> = ({
   const handleTranslateTitle = async () => {
       if (!title) return;
       
-      const keyToUse = customApiKey;
+      const keyToUse = translationApiKey;
       if (!keyToUse) {
           alert("Translation service is currently not configured by the Administrator.");
           return;

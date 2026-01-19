@@ -40,6 +40,10 @@ function App() {
   const [classifieds, setClassifieds] = useState<ClassifiedAd[]>([]);
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
   const [globalAdsEnabled, setGlobalAdsEnabled] = useState(true);
+  
+  // New State for Translation API Key
+  const [translationApiKey, setTranslationApiKey] = useState('');
+
   const [watermarkSettings, setWatermarkSettings] = useState<WatermarkSettings>({
     text: `${APP_NAME} Edition`,
     fontSize: 24,
@@ -91,7 +95,7 @@ function App() {
   const fetchLogs = async () => {
       if (!userIdRef.current) return;
       try {
-          const { data, error } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(200); // Increased limit to capture more history
+          const { data, error } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(200);
           if (!error && data) {
               const mappedLogs: ActivityLog[] = data.map((l: any) => ({
                   id: l.id, userId: l.user_id, deviceName: l.device_name, action: l.action, details: l.details, ip: l.ip, location: l.location, timestamp: l.timestamp
@@ -124,20 +128,13 @@ function App() {
   };
 
   const fetchDevices = async (uidOverride?: string) => {
-      // If fetching for current user (standard), filter by ID. If admin, we might want to fetch more in a real app, but here we stick to context.
       const targetUserId = uidOverride || userIdRef.current;
       if (!targetUserId) { setDevices([]); return; }
-      
-      // Note: In a real Supabase RLS setup, users can only see their own devices.
-      // Editors/Admins might need a special RPC or policy to see others.
-      // Here we assume standard RLS unless overridden.
       const { data, error } = await supabase.from('trusted_devices').select('*');
       
       if (error) { console.error("Error fetching devices:", error); return; }
       if (data) { 
           const mappedDevices = data.map(mapDbDevice);
-          // If we are admin/editor, we might see all devices if RLS allows, or just ours.
-          // For the purpose of this simulation, we filter in memory if needed, but RLS usually handles it.
           if (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) {
               setDevices(mappedDevices);
           } else {
@@ -146,36 +143,25 @@ function App() {
       }
   };
 
-  // Derive Users from Logs and Devices (Mocking a Users table since we can't access auth.users)
   useEffect(() => {
       if (userRole !== UserRole.EDITOR && userRole !== UserRole.ADMIN) return;
 
       const deriveUsers = () => {
           const userMap = new Map<string, UserProfile>();
-
-          // Process logs to find users
           activityLogs.forEach(log => {
               if (!userMap.has(log.userId)) {
-                  // Attempt to guess name/role from logs/context or placeholder
                   userMap.set(log.userId, {
                       id: log.userId,
-                      name: 'Staff Member', // We don't have name in logs easily, updated below if found
+                      name: 'Staff Member',
                       email: 'Hidden',
-                      role: UserRole.WRITER, // Default assumption
-                      joinedAt: log.timestamp, // Earliest timestamp found becomes join date
+                      role: UserRole.WRITER,
+                      joinedAt: log.timestamp,
                       lastIp: log.ip || 'Unknown',
                       status: 'active'
                   });
               } else {
                   const existing = userMap.get(log.userId)!;
-                  // Update with earlier timestamp for joinedAt
-                  if (new Date(log.timestamp) < new Date(existing.joinedAt)) {
-                      existing.joinedAt = log.timestamp;
-                  }
-                  // Update IP to most recent
-                  if (new Date(log.timestamp) > new Date(existing.joinedAt)) { // Reuse logic, technically logic flawed for "most recent" vs "earliest", fixing:
-                      // Actually we need to track latest log for IP
-                  }
+                  if (new Date(log.timestamp) < new Date(existing.joinedAt)) existing.joinedAt = log.timestamp;
               }
           });
 
@@ -183,29 +169,20 @@ function App() {
           activityLogs.forEach(log => {
              const user = userMap.get(log.userId);
              if (user) {
-                 // If this log is newer than what we might have tracked (we didn't track latest ts above), update IP
-                 // Simple heuristic: just take the IP of the first log encountered since list is ordered DESC
-                 if (user.lastIp === 'Unknown' || user.lastIp === 'Detected via IP') {
-                     user.lastIp = log.ip || 'Unknown';
-                 }
+                 if (user.lastIp === 'Unknown' || user.lastIp === 'Detected via IP') user.lastIp = log.ip || 'Unknown';
              }
           });
 
-          // Enrich with info if available from current session (self)
           if (userId && userMap.has(userId)) {
               const self = userMap.get(userId)!;
               self.name = userName || 'Me';
               self.email = userEmail || '';
               self.role = userRole;
           }
-
-          // Convert map to array
           setAllStaffUsers(Array.from(userMap.values()));
       };
-
       deriveUsers();
   }, [activityLogs, devices, userRole, userId, userName, userEmail]);
-
 
   const handleAddDevice = async (device: TrustedDevice) => {
       setDevices(prev => { if (prev.some(d => d.id === device.id)) return prev; return [...prev, { ...device, isCurrent: true }]; });
@@ -228,20 +205,12 @@ function App() {
       if (error) { console.error("Status update failed", error); fetchDevices(); }
   };
 
-  // Block User Functionality (Revokes all devices for that user)
   const handleBlockUser = async (targetUserId: string) => {
-      // 1. Identify devices
       const userDevices = devices.filter(d => d.userId === targetUserId);
-      
-      // 2. Delete from DB
       for (const device of userDevices) {
           await supabase.from('trusted_devices').delete().eq('id', device.id);
       }
-
-      // 3. Update State
       setDevices(prev => prev.filter(d => d.userId !== targetUserId));
-      
-      // 4. Log
       handleLogActivity('EDIT', `Blocked User ${targetUserId.substring(0, 8)}`);
       alert("User blocked. All trusted devices for this user have been revoked.");
   };
@@ -268,6 +237,8 @@ function App() {
               if (parsedSettings.tags && Array.isArray(parsedSettings.tags)) setTags(parsedSettings.tags);
               if (parsedSettings.adCategories && Array.isArray(parsedSettings.adCategories)) setAdCategories(parsedSettings.adCategories);
               if (parsedSettings.adsEnabled !== undefined) setGlobalAdsEnabled(parsedSettings.adsEnabled);
+              // Load API Key
+              if (parsedSettings.translationApiKey) setTranslationApiKey(parsedSettings.translationApiKey);
           } catch (e) { console.error("Failed to parse global settings", e); }
       }
       let { data: artData } = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).order('publishedAt', { ascending: false });
@@ -354,7 +325,6 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, (payload) => {
           if (!userIdRef.current) return;
-          // In a real app we might verify if this affects us, but here just fetch all devices again if we are admin
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
               fetchDevices();
           }
@@ -411,10 +381,12 @@ function App() {
 
   const handleLogin = (role: UserRole, name: string, avatar?: string) => { setUserRole(role); setUserName(name); if (avatar) setUserAvatar(avatar); };
   
-  const handleSaveGlobalConfig = async (w?: WatermarkSettings, adsEnabledOverride?: boolean) => { 
+  const handleSaveGlobalConfig = async (w?: WatermarkSettings, adsEnabledOverride?: boolean, apiKeyOverride?: string) => { 
       const watermarkToSave = w || watermarkSettings;
       if (w) setWatermarkSettings(w);
       const adsEnabledToSave = adsEnabledOverride !== undefined ? adsEnabledOverride : globalAdsEnabled;
+      const apiKeyToSave = apiKeyOverride !== undefined ? apiKeyOverride : translationApiKey;
+      if (apiKeyOverride !== undefined) setTranslationApiKey(apiKeyOverride);
 
       const payload = {
           id: GLOBAL_SETTINGS_ID,
@@ -425,7 +397,8 @@ function App() {
               categories: categories,
               tags: tags,
               adCategories: adCategories,
-              adsEnabled: adsEnabledToSave
+              adsEnabled: adsEnabledToSave,
+              translationApiKey: apiKeyToSave // Store Key in DB
           }),
           author: 'SYSTEM',
           category: 'Config',
@@ -445,6 +418,10 @@ function App() {
   const handleToggleGlobalAds = async (e: boolean) => { 
       setGlobalAdsEnabled(e);
       handleSaveGlobalConfig(undefined, e); 
+  };
+
+  const handleUpdateTranslationKey = async (key: string) => {
+      handleSaveGlobalConfig(undefined, undefined, key);
   };
 
   const handleSaveArticle = async (article: Article) => {
@@ -526,9 +503,8 @@ function App() {
   const isDeviceAuthorized = () => {
     if (!userId) return false;
     const currentDeviceId = getDeviceId();
-    // In this simulation, devices list is already filtered if not admin, but handle robustly
     const myDevices = devices.filter(d => d.userId === userId);
-    if (myDevices.length === 0) return true; // Fail open for first device if no table sync
+    if (myDevices.length === 0) return true;
     const currentEntry = myDevices.find(d => d.id === currentDeviceId);
     return currentEntry?.status === 'approved';
   };
@@ -547,7 +523,6 @@ function App() {
   const currentDeviceId = getDeviceId();
   const currentDeviceEntry = devices.find(d => d.id === currentDeviceId);
   const isPrimary = currentDeviceEntry?.isPrimary ?? false;
-  // Admin sees all pending devices from all users
   const pendingDevice = devices.find(d => d.status === 'pending');
   const path = currentPath.toLowerCase();
   
@@ -573,9 +548,10 @@ function App() {
         onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
         onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices} onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} onRejectDevice={(id) => handleRevokeDevice(id)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors} logs={activityLogs}
         users={allStaffUsers} onBlockUser={handleBlockUser}
+        translationApiKey={translationApiKey} onUpdateTranslationKey={handleUpdateTranslationKey}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
-    content = <WriterDashboard onSave={handleSaveArticle} onDelete={handleDeleteArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors}/>;
+    content = <WriterDashboard onSave={handleSaveArticle} onDelete={handleDeleteArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors} translationApiKey={translationApiKey} />;
   } else if (path === '/' || path === '/home') {
     content = <ReaderHome articles={articles} ePaperPages={ePaperPages} onNavigate={navigate} advertisements={advertisements} globalAdsEnabled={globalAdsEnabled} categories={categories} />;
   } else if (path.startsWith('/article/')) {
