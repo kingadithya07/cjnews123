@@ -245,7 +245,9 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       try {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user || !user.email) throw new Error("User email not found.");
-          const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: `${window.location.origin}/#/reset-password` });
+          // IMPORTANT: Redirect to root origin. App.tsx will detect the 'type=recovery' in the hash
+          // and correctly route to /reset-password. This avoids double-hash issues like /#/reset-password#access_token
+          const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: `${window.location.origin}/` });
           if (error) throw error;
           alert(`Master reset link sent to ${user.email}. Please check your inbox to reset credentials securely.`);
       } catch (e: any) { alert("Error: " + e.message); }
@@ -891,82 +893,6 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                       </div>
                                   );
                               })}
-                          </div>
-                      </div>
-
-                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
-                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Key className="text-news-gold" /> Third-Party Integrations</h2>
-                          <div className="space-y-4">
-                              <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg">
-                                  <div className="flex justify-between items-start mb-2">
-                                      <div>
-                                          <h3 className="font-bold text-sm text-gray-900">Translation Service (Google Gemini)</h3>
-                                          <p className="text-xs text-gray-500 mt-1">Configure your own API key to enable auto-translation features in the editor.</p>
-                                      </div>
-                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${customApiKey ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                                          {customApiKey ? 'Connected' : 'Not Configured'}
-                                      </span>
-                                  </div>
-                                  <div className="mt-4">
-                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">API Key</label>
-                                      <div className="flex gap-2">
-                                          <input 
-                                            type={showKeyInput ? "text" : "password"} 
-                                            value={customApiKey} 
-                                            onChange={e => setCustomApiKey(e.target.value)} 
-                                            placeholder="Enter your Gemini API Key..."
-                                            className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black"
-                                          />
-                                          <button onClick={() => setShowKeyInput(!showKeyInput)} className="bg-gray-200 text-gray-600 px-3 rounded hover:bg-gray-300">
-                                              {showKeyInput ? <Eye size={16}/> : <LayoutIcon size={16}/>}
-                                          </button>
-                                          <button onClick={handleSaveApiKey} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800">
-                                              <Save size={14}/> Save
-                                          </button>
-                                      </div>
-                                      <p className="text-[10px] text-gray-400 mt-2">
-                                          Key is stored locally in your browser. Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a>.
-                                      </p>
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
-                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Settings className="text-news-gold" /> System Configuration</h2>
-                          
-                          <div className="space-y-6">
-                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                  <div>
-                                      <h3 className="font-bold text-sm text-gray-900">Global Ad Delivery</h3>
-                                      <p className="text-xs text-gray-500 mt-1">Master switch to enable/disable all advertisement slots across the platform.</p>
-                                  </div>
-                                  <label className="relative inline-flex items-center cursor-pointer">
-                                      <input type="checkbox" checked={globalAdsEnabled} onChange={(e) => onToggleGlobalAds(e.target.checked)} className="sr-only peer" />
-                                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-news-black"></div>
-                                  </label>
-                              </div>
-
-                              <div>
-                                  <h3 className="font-bold text-sm text-gray-900 mb-4">E-Paper Watermark Branding</h3>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                      <div>
-                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Watermark Text</label>
-                                          <input type="text" value={watermarkText} onChange={e => setWatermarkText(e.target.value)} className="w-full p-2 border rounded text-sm" />
-                                      </div>
-                                      <div>
-                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Font Size (px)</label>
-                                          <input type="number" value={watermarkFontSize} onChange={e => setWatermarkFontSize(Number(e.target.value))} className="w-full p-2 border rounded text-sm" />
-                                      </div>
-                                  </div>
-                                  <div className="mt-4">
-                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Logo URL</label>
-                                      <div className="flex gap-2">
-                                          <input type="text" value={watermarkLogo} onChange={e => setWatermarkLogo(e.target.value)} className="flex-1 p-2 border rounded text-sm" />
-                                          <button onClick={() => onUpdateWatermarkSettings({ ...watermarkSettings, text: watermarkText, logoUrl: watermarkLogo, fontSize: watermarkFontSize })} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase">Save Config</button>
-                                      </div>
-                                  </div>
-                              </div>
                           </div>
                       </div>
 
