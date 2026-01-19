@@ -12,6 +12,17 @@ export enum ArticleStatus {
   PUBLISHED = 'PUBLISHED'
 }
 
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar?: string;
+  joinedAt: string; // ISO Date
+  lastIp: string;
+  status: 'active' | 'blocked';
+}
+
 export interface TrustedDevice {
   id: string;
   userId: string; // Associated user

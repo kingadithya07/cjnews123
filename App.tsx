@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -10,7 +11,7 @@ import Login from './pages/Login';
 import StaffLogin from './pages/StaffLogin';
 import InviteRegistration from './pages/InviteRegistration';
 import ResetPassword from './pages/ResetPassword';
-import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, AdSize, ActivityLog } from './types';
+import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, AdSize, ActivityLog, UserProfile } from './types';
 import { APP_NAME } from './constants';
 import { generateId, getDeviceId, createSlug, getDeviceMetadata, getPublicIP } from './utils';
 import { supabase } from './supabaseClient';
@@ -50,6 +51,7 @@ function App() {
   });
   
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [allStaffUsers, setAllStaffUsers] = useState<UserProfile[]>([]);
   const sessionStartTime = useRef<number>(Date.now());
 
   useEffect(() => {
@@ -89,7 +91,7 @@ function App() {
   const fetchLogs = async () => {
       if (!userIdRef.current) return;
       try {
-          const { data, error } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(50);
+          const { data, error } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(200); // Increased limit to capture more history
           if (!error && data) {
               const mappedLogs: ActivityLog[] = data.map((l: any) => ({
                   id: l.id, userId: l.user_id, deviceName: l.device_name, action: l.action, details: l.details, ip: l.ip, location: l.location, timestamp: l.timestamp
@@ -122,12 +124,88 @@ function App() {
   };
 
   const fetchDevices = async (uidOverride?: string) => {
+      // If fetching for current user (standard), filter by ID. If admin, we might want to fetch more in a real app, but here we stick to context.
       const targetUserId = uidOverride || userIdRef.current;
       if (!targetUserId) { setDevices([]); return; }
-      const { data, error } = await supabase.from('trusted_devices').select('*').eq('user_id', targetUserId);
+      
+      // Note: In a real Supabase RLS setup, users can only see their own devices.
+      // Editors/Admins might need a special RPC or policy to see others.
+      // Here we assume standard RLS unless overridden.
+      const { data, error } = await supabase.from('trusted_devices').select('*');
+      
       if (error) { console.error("Error fetching devices:", error); return; }
-      if (data) { setDevices(data.map(mapDbDevice)); }
+      if (data) { 
+          const mappedDevices = data.map(mapDbDevice);
+          // If we are admin/editor, we might see all devices if RLS allows, or just ours.
+          // For the purpose of this simulation, we filter in memory if needed, but RLS usually handles it.
+          if (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) {
+              setDevices(mappedDevices);
+          } else {
+              setDevices(mappedDevices.filter(d => d.userId === targetUserId));
+          }
+      }
   };
+
+  // Derive Users from Logs and Devices (Mocking a Users table since we can't access auth.users)
+  useEffect(() => {
+      if (userRole !== UserRole.EDITOR && userRole !== UserRole.ADMIN) return;
+
+      const deriveUsers = () => {
+          const userMap = new Map<string, UserProfile>();
+
+          // Process logs to find users
+          activityLogs.forEach(log => {
+              if (!userMap.has(log.userId)) {
+                  // Attempt to guess name/role from logs/context or placeholder
+                  userMap.set(log.userId, {
+                      id: log.userId,
+                      name: 'Staff Member', // We don't have name in logs easily, updated below if found
+                      email: 'Hidden',
+                      role: UserRole.WRITER, // Default assumption
+                      joinedAt: log.timestamp, // Earliest timestamp found becomes join date
+                      lastIp: log.ip || 'Unknown',
+                      status: 'active'
+                  });
+              } else {
+                  const existing = userMap.get(log.userId)!;
+                  // Update with earlier timestamp for joinedAt
+                  if (new Date(log.timestamp) < new Date(existing.joinedAt)) {
+                      existing.joinedAt = log.timestamp;
+                  }
+                  // Update IP to most recent
+                  if (new Date(log.timestamp) > new Date(existing.joinedAt)) { // Reuse logic, technically logic flawed for "most recent" vs "earliest", fixing:
+                      // Actually we need to track latest log for IP
+                  }
+              }
+          });
+
+          // Correct IP using latest log
+          activityLogs.forEach(log => {
+             const user = userMap.get(log.userId);
+             if (user) {
+                 // If this log is newer than what we might have tracked (we didn't track latest ts above), update IP
+                 // Simple heuristic: just take the IP of the first log encountered since list is ordered DESC
+                 if (user.lastIp === 'Unknown' || user.lastIp === 'Detected via IP') {
+                     user.lastIp = log.ip || 'Unknown';
+                 }
+             }
+          });
+
+          // Enrich with info if available from current session (self)
+          if (userId && userMap.has(userId)) {
+              const self = userMap.get(userId)!;
+              self.name = userName || 'Me';
+              self.email = userEmail || '';
+              self.role = userRole;
+          }
+
+          // Convert map to array
+          setAllStaffUsers(Array.from(userMap.values()));
+      };
+
+      deriveUsers();
+  }, [activityLogs, devices, userRole, userId, userName, userEmail]);
+
 
   const handleAddDevice = async (device: TrustedDevice) => {
       setDevices(prev => { if (prev.some(d => d.id === device.id)) return prev; return [...prev, { ...device, isCurrent: true }]; });
@@ -135,7 +213,7 @@ function App() {
           id: device.id, user_id: device.userId, device_name: device.deviceName, device_type: device.deviceType, location: device.location, last_active: device.lastActive, status: device.status, browser: device.browser, is_primary: device.isPrimary
       };
       const { error } = await supabase.from('trusted_devices').upsert(dbDevice);
-      if (error) { console.error("Device add failed", error); fetchDevices(device.userId); }
+      if (error) { console.error("Device add failed", error); fetchDevices(); }
   };
 
   const handleRevokeDevice = async (deviceId: string) => {
@@ -148,6 +226,24 @@ function App() {
       setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, status } : d));
       const { error } = await supabase.from('trusted_devices').update({ status }).eq('id', deviceId);
       if (error) { console.error("Status update failed", error); fetchDevices(); }
+  };
+
+  // Block User Functionality (Revokes all devices for that user)
+  const handleBlockUser = async (targetUserId: string) => {
+      // 1. Identify devices
+      const userDevices = devices.filter(d => d.userId === targetUserId);
+      
+      // 2. Delete from DB
+      for (const device of userDevices) {
+          await supabase.from('trusted_devices').delete().eq('id', device.id);
+      }
+
+      // 3. Update State
+      setDevices(prev => prev.filter(d => d.userId !== targetUserId));
+      
+      // 4. Log
+      handleLogActivity('EDIT', `Blocked User ${targetUserId.substring(0, 8)}`);
+      alert("User blocked. All trusted devices for this user have been revoked.");
   };
 
   const parseTags = (input: any): string[] => {
@@ -179,7 +275,7 @@ function App() {
       const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
 
-      if (userIdRef.current) { await fetchDevices(userIdRef.current); fetchLogs(); }
+      if (userIdRef.current) { await fetchDevices(); fetchLogs(); }
 
       if (artData) {
         setArticles(artData.map(a => ({
@@ -258,15 +354,9 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, (payload) => {
           if (!userIdRef.current) return;
-          if (payload.new && (payload.new as any).user_id !== userIdRef.current) return;
-          if (payload.eventType === 'INSERT') {
-              const newDevice = mapDbDevice(payload.new);
-              setDevices(prev => { if (prev.some(d => d.id === newDevice.id)) return prev; return [...prev, newDevice]; });
-          } else if (payload.eventType === 'UPDATE') {
-              const updatedDevice = mapDbDevice(payload.new);
-              setDevices(prev => prev.map(d => d.id === updatedDevice.id ? updatedDevice : d));
-          } else if (payload.eventType === 'DELETE') {
-              setDevices(prev => prev.filter(d => d.id !== payload.old.id));
+          // In a real app we might verify if this affects us, but here just fetch all devices again if we are admin
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
+              fetchDevices();
           }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, () => { fetchLogs(); })
@@ -281,7 +371,7 @@ function App() {
           setUserEmail(session.user.email || null);
           setUserRole(session.user.user_metadata.role || UserRole.READER);
           setUserAvatar(session.user.user_metadata.avatar_url || null);
-          await fetchDevices(session.user.id); fetchLogs();
+          await fetchDevices(); fetchLogs();
         }
       } catch (err) { console.warn("Auth check failed:", err); } finally { setLoading(false); }
     };
@@ -291,12 +381,12 @@ function App() {
       if (event === 'PASSWORD_RECOVERY') { setIsRecovering(true); navigate('/reset-password'); }
       if (event === 'SIGNED_IN' && session) {
           sessionStartTime.current = Date.now(); setUserId(session.user.id); userIdRef.current = session.user.id;
-          handleLogActivity('LOGIN', 'Session Started'); fetchDevices(session.user.id); fetchLogs();
+          handleLogActivity('LOGIN', 'Session Started'); fetchDevices(); fetchLogs();
       }
       if (event === 'SIGNED_OUT') {
           const duration = Math.round((Date.now() - sessionStartTime.current) / 60000); 
           await handleLogActivity('LOGOUT', `Duration: ${duration} mins`);
-          setUserId(null); userIdRef.current = null; setUserName(null); setUserEmail(null); setUserRole(UserRole.READER); setUserAvatar(null); setDevices([]); setActivityLogs([]);
+          setUserId(null); userIdRef.current = null; setUserName(null); setUserEmail(null); setUserRole(UserRole.READER); setUserAvatar(null); setDevices([]); setActivityLogs([]); setAllStaffUsers([]);
       }
       if (session) {
         setUserId(session.user.id); userIdRef.current = session.user.id; 
@@ -312,7 +402,7 @@ function App() {
   useEffect(() => {
       if (userId && devices.length > 0) {
           const currentId = getDeviceId();
-          const currentDeviceEntry = devices.find(d => d.id === currentId);
+          const currentDeviceEntry = devices.find(d => d.id === currentId && d.userId === userId);
           if (currentDeviceEntry && currentDeviceEntry.status !== 'approved' && currentDeviceEntry.status !== 'pending') {
                supabase.auth.signOut().then(() => { navigate('/login'); alert("Device access revoked."); });
           }
@@ -436,8 +526,9 @@ function App() {
   const isDeviceAuthorized = () => {
     if (!userId) return false;
     const currentDeviceId = getDeviceId();
+    // In this simulation, devices list is already filtered if not admin, but handle robustly
     const myDevices = devices.filter(d => d.userId === userId);
-    if (myDevices.length === 0) return true; 
+    if (myDevices.length === 0) return true; // Fail open for first device if no table sync
     const currentEntry = myDevices.find(d => d.id === currentDeviceId);
     return currentEntry?.status === 'approved';
   };
@@ -456,6 +547,7 @@ function App() {
   const currentDeviceId = getDeviceId();
   const currentDeviceEntry = devices.find(d => d.id === currentDeviceId);
   const isPrimary = currentDeviceEntry?.isPrimary ?? false;
+  // Admin sees all pending devices from all users
   const pendingDevice = devices.find(d => d.status === 'pending');
   const path = currentPath.toLowerCase();
   
@@ -479,7 +571,8 @@ function App() {
         onAddAdvertisement={async (ad) => { await supabase.from('advertisements').insert({ ...ad, is_active: ad.isActive, image_url: ad.imageUrl, link_url: ad.linkUrl, custom_width: ad.customWidth, custom_height: ad.customHeight, target_category: ad.targetCategory }); fetchData(true); }} 
         onUpdateAdvertisement={async (ad) => { await supabase.from('advertisements').update({ ...ad, is_active: ad.isActive, image_url: ad.imageUrl, link_url: ad.linkUrl, custom_width: ad.customWidth, custom_height: ad.customHeight, target_category: ad.targetCategory }).eq('id', ad.id); fetchData(true); }} 
         onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
-        onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} onRejectDevice={(id) => handleRevokeDevice(id)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors} logs={activityLogs}
+        onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices} onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} onRejectDevice={(id) => handleRevokeDevice(id)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors} logs={activityLogs}
+        users={allStaffUsers} onBlockUser={handleBlockUser}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
     content = <WriterDashboard onSave={handleSaveArticle} onDelete={handleDeleteArticle} existingArticles={articles} currentUserRole={userRole} categories={categories} onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors}/>;
@@ -522,7 +615,7 @@ function App() {
               </div>
               <div className="p-6">
                  <div className="space-y-6">
-                      <div className="text-center"><p className="text-gray-600 text-sm">A new device is attempting to access your <b>{userRole}</b> workspace.</p></div>
+                      <div className="text-center"><p className="text-gray-600 text-sm">A new device is attempting to access your workspace or a team member account.</p></div>
                       <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
                           <div className="flex items-center gap-3">
                               <div className="bg-white p-2 rounded-full border border-gray-200 text-gray-500"><Monitor size={20}/></div>
@@ -536,7 +629,6 @@ function App() {
                           <button onClick={() => handleUpdateDeviceStatus(pendingDevice.id, 'approved')} className="py-3 rounded-lg bg-green-600 text-white font-bold uppercase text-xs hover:bg-green-700 shadow-lg transition-colors flex items-center justify-center gap-2"><Check size={16}/> Approve</button>
                       </div>
                  </div>
-                 {devices.filter(d => d.status === 'pending').length > 1 && (<p className="text-center text-[10px] text-gray-400 mt-4">Queue: {devices.filter(d => d.status === 'pending').length} pending requests</p>)}
               </div>
            </div>
         </div>

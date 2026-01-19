@@ -1,10 +1,10 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement, ActivityLog } from '../types';
+import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, UserRole, AdSize, AdPlacement, ActivityLog, UserProfile } from '../types';
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, EyeOff, Mail, ShieldAlert, FileClock, UserPlus, Timer, ToggleLeft
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, EyeOff, Mail, ShieldAlert, FileClock, UserPlus, Timer, ToggleLeft, Users
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -55,6 +55,8 @@ interface EditorDashboardProps {
   userId?: string | null;
   activeVisitors?: number;
   logs?: ActivityLog[];
+  users?: UserProfile[]; // List of registered users
+  onBlockUser?: (userId: string) => void;
 }
 
 const EditorDashboard: React.FC<EditorDashboardProps> = ({ 
@@ -64,10 +66,10 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   onAddClassified, onDeleteClassified, onAddAdvertisement, onUpdateAdvertisement, onDeleteAdvertisement,
   onNavigate, watermarkSettings, onUpdateWatermarkSettings, userName, userAvatar, userEmail,
   devices, onApproveDevice, onRejectDevice, onRevokeDevice, globalAdsEnabled, onToggleGlobalAds, userId, activeVisitors,
-  logs = []
+  logs = [], users = [], onBlockUser
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'ads' | 'taxonomy' | 'analytics' | 'settings'>('articles');
+  const [activeTab, setActiveTab] = useState<'articles' | 'epaper' | 'ads' | 'taxonomy' | 'analytics' | 'settings' | 'team'>('articles');
 
   // Article State
   const [showArticleModal, setShowArticleModal] = useState(false);
@@ -257,6 +259,12 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
   const handleForceSaveDevices = async () => {
       setIsSavingDevices(true);
       try { alert("Device list synced globally."); } catch (e: any) { alert("Error syncing: " + e.message); } finally { setIsSavingDevices(false); }
+  };
+
+  const handleBlockUserInternal = (id: string) => {
+      if (confirm("Are you sure you want to block this user? This will revoke all their trusted devices immediately.")) {
+          if (onBlockUser) onBlockUser(id);
+      }
   };
 
   const SidebarItem = ({ id, label, icon: Icon, badge }: { id: typeof activeTab, label: string, icon: any, badge?: number }) => (
@@ -458,6 +466,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
           <div className="flex-1 overflow-y-auto py-4">
               <SidebarItem id="articles" label="Editorial Content" icon={FileText} />
               <SidebarItem id="epaper" label="E-Paper Manager" icon={Newspaper} />
+              <SidebarItem id="team" label="Team" icon={Users} />
               <SidebarItem id="ads" label="Ads & Classifieds" icon={Megaphone} />
               <SidebarItem id="taxonomy" label="Categories & Tags" icon={Tag} />
               <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
@@ -559,6 +568,97 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                               </div>
                           ))}
                           {articles.length === 0 && <div className="text-center py-12 text-gray-400">No articles found.</div>}
+                      </div>
+                  </div>
+              )}
+
+              {/* TEAM TAB */}
+              {activeTab === 'team' && (
+                  <div className="max-w-6xl mx-auto space-y-8">
+                      <div className="flex justify-between items-center">
+                          <h1 className="font-serif text-2xl font-bold text-gray-900 flex items-center gap-2">
+                              <Users className="text-news-gold" /> Team & Registrations
+                          </h1>
+                          <div className="text-xs text-gray-500 font-bold uppercase tracking-widest">
+                              {users.length} Active Accounts
+                          </div>
+                      </div>
+
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                          <div className="overflow-x-auto">
+                              <table className="w-full text-left min-w-[800px]">
+                                  <thead className="bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest border-b border-gray-100">
+                                      <tr>
+                                          <th className="px-6 py-4">User Details</th>
+                                          <th className="px-6 py-4">Role</th>
+                                          <th className="px-6 py-4">Registration / First Active</th>
+                                          <th className="px-6 py-4">Last Known IP</th>
+                                          <th className="px-6 py-4 text-right">Actions</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                      {users.map(user => (
+                                          <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                                              <td className="px-6 py-4">
+                                                  <div className="flex items-center gap-3">
+                                                      <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300 shrink-0">
+                                                          {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <UserIcon className="p-1.5 text-gray-400 w-full h-full"/>}
+                                                      </div>
+                                                      <div>
+                                                          <p className="font-bold text-gray-900 text-sm">{user.name}</p>
+                                                          <p className="text-[10px] text-gray-500">{user.email || 'No email'}</p>
+                                                      </div>
+                                                  </div>
+                                              </td>
+                                              <td className="px-6 py-4">
+                                                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                                                      user.role === 'ADMIN' ? 'bg-red-100 text-red-700' :
+                                                      user.role === 'EDITOR' ? 'bg-news-gold/20 text-news-black' :
+                                                      'bg-blue-100 text-blue-700'
+                                                  }`}>
+                                                      {user.role}
+                                                  </span>
+                                              </td>
+                                              <td className="px-6 py-4">
+                                                  <div className="flex flex-col">
+                                                      <span className="text-xs font-bold text-gray-700">
+                                                          {format(new Date(user.joinedAt), 'MMM dd, yyyy')}
+                                                      </span>
+                                                      <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                                                          <Timer size={10} /> {format(new Date(user.joinedAt), 'hh:mm a')}
+                                                      </span>
+                                                  </div>
+                                              </td>
+                                              <td className="px-6 py-4">
+                                                  <div className="flex items-center gap-1.5">
+                                                      <Globe size={12} className="text-gray-400" />
+                                                      <span className="text-xs font-mono text-gray-600">{user.lastIp || 'Unknown'}</span>
+                                                  </div>
+                                              </td>
+                                              <td className="px-6 py-4 text-right">
+                                                  {user.id !== userId ? (
+                                                      <button 
+                                                          onClick={() => handleBlockUserInternal(user.id)}
+                                                          className="text-red-500 hover:bg-red-50 p-2 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ml-auto"
+                                                      >
+                                                          <ShieldAlert size={14} /> Block / Remove
+                                                      </button>
+                                                  ) : (
+                                                      <span className="text-gray-400 text-[10px] font-bold uppercase italic">Current User</span>
+                                                  )}
+                                              </td>
+                                          </tr>
+                                      ))}
+                                      {users.length === 0 && (
+                                          <tr>
+                                              <td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-sm">
+                                                  No registered staff found.
+                                              </td>
+                                          </tr>
+                                      )}
+                                  </tbody>
+                              </table>
+                          </div>
                       </div>
                   </div>
               )}
@@ -752,6 +852,40 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                               className="w-full p-2 border rounded text-sm bg-white"
                                           />
                                       </div>
+                                  </div>
+                              </div>
+
+                              {/* Translation Service Settings - Visible only to Editor */}
+                              <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                  <div className="flex justify-between items-start mb-2">
+                                      <div>
+                                          <h3 className="font-bold text-sm text-gray-900">Translation Service (Google Gemini)</h3>
+                                          <p className="text-xs text-gray-500 mt-1">Configure your API key to enable auto-translation features for writers.</p>
+                                      </div>
+                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${customApiKey ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                                          {customApiKey ? 'Connected' : 'Not Configured'}
+                                      </span>
+                                  </div>
+                                  <div className="mt-4">
+                                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">API Key</label>
+                                      <div className="flex gap-2">
+                                          <input 
+                                            type={showKeyInput ? "text" : "password"} 
+                                            value={customApiKey} 
+                                            onChange={e => setCustomApiKey(e.target.value)} 
+                                            placeholder="Enter your Gemini API Key..."
+                                            className="flex-1 p-2 border rounded text-sm outline-none focus:border-news-black"
+                                          />
+                                          <button onClick={() => setShowKeyInput(!showKeyInput)} className="bg-gray-200 text-gray-600 px-3 rounded hover:bg-gray-300">
+                                              {showKeyInput ? <Eye size={16}/> : <LayoutIcon size={16}/>}
+                                          </button>
+                                          <button onClick={handleSaveApiKey} className="bg-news-black text-white px-4 py-2 rounded text-xs font-bold uppercase flex items-center gap-2 hover:bg-gray-800">
+                                              <Save size={14}/> Save
+                                          </button>
+                                      </div>
+                                      <p className="text-[10px] text-gray-400 mt-2">
+                                          Key is stored locally. Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a>.
+                                      </p>
                                   </div>
                               </div>
                           </div>
