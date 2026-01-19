@@ -1,20 +1,17 @@
+
 import React, { useState, useEffect } from 'react';
-import { UserRole, Article, ArticleStatus, TrustedDevice } from '../types';
-import { supabase } from '../supabaseClient';
-import { 
-  LayoutDashboard, FileText, Settings, PenTool, LogOut, Plus, 
-  Trash2, Edit3, Image as ImageIcon, Save, Check, X, 
-  Clock, AlertCircle, Loader2, Eye
-} from 'lucide-react';
+import { Article, ArticleStatus, UserRole, TrustedDevice } from '../types';
+import { PenTool, CheckCircle, Save, FileText, Clock, AlertCircle, Plus, Layout, ChevronDown, ChevronUp, LogOut, Inbox, Settings, Menu, X, Eye, EyeOff, PenSquare, Trash2, Globe, Image as ImageIcon, Upload, ShieldCheck, Monitor, Smartphone, Tablet, User as UserIcon, BarChart3, Loader2, Lock, Library, Check, Camera, Star, Tag, Award, Sparkles, Key, Mail, ShieldAlert } from 'lucide-react';
+import { generateId } from '../utils';
 import RichTextEditor from '../components/RichTextEditor';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
-import { generateId } from '../utils';
+import { supabase } from '../supabaseClient';
 import ImageGalleryModal from '../components/ImageGalleryModal';
 import CategorySelector from '../components/CategorySelector';
 
 interface WriterDashboardProps {
-  onSave: (article: Article) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onSave: (article: Article) => void;
+  onDelete?: (id: string) => void;
   existingArticles: Article[];
   currentUserRole: UserRole;
   categories: string[];
@@ -22,388 +19,681 @@ interface WriterDashboardProps {
   userAvatar?: string | null;
   userName?: string | null;
   userEmail?: string | null;
-  devices: TrustedDevice[];
-  onRevokeDevice: (id: string) => void;
-  userId?: string | null;
-  activeVisitors?: number;
-  translationApiKey?: string;
+  devices?: TrustedDevice[];
+  onRevokeDevice?: (id: string) => void;
+  userId?: string | null; // Passed for data isolation
+  activeVisitors?: number; // Added for Analytics
 }
 
 const WriterDashboard: React.FC<WriterDashboardProps> = ({ 
-  onSave, onDelete, existingArticles, currentUserRole, categories, onNavigate, 
-  userAvatar, userName, userEmail, devices, onRevokeDevice, userId, activeVisitors,
-  translationApiKey 
+    onSave, onDelete, existingArticles, currentUserRole, categories, onNavigate, userAvatar, userName, userEmail,
+    devices = [], onRevokeDevice, userId, activeVisitors
 }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'articles' | 'editor' | 'settings'>('dashboard');
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'articles' | 'analytics' | 'settings'>('articles');
+  const [showEditorModal, setShowEditorModal] = useState(false);
+  const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [englishTitle, setEnglishTitle] = useState('');
+  const [subline, setSubline] = useState('');
+  const [content, setContent] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showCategorySelector, setShowCategorySelector] = useState(false);
+  const [author, setAuthor] = useState(userName || 'Staff Writer');
+  const [imageUrl, setImageUrl] = useState('');
+  const [status, setStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
+  const [isFeatured, setIsFeatured] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
+  const [showImageGallery, setShowImageGallery] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [publishedAt, setPublishedAt] = useState<string>(new Date().toISOString());
   
-  // Editor State
-  const [editTitle, setEditTitle] = useState('');
-  const [editEnglishTitle, setEditEnglishTitle] = useState('');
-  const [editSubline, setEditSubline] = useState('');
-  const [editContent, setEditContent] = useState('');
-  const [editImage, setEditImage] = useState('');
-  const [editCategories, setEditCategories] = useState<string[]>([]);
-  const [editTags, setEditTags] = useState<string[]>([]);
-  const [editStatus, setEditStatus] = useState<ArticleStatus>(ArticleStatus.DRAFT);
-  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-  const [isCategorySelectorOpen, setIsCategorySelectorOpen] = useState(false);
-  const [currentTagInput, setCurrentTagInput] = useState('');
+  // Tag State
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
 
-  // Profile Settings State
+  // Settings State
   const [profileName, setProfileName] = useState(userName || '');
-  const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [profileEmail, setProfileEmail] = useState(userEmail || '');
+  const [profileAvatar, setProfileAvatar] = useState(userAvatar || '');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [isSavingDevices, setIsSavingDevices] = useState(false);
+  
+  // Custom API State
+  const [customApiKey, setCustomApiKey] = useState('');
+
+  // Identify Current Device & Status
+  const currentDevice = devices.find(d => d.isCurrent);
+  const isPrimaryDevice = currentDevice?.isPrimary || false;
+
+  // Load custom key on mount
+  useEffect(() => {
+      const storedKey = localStorage.getItem('newsroom_custom_api_key');
+      if (storedKey) setCustomApiKey(storedKey);
+  }, []);
+
+  // Filter articles for this writer only if userId is provided
+  const myArticles = userId 
+    ? existingArticles.filter(a => a.userId === userId)
+    : existingArticles;
 
   useEffect(() => {
-    if (userName) setProfileName(userName);
-    if (userAvatar) setProfileAvatar(userAvatar);
-    if (userEmail) setProfileEmail(userEmail);
-  }, [userName, userAvatar, userEmail]);
-
-  const myArticles = existingArticles.filter(a => a.userId === userId || a.author === userName);
-
-  const handleEditClick = (article: Article) => {
-    setSelectedArticle(article);
-    setEditTitle(article.title);
-    setEditEnglishTitle(article.englishTitle || '');
-    setEditSubline(article.subline || '');
-    setEditContent(article.content);
-    setEditImage(article.imageUrl);
-    setEditCategories(article.categories);
-    setEditTags(article.tags || []);
-    setEditStatus(article.status);
-    setActiveTab('editor');
-  };
-
-  const handleCreateNew = () => {
-    setSelectedArticle(null);
-    setEditTitle('');
-    setEditEnglishTitle('');
-    setEditSubline('');
-    setEditContent('');
-    setEditImage('https://placehold.co/800x400?text=Article+Image');
-    setEditCategories(['General']);
-    setEditTags([]);
-    setEditStatus(ArticleStatus.DRAFT);
-    setActiveTab('editor');
-  };
-
-  const handleSaveArticle = async () => {
-    if (!editTitle || !editContent) {
-      alert("Title and content are required.");
-      return;
+    if (content) {
+      const text = content.replace(/<[^>]*>/g, '').trim();
+      const count = text ? text.split(/\s+/).length : 0;
+      setWordCount(count);
+    } else {
+      setWordCount(0);
     }
+  }, [content]);
 
-    const articleToSave: Article = {
-      id: selectedArticle?.id || generateId(),
-      userId: userId || undefined,
-      title: editTitle,
-      englishTitle: editEnglishTitle,
-      subline: editSubline,
-      content: editContent,
-      imageUrl: editImage,
-      categories: editCategories,
-      tags: editTags,
-      author: userName || 'Writer',
-      authorAvatar: userAvatar || undefined,
-      publishedAt: selectedArticle?.publishedAt || new Date().toISOString(),
-      status: editStatus,
-      views: selectedArticle?.views || 0,
-      isFeatured: selectedArticle?.isFeatured || false,
-      isEditorsChoice: selectedArticle?.isEditorsChoice || false
-    };
-
-    await onSave(articleToSave);
-    setActiveTab('articles');
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsAvatarUploading(true);
+    try {
+        const fileExt = file.name.split('.').pop();
+        const folderPrefix = userId ? `users/${userId}/` : '';
+        const fileName = `${folderPrefix}avatars/${generateId()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('images').upload(fileName, file);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+        setProfileAvatar(data.publicUrl);
+    } catch (error: any) {
+        alert("Avatar Upload Failed: " + error.message);
+    } finally {
+        setIsAvatarUploading(false);
+    }
   };
 
-  const handleAddTag = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && currentTagInput.trim()) {
-        e.preventDefault();
-        if (!editTags.includes(currentTagInput.trim())) {
-            setEditTags([...editTags, currentTagInput.trim()]);
+  const handleContentImageUpload = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${generateId()}.${fileExt}`;
+    const folderPrefix = userId ? `users/${userId}/` : '';
+    const filePath = `${folderPrefix}articles/${fileName}`;
+    const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+    if (uploadError) throw uploadError;
+    const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
+  const handleTranslateTitle = async () => {
+      if (!title) return;
+      
+      const keyToUse = customApiKey;
+      if (!keyToUse) {
+          alert("Translation service is currently not configured by the Administrator.");
+          return;
+      }
+
+      setIsTranslating(true);
+      try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keyToUse}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  contents: [{
+                      parts: [{
+                          text: `Translate this news headline to concise English for SEO purposes. Return only the translated string, no quotes: "${title}"`
+                      }]
+                  }]
+              })
+          });
+
+          const data = await response.json();
+          if (data.error) throw new Error(data.error.message || "API Error");
+
+          const translated = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (translated) setEnglishTitle(translated);
+          else throw new Error("No translation returned.");
+      } catch (e: any) {
+          console.error("Translation failed", e);
+          alert(`Auto-translation failed: ${e.message}.`);
+      } finally {
+          setIsTranslating(false);
+      }
+  };
+
+  const handleAddTag = () => {
+      if (!tagInput.trim()) return;
+      const newTag = tagInput.trim();
+      if (!tags.includes(newTag)) {
+          setTags([...tags, newTag]);
+      }
+      setTagInput('');
+  };
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAddTag();
+      }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+      setTags(tags.filter(t => t !== tagToRemove));
+  };
+
+  const handleSave = () => {
+    if (!title) { alert("Headline is required"); return; }
+    
+    // Auto-append any pending tag in the input field that wasn't entered
+    let finalTags = [...tags];
+    if (tagInput.trim()) {
+        const pendingTag = tagInput.trim();
+        if (!finalTags.includes(pendingTag)) {
+            finalTags.push(pendingTag);
         }
-        setCurrentTagInput('');
+    }
+
+    // Auto-add selected categories as tags
+    if (selectedCategories && selectedCategories.length > 0) {
+        selectedCategories.forEach(cat => {
+            if (!finalTags.includes(cat)) {
+                finalTags.push(cat);
+            }
+        });
+    }
+
+    const newArticle: Article = {
+      id: activeArticleId || generateId(),
+      userId: userId || undefined, 
+      title, 
+      englishTitle,
+      subline,
+      author, 
+      content, 
+      categories: selectedCategories.length > 0 ? selectedCategories : ['General'],
+      tags: finalTags,
+      imageUrl: imageUrl || 'https://picsum.photos/800/400',
+      publishedAt: publishedAt,
+      status: status,
+      isFeatured: isFeatured,
+      isEditorsChoice: false,
+      authorAvatar: profileAvatar || undefined 
+    };
+    onSave(newArticle);
+    setShowEditorModal(false);
+    setTagInput(''); // Clear input
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this article?")) {
+        if (onDelete) onDelete(id);
     }
   };
 
-  const removeTag = (tag: string) => {
-      setEditTags(editTags.filter(t => t !== tag));
+  const openNewArticle = () => {
+      setActiveArticleId(null); setTitle(''); setEnglishTitle(''); setSubline(''); setContent(''); setImageUrl(''); setStatus(ArticleStatus.DRAFT); setIsFeatured(false); setSelectedCategories(['General']); setTags([]); setTagInput(''); setPublishedAt(new Date().toISOString()); setShowEditorModal(true);
+  };
+
+  const openEditArticle = (article: Article) => {
+      setActiveArticleId(article.id); setTitle(article.title); setEnglishTitle(article.englishTitle || ''); setSubline(article.subline || ''); setContent(article.content); setSelectedCategories(article.categories); setTags(article.tags || []); setTagInput(''); setImageUrl(article.imageUrl); setStatus(article.status); setAuthor(article.author); setIsFeatured(article.isFeatured || false); setPublishedAt(article.publishedAt); setShowEditorModal(true);
+  };
+
+  const handleSelectFromGallery = (url: string) => {
+    setImageUrl(url);
+    setShowImageGallery(false);
   };
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
     try {
-      const updates: any = {
-        data: { full_name: profileName, avatar_url: profileAvatar }
+      const updates: any = { 
+        data: { full_name: profileName, avatar_url: profileAvatar } 
       };
       if (newPassword) updates.password = newPassword;
       if (profileEmail !== userEmail) updates.email = profileEmail;
 
       const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
-
+      
       if (profileEmail !== userEmail) alert("Settings updated! A confirmation link has been sent to your new email address.");
       else alert("Settings updated successfully!");
       setNewPassword('');
     } catch (err: any) {
-      console.error("Profile update error:", err);
-      if (err.message?.includes('session_id') || err.message?.includes('JWT')) {
-          alert("Your session has expired. Please sign in again to save changes.");
-          await supabase.auth.signOut();
-          onNavigate('/login');
-      } else if (err.message?.includes('security purposes')) {
-          alert("Security Check: To update sensitive info, please sign in again.");
-      } else {
-          alert("Error updating profile: " + err.message);
-      }
+      alert("Error updating profile: " + err.message);
     } finally {
       setIsSavingSettings(false);
     }
   };
 
+  const handleForceSaveDevices = async () => {
+      setIsSavingDevices(true);
+      try { alert("Device list synced globally."); } catch (e: any) { alert("Error syncing: " + e.message); } finally { setIsSavingDevices(false); }
+  };
+
+  const SidebarItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
+    <button 
+        onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
+        className={`w-full flex items-center gap-4 px-6 py-4 transition-colors ${activeTab === id ? 'text-white border-l-4 border-news-gold bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-4 border-transparent'}`}
+    >
+        <Icon size={18} />
+        <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
+    </button>
+  );
+
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
-      
-      {/* Sidebar */}
-      <div className="w-full md:w-64 bg-white border-r border-gray-200 flex-shrink-0">
-        <div className="p-6">
-          <h2 className="text-xl font-serif font-bold text-gray-900 mb-1">Writer Studio</h2>
-          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">{currentUserRole}</p>
-        </div>
-        <nav className="px-3 space-y-1">
-          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-news-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-            <LayoutDashboard size={18} /> Dashboard
-          </button>
-          <button onClick={() => setActiveTab('articles')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-lg transition-colors ${activeTab === 'articles' ? 'bg-news-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-            <FileText size={18} /> My Articles
-          </button>
-          <button onClick={handleCreateNew} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-lg transition-colors ${activeTab === 'editor' && !selectedArticle ? 'bg-news-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-            <PenTool size={18} /> New Article
-          </button>
-          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-news-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-            <Settings size={18} /> Settings
-          </button>
-        </nav>
+    <>
+    <ImageGalleryModal 
+        isOpen={showImageGallery}
+        onClose={() => setShowImageGallery(false)}
+        onSelectImage={handleSelectFromGallery}
+        uploadFolder="articles"
+        userId={userId} 
+    />
+    <CategorySelector 
+        isOpen={showCategorySelector}
+        onClose={() => setShowCategorySelector(false)}
+        options={categories}
+        selected={selectedCategories}
+        onChange={setSelectedCategories}
+    />
+    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1a1a1a] text-white flex flex-col transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+          <div className="flex justify-between items-center p-6 border-b border-gray-800">
+              <h1 className="font-serif text-2xl font-bold text-white">Writer</h1>
+              <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white"><X size={24} /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto py-4">
+              <SidebarItem id="articles" label="Articles" icon={FileText} />
+              <SidebarItem id="analytics" label="Analytics" icon={BarChart3} />
+              <SidebarItem id="settings" label="Settings" icon={Settings} />
+          </div>
+          <div className="p-6 border-t border-gray-800">
+              <button onClick={() => onNavigate('/')} className="flex items-center gap-3 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-widest w-full px-4 py-3 border border-gray-700 rounded transition-colors justify-center mb-2">
+                  <Globe size={16} /> View Website
+              </button>
+              <button onClick={() => { supabase.auth.signOut(); onNavigate('/login'); }} className="flex items-center gap-3 text-gray-400 hover:text-red-500 text-xs font-bold uppercase tracking-widest w-full px-4 py-3 border border-gray-700 rounded transition-colors justify-center">
+                  <LogOut size={16} /> Logout
+              </button>
+          </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 p-6 md:p-10 overflow-y-auto">
-        
-        {activeTab === 'dashboard' && (
-           <AnalyticsDashboard articles={myArticles} role={currentUserRole} activeVisitors={activeVisitors} />
-        )}
+      <div className="flex-1 flex flex-col md:ml-64 h-full overflow-hidden bg-[#f8f9fa]">
+           <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center shrink-0 sticky top-0 z-40 shadow-sm">
+                <button onClick={() => setIsSidebarOpen(true)} className="text-gray-700"><Menu size={24}/></button>
+                <h1 className="font-serif text-lg font-bold text-gray-900">Writer Dashboard</h1>
+                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
+                     {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover"/> : <UserIcon className="p-1.5 text-gray-400 w-full h-full"/>}
+                </div>
+           </div>
 
-        {activeTab === 'articles' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-               <h3 className="font-bold text-gray-900">My Articles</h3>
-               <button onClick={handleCreateNew} className="bg-news-black text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-gray-800 flex items-center gap-2">
-                 <Plus size={14} /> Create New
-               </button>
-            </div>
-            <div className="divide-y divide-gray-100">
-               {myArticles.length === 0 ? (
-                 <div className="p-10 text-center text-gray-400">You haven't written any articles yet.</div>
-               ) : (
-                 myArticles.map(article => (
-                   <div key={article.id} className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors">
-                      <img src={article.imageUrl} className="w-16 h-12 object-cover rounded bg-gray-200" alt="" />
-                      <div className="flex-1 min-w-0">
-                         <h4 className="font-bold text-gray-900 truncate">{article.title}</h4>
-                         <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : article.status === ArticleStatus.PENDING ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-200 text-gray-600'}`}>
-                               {article.status}
-                            </span>
-                            <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
-                            <span>• {article.views} views</span>
-                         </div>
+           <div className="md:p-6 overflow-y-auto flex-1 p-4">
+              {activeTab === 'articles' && (
+                  <div className="max-w-6xl mx-auto">
+                      <div className="flex justify-between items-center mb-6">
+                           <h1 className="font-serif text-2xl md:text-3xl font-bold text-gray-900 hidden md:block">My Articles</h1>
+                           <h1 className="font-serif text-xl font-bold text-gray-900 md:hidden">My Articles</h1>
+                           <button onClick={openNewArticle} className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2">
+                                <Plus size={16} /> <span className="hidden md:inline">Add New</span><span className="md:hidden">New</span>
+                           </button>
                       </div>
-                      <div className="flex gap-2">
-                         <button onClick={() => handleEditClick(article)} className="p-2 text-gray-400 hover:text-news-blue hover:bg-blue-50 rounded-full">
-                            <Edit3 size={18} />
-                         </button>
-                         <button onClick={() => { if(confirm('Delete article?')) onDelete(article.id); }} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full">
-                            <Trash2 size={18} />
-                         </button>
+
+                      <div className="grid grid-cols-1 gap-4 md:hidden">
+                           {myArticles.map(article => (
+                               <div key={article.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                                   <div className="flex p-3 gap-3">
+                                       <div className="w-20 h-20 bg-gray-100 rounded-md shrink-0 overflow-hidden relative">
+                                           <img src={article.imageUrl} className="w-full h-full object-cover" alt={article.title} />
+                                           {article.isFeatured && <div className="absolute top-0 right-0 bg-news-accent text-white p-0.5 rounded-bl-md shadow-sm"><Star size={10} fill="currentColor" /></div>}
+                                       </div>
+                                       <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                           <div>
+                                               <div className="flex items-center gap-2 mb-1">
+                                                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{article.status}</span>
+                                                   <span className="text-[10px] text-gray-400 font-bold uppercase truncate">{article.categories[0]}</span>
+                                               </div>
+                                               <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{article.title}</h3>
+                                           </div>
+                                           <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-1"><Clock size={10} /> {new Date(article.publishedAt).toLocaleDateString()}</div>
+                                       </div>
+                                   </div>
+                                   <div className="grid grid-cols-2 border-t border-gray-100 divide-x divide-gray-100">
+                                       <button onClick={() => openEditArticle(article)} className="py-2.5 text-center text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"><PenSquare size={14}/> Edit</button>
+                                       {onDelete && <button onClick={() => handleDelete(article.id)} className="py-2.5 text-center text-xs font-bold text-red-500 hover:bg-red-50 flex items-center justify-center gap-2"><Trash2 size={14}/> Delete</button>}
+                                   </div>
+                               </div>
+                           ))}
+                           {myArticles.length === 0 && <div className="text-center py-10 text-gray-400 bg-white rounded border border-dashed"><p className="text-sm">No articles found in your workspace.</p></div>}
                       </div>
-                   </div>
-                 ))
-               )}
-            </div>
-          </div>
-        )}
 
-        {activeTab === 'editor' && (
-          <div className="max-w-4xl mx-auto space-y-6">
-            <div className="flex justify-between items-center">
-               <h2 className="text-2xl font-serif font-bold text-gray-900">{selectedArticle ? 'Edit Article' : 'New Article'}</h2>
-               <div className="flex gap-3">
-                  <button onClick={() => setActiveTab('articles')} className="px-4 py-2 text-gray-500 font-bold text-xs uppercase hover:text-black">Cancel</button>
-                  <button onClick={handleSaveArticle} className="bg-news-gold text-black px-6 py-2 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-white shadow-lg flex items-center gap-2">
-                     <Save size={16} /> Save
-                  </button>
-               </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
-               {/* Title & English Title */}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Title (Primary)</label>
-                    <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:border-news-gold outline-none font-serif text-lg font-bold" placeholder="Article Headline" />
+                      <div className="hidden md:block bg-white rounded border overflow-x-auto">
+                          <table className="w-full text-left min-w-[700px]">
+                                <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
+                                    <tr>
+                                        <th className="px-6 py-4">Title</th>
+                                        <th className="px-6 py-4">Categories</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {myArticles.map((article) => (
+                                        <tr key={article.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-gray-900 text-sm">{article.title}</span>
+                                                    {article.isFeatured && <span className="text-[10px] text-news-accent font-bold uppercase flex items-center gap-1 mt-1"><Star size={10} fill="currentColor"/> Featured</span>}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {article.categories.slice(0, 3).map(cat => (
+                                                        <span key={cat} className="text-[10px] font-bold bg-gray-100 px-2 py-1 rounded-full text-gray-600 uppercase">{cat}</span>
+                                                    ))}
+                                                    {article.categories.length > 3 && <span className="text-[10px] text-gray-400 font-bold px-1">+{article.categories.length - 3}</span>}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs font-bold">
+                                                <span className={`px-2 py-1 rounded ${article.status === ArticleStatus.PUBLISHED ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{article.status}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-3">
+                                                    <button onClick={() => openEditArticle(article)} className="text-blue-600 font-bold text-xs uppercase hover:text-blue-800">Edit</button>
+                                                    {onDelete && <button onClick={() => handleDelete(article.id)} className="text-red-500 font-bold text-xs uppercase hover:text-red-700">Delete</button>}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {myArticles.length === 0 && <tr><td colSpan={4} className="px-6 py-10 text-center text-gray-400">No articles yet. Click "Add New" to start writing.</td></tr>}
+                                </tbody>
+                          </table>
+                      </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">English Title (SEO/Slug)</label>
-                    <input type="text" value={editEnglishTitle} onChange={e => setEditEnglishTitle(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:border-news-gold outline-none" placeholder="English version for URL" />
+              )}
+              {activeTab === 'analytics' && <div className="max-w-6xl mx-auto"><AnalyticsDashboard articles={myArticles} role={ArticleStatus.PUBLISHED as any} activeVisitors={activeVisitors} /></div>}
+              {activeTab === 'settings' && (
+                  <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
+                      {/* Profile Section */}
+                      <div className={`bg-white rounded-xl border p-6 md:p-8 shadow-sm relative overflow-hidden ${!isPrimaryDevice ? 'border-gray-200 opacity-80' : ''}`}>
+                          {!isPrimaryDevice && (
+                              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center p-6 text-center cursor-not-allowed">
+                                  <ShieldAlert className="text-gray-400 mb-2" size={48} />
+                                  <h3 className="font-bold text-gray-800">Profile Locked</h3>
+                                  <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                                      Profile modifications are restricted to the <b>Primary Device</b> only.
+                                  </p>
+                              </div>
+                          )}
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserIcon className="text-news-gold" /> Profile Settings</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pointer-events-auto">
+                             <div className={`space-y-4 ${!isPrimaryDevice ? 'pointer-events-none filter blur-[1px]' : ''}`}>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Display Name</label>
+                                    <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Email Address</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                                        <input 
+                                            type="email" 
+                                            value={profileEmail} 
+                                            onChange={e => setProfileEmail(e.target.value)} 
+                                            className="w-full pl-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black font-medium" 
+                                            placeholder="writer@example.com"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1">Changing this will trigger a confirmation link to the new address.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Avatar</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
+                                            {profileAvatar ? <img src={profileAvatar} className="w-full h-full object-cover" /> : <UserIcon className="w-full h-full p-3 text-gray-300" />}
+                                        </div>
+                                        <label className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+                                            {isAvatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                                            <span className="hidden sm:inline">Upload Image</span>
+                                            <span className="sm:hidden">Upload</span>
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={isAvatarUploading} />
+                                        </label>
+                                    </div>
+                                    <input type="text" value={profileAvatar} onChange={e => setProfileAvatar(e.target.value)} className="w-full mt-2 p-2 border border-gray-200 rounded-lg text-xs text-gray-500 outline-none" placeholder="Or paste image URL..." />
+                                </div>
+                             </div>
+                             <div className={`space-y-4 ${!isPrimaryDevice ? 'opacity-50 pointer-events-none' : ''}`}>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Change Password</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-3.5 text-gray-400" size={16} />
+                                        <input 
+                                            type={showPassword ? "text" : "password"} 
+                                            value={newPassword} 
+                                            onChange={e => setNewPassword(e.target.value)} 
+                                            className="w-full pl-10 pr-10 p-3 border border-gray-200 rounded-lg outline-none focus:border-news-black" 
+                                            placeholder="New Password" 
+                                            disabled={!isPrimaryDevice}
+                                        />
+                                        <button 
+                                            onClick={() => setShowPassword(!showPassword)} 
+                                            className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                                            disabled={!isPrimaryDevice}
+                                        >
+                                            {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
+                                        </button>
+                                    </div>
+                                    {!isPrimaryDevice && (
+                                        <p className="text-[10px] text-red-500 mt-2 flex items-center gap-1 font-bold">
+                                            <ShieldAlert size={12}/> Security Restricted: Primary Device Only
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="pt-6">
+                                    <button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full bg-news-black text-news-gold py-3 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                        {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
+                                        {isSavingSettings ? 'Saving...' : 'Update Profile'}
+                                    </button>
+                                </div>
+                             </div>
+                          </div>
+                      </div>
+
+                      {/* Trusted Devices Section */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
+                          <div className="flex justify-between items-center mb-6">
+                              <h3 className="font-bold text-lg flex items-center gap-2"><ShieldCheck size={20} className="text-green-600"/> Trusted Devices</h3>
+                              <div className="flex items-center gap-2">
+                                  <button onClick={handleForceSaveDevices} disabled={isSavingDevices} className="bg-news-black text-white p-2 rounded hover:bg-gray-800 transition-colors" title="Force Save Globally">
+                                      {isSavingDevices ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
+                                  </button>
+                                  <span className="text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded text-gray-600">
+                                      {devices.filter(d => d.status === 'approved').length} Active
+                                  </span>
+                              </div>
+                          </div>
+                          
+                          <div className="space-y-4">
+                              {devices.length === 0 && <p className="text-gray-400 text-sm italic">No devices registered.</p>}
+                              {devices.map(device => {
+                                  let Icon = Monitor;
+                                  if (device.deviceType === 'mobile') Icon = Smartphone;
+                                  if (device.deviceType === 'tablet') Icon = Tablet;
+                                  
+                                  return (
+                                      <div key={device.id} className="flex flex-col md:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 gap-4">
+                                          <div className="flex items-center gap-4 w-full md:w-auto">
+                                              <div className={`p-3 rounded-full ${device.isCurrent ? 'bg-news-black text-news-gold' : 'bg-white border text-gray-500'}`}>
+                                                  <Icon size={20} />
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center gap-2 flex-wrap">
+                                                      <span className="font-bold text-sm text-gray-900 truncate">{device.deviceName}</span>
+                                                      {device.isCurrent && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">THIS DEVICE</span>}
+                                                      {device.isPrimary && <span className="bg-green-100 text-green-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PRIMARY DEVICE</span>}
+                                                      {device.status === 'pending' && <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">PENDING</span>}
+                                                  </div>
+                                                  <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 items-center">
+                                                      <span>{device.location}</span>
+                                                      <span className="hidden md:inline">•</span>
+                                                      <span>{device.browser}</span>
+                                                      <span className="hidden md:inline">•</span>
+                                                      <span>{device.lastActive}</span>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                          <div className="w-full md:w-auto flex justify-end gap-2">
+                                              {/* Only Primary Device can delete other trusted devices */}
+                                              {isPrimaryDevice && device.status === 'approved' && !device.isCurrent && onRevokeDevice && (
+                                                  <button 
+                                                    onClick={() => onRevokeDevice(device.id)} 
+                                                    className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                                                    title="Delete Device"
+                                                  >
+                                                      <Trash2 size={18}/>
+                                                  </button>
+                                              )}
+                                          </div>
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      </div>
                   </div>
-               </div>
+              )}
+           </div>
+      </div>
 
-               <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Subline / Summary</label>
-                  <textarea value={editSubline} onChange={e => setEditSubline(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:border-news-gold outline-none h-24 resize-none" placeholder="Brief summary or hook..." />
-               </div>
-
-               {/* Image Selector */}
-               <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Featured Image</label>
-                  <div className="flex gap-4 items-start">
-                     <div className="w-40 h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shrink-0">
-                        <img src={editImage} className="w-full h-full object-cover" alt="Preview" />
-                     </div>
-                     <div className="flex-1 space-y-3">
-                        <div className="flex gap-2">
-                           <input type="text" value={editImage} onChange={e => setEditImage(e.target.value)} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded text-sm" placeholder="Image URL" />
-                           <button onClick={() => setIsGalleryOpen(true)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded font-bold text-xs uppercase hover:bg-gray-200 flex items-center gap-2"><ImageIcon size={14}/> Gallery</button>
+      {showEditorModal && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                <h3 className="font-bold text-gray-900">{activeArticleId ? 'Edit Draft' : 'New Article Draft'}</h3>
+                <button onClick={() => setShowEditorModal(false)} className="p-2 -mr-2 text-gray-500 hover:text-black"><X size={20}/></button>
+            </div>
+            <div className="p-4 md:p-6 overflow-y-auto space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 space-y-4">
+                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-3 border rounded text-lg font-serif placeholder:text-gray-300" placeholder="Article Headline"/>
+                        
+                        {/* SEO English Title Input */}
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="text" 
+                                value={englishTitle} 
+                                onChange={(e) => setEnglishTitle(e.target.value)} 
+                                className="w-full p-2 border rounded text-sm placeholder:text-gray-300" 
+                                placeholder="English Title (for SEO & URL)" 
+                            />
+                            <button 
+                                onClick={handleTranslateTitle} 
+                                disabled={isTranslating} 
+                                className="bg-news-gold text-black p-2 rounded hover:bg-yellow-500 transition-colors flex items-center gap-1" 
+                                title="Auto Translate (Requires API Key)"
+                            >
+                                {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                            </button>
                         </div>
-                        <p className="text-[10px] text-gray-400">Recommended: 1200x630px JPG/PNG</p>
-                     </div>
-                  </div>
-               </div>
+                        
+                        <textarea value={subline} onChange={(e) => setSubline(e.target.value)} className="w-full p-2 border rounded text-sm italic min-h-[80px] placeholder:text-gray-300" placeholder="Summary / Sub-headline..."></textarea>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Author Name, Title"/>
+                            <button onClick={() => setShowCategorySelector(true)} className="w-full p-2 border rounded text-sm bg-white text-left flex justify-between items-center">
+                                <span className={selectedCategories.length === 0 ? 'text-gray-400' : ''}>
+                                    {selectedCategories.length === 0 ? 'Select Categories' : `${selectedCategories.length} Selected`}
+                                </span>
+                                <ChevronDown size={14} />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</label>
+                                <select 
+                                    value={status} 
+                                    onChange={(e) => setStatus(e.target.value as ArticleStatus)} 
+                                    className="w-full p-2 border rounded text-sm bg-white"
+                                >
+                                    <option value={ArticleStatus.DRAFT}>Draft</option>
+                                    <option value={ArticleStatus.PENDING}>Pending Review</option>
+                                    <option value={ArticleStatus.PUBLISHED}>Published</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Tags</label>
+                                <div className="flex items-center gap-2 border rounded p-2 bg-white flex-wrap">
+                                    {tags.map(tag => (
+                                        <span key={tag} className="bg-gray-100 text-gray-700 text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+                                            #{tag} <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X size={10}/></button>
+                                        </span>
+                                    ))}
+                                    <input 
+                                        type="text" 
+                                        value={tagInput}
+                                        onChange={(e) => setTagInput(e.target.value)}
+                                        onKeyDown={handleTagInputKeyDown}
+                                        className="flex-1 outline-none text-sm min-w-[50px]"
+                                        placeholder="Add tag (Any Language/Symbol)..." 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="md:col-span-1">
+                        <div className="border-2 border-dashed p-4 rounded bg-gray-50 text-center relative overflow-hidden h-[200px] flex flex-col justify-between">
+                            {imageUrl ? (
+                                <div className="relative group w-full h-full">
+                                    <img src={imageUrl} className="w-full h-full object-cover rounded shadow" />
+                                    <button onClick={() => setImageUrl('')} type="button" className="absolute top-1 right-1 bg-black/40 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-10" title="Remove image">
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="py-4 text-gray-400 flex flex-col items-center justify-center h-full">
+                                    <ImageIcon size={32} className="mx-auto mb-2 opacity-20" />
+                                    <p className="text-xs font-bold uppercase">Featured Image</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-2">
+                            <button type="button" onClick={() => setShowImageGallery(true)} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold px-2 py-2 rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                                <Library size={14} />
+                                <span>Select from Gallery</span>
+                            </button>
+                        </div>
+                        <div className="mt-4 space-y-2">
+                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded border border-gray-100">
+                                <label className="flex items-center gap-2 cursor-pointer w-full">
+                                    <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} className="w-4 h-4 accent-news-accent" />
+                                    <div className="flex items-center gap-2">
+                                        <Star size={12} className={isFeatured ? "text-news-accent fill-news-accent" : "text-gray-400"} />
+                                        <span className="text-xs font-bold uppercase">Featured</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-               {/* Categories & Tags */}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Categories</label>
-                     <div className="flex flex-wrap gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg min-h-[50px] cursor-pointer" onClick={() => setIsCategorySelectorOpen(true)}>
-                        {editCategories.length === 0 && <span className="text-gray-400 text-sm">Select Category...</span>}
-                        {editCategories.map(cat => (
-                           <span key={cat} className="bg-news-black text-white px-2 py-1 rounded text-xs font-bold">{cat}</span>
-                        ))}
-                     </div>
-                  </div>
-                  <div>
-                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Tags</label>
-                     <div className="flex flex-wrap gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                        {editTags.map(tag => (
-                           <span key={tag} className="bg-white border border-gray-200 text-gray-600 px-2 py-1 rounded text-xs font-bold flex items-center gap-1">
-                              #{tag} <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X size={10}/></button>
-                           </span>
-                        ))}
-                        <input 
-                           type="text" 
-                           value={currentTagInput} 
-                           onChange={e => setCurrentTagInput(e.target.value)}
-                           onKeyDown={handleAddTag}
-                           className="bg-transparent outline-none text-sm flex-1 min-w-[60px]"
-                           placeholder="Add tag..."
-                        />
-                     </div>
-                  </div>
-               </div>
-
-               {/* Editor */}
-               <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Content</label>
+                <div className="relative">
                   <RichTextEditor 
-                     content={editContent} 
-                     onChange={setEditContent} 
-                     onImageUpload={async (f) => URL.createObjectURL(f)} 
-                     userId={userId}
-                     uploadFolder="articles"
+                    content={content} 
+                    onChange={setContent} 
+                    className="min-h-[300px] md:min-h-[400px]" 
+                    onImageUpload={handleContentImageUpload} 
+                    userId={userId} // Pass ID for isolation in editor gallery
+                    uploadFolder="articles" // Use articles folder to match featured images
                   />
-               </div>
-
-               {/* Publishing Options */}
-               <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 flex items-center justify-between">
-                  <div>
-                     <span className="block text-xs font-bold text-gray-500 uppercase tracking-widest">Status</span>
-                     <select value={editStatus} onChange={e => setEditStatus(e.target.value as ArticleStatus)} className="mt-1 bg-white border border-gray-300 rounded px-2 py-1 text-sm font-bold text-gray-800 outline-none">
-                        <option value={ArticleStatus.DRAFT}>Draft</option>
-                        <option value={ArticleStatus.PENDING}>Pending Review</option>
-                        {currentUserRole === UserRole.WRITER ? null : <option value={ArticleStatus.PUBLISHED}>Published</option>}
-                     </select>
+                  <div className="absolute bottom-2 right-3 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded pointer-events-none">
+                      {wordCount} Words
                   </div>
-               </div>
+                </div>
+
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
+              <button onClick={() => setShowEditorModal(false)} className="px-5 py-2 text-sm font-bold text-gray-600">Cancel</button>
+              <button onClick={handleSave} className="px-6 py-2 bg-news-black text-white rounded text-sm font-bold shadow hover:bg-gray-800">
+                  Save Draft
+              </button>
             </div>
           </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 bg-gray-50">
-               <h3 className="font-bold text-gray-900">Profile Settings</h3>
-            </div>
-            <div className="p-8 space-y-6">
-               <div className="flex items-center gap-6">
-                  <div className="w-20 h-20 bg-gray-200 rounded-full overflow-hidden border-2 border-white shadow-md relative group">
-                      {profileAvatar ? <img src={profileAvatar} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white font-bold text-xl">{profileName.charAt(0)}</div>}
-                      <button onClick={() => { const url = prompt("Enter Avatar URL"); if(url) setProfileAvatar(url); }} className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Edit3 size={20} />
-                      </button>
-                  </div>
-                  <div>
-                      <h4 className="font-bold text-lg">{profileName}</h4>
-                      <p className="text-sm text-gray-500">{currentUserRole}</p>
-                  </div>
-               </div>
-               
-               <div className="space-y-4">
-                   <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Display Name</label>
-                       <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
-                   </div>
-                   <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Email Address</label>
-                       <input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
-                   </div>
-                   <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">New Password</label>
-                       <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Leave blank to keep current" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-news-black" />
-                   </div>
-               </div>
-
-               <div className="pt-6 border-t border-gray-100 flex justify-end">
-                   <button onClick={handleSaveSettings} disabled={isSavingSettings} className="bg-news-black text-white px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-gray-800 transition-all flex items-center gap-2">
-                       {isSavingSettings ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save Changes
-                   </button>
-               </div>
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      <ImageGalleryModal 
-        isOpen={isGalleryOpen} 
-        onClose={() => setIsGalleryOpen(false)} 
-        onSelectImage={(url) => { setEditImage(url); setIsGalleryOpen(false); }}
-        userId={userId}
-        uploadFolder="articles" 
-      />
-      
-      <CategorySelector 
-        isOpen={isCategorySelectorOpen} 
-        onClose={() => setIsCategorySelectorOpen(false)} 
-        options={categories} 
-        selected={editCategories} 
-        onChange={setEditCategories} 
-      />
-
+        </div>
+      )}
     </div>
+    </>
   );
 };
 
