@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import ReaderHome from './pages/ReaderHome';
@@ -12,12 +11,11 @@ import StaffLogin from './pages/StaffLogin';
 import InviteRegistration from './pages/InviteRegistration';
 import ResetPassword from './pages/ResetPassword';
 import { UserRole, Article, EPaperPage, ArticleStatus, ClassifiedAd, Advertisement, WatermarkSettings, TrustedDevice, AdSize, ActivityLog } from './types';
-import { MOCK_ARTICLES, MOCK_EPAPER, APP_NAME } from './constants';
+import { APP_NAME } from './constants';
 import { generateId, getDeviceId, createSlug, getDeviceMetadata, getPublicIP } from './utils';
 import { supabase } from './supabaseClient';
-import { ShieldAlert, Smartphone, Monitor, Check, MapPin, Tablet, Loader2 } from 'lucide-react';
+import { ShieldAlert, Monitor, Check, MapPin } from 'lucide-react';
 
-// Use a fixed UUID for global settings to ensure compatibility with UUID columns in Supabase
 const GLOBAL_SETTINGS_ID = '00000000-0000-0000-0000-000000000000';
 
 function App() {
@@ -29,14 +27,9 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isRecovering, setIsRecovering] = useState(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
-  
-  // Keep a ref to userId to avoid stale closures in event listeners/effects
   const userIdRef = useRef<string | null>(null);
-  
-  // Real-time Analytics State
   const [activeVisitors, setActiveVisitors] = useState<number>(1);
 
-  // Persistence states
   const [articles, setArticles] = useState<Article[]>([]);
   const [ePaperPages, setEPaperPages] = useState<EPaperPage[]>([]);
   const [categories, setCategories] = useState<string[]>(['General', 'World', 'Technology', 'Politics', 'Lifestyle', 'Business', 'Culture', 'Sports', 'Local']);
@@ -59,18 +52,14 @@ function App() {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const sessionStartTime = useRef<number>(Date.now());
 
-  // Sync state to ref
   useEffect(() => {
       userIdRef.current = userId;
   }, [userId]);
 
-  // --- LOGGING SYSTEM ---
   const handleLogActivity = async (action: ActivityLog['action'], details?: string) => {
       if (!userIdRef.current) return;
-      
       const meta = getDeviceMetadata();
-      const ip = await getPublicIP(); // Fetch real IP
-      
+      const ip = await getPublicIP();
       const newLog: ActivityLog = {
           id: generateId(),
           userId: userIdRef.current,
@@ -78,16 +67,12 @@ function App() {
           action,
           details: details || '',
           ip,
-          location: 'Detected via IP', // In a real app, this would come from a GeoIP service
+          location: 'Detected via IP',
           timestamp: new Date().toISOString()
       };
-
-      // Optimistic update
       setActivityLogs(prev => [newLog, ...prev]);
-
-      // Save to Supabase (Mocking table existence)
       try {
-          const { error } = await supabase.from('activity_logs').insert({
+          await supabase.from('activity_logs').insert({
               user_id: newLog.userId,
               device_name: newLog.deviceName,
               action: newLog.action,
@@ -96,7 +81,6 @@ function App() {
               location: newLog.location,
               timestamp: newLog.timestamp
           });
-          if (error) console.warn("Log save failed (table might be missing)", error);
       } catch (e) {
           console.warn("Log system unavailable");
       }
@@ -105,65 +89,35 @@ function App() {
   const fetchLogs = async () => {
       if (!userIdRef.current) return;
       try {
-          const { data, error } = await supabase
-              .from('activity_logs')
-              .select('*')
-              .order('timestamp', { ascending: false })
-              .limit(50);
-          
+          const { data, error } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(50);
           if (!error && data) {
               const mappedLogs: ActivityLog[] = data.map((l: any) => ({
-                  id: l.id,
-                  userId: l.user_id,
-                  deviceName: l.device_name,
-                  action: l.action,
-                  details: l.details,
-                  ip: l.ip,
-                  location: l.location,
-                  timestamp: l.timestamp
+                  id: l.id, userId: l.user_id, deviceName: l.device_name, action: l.action, details: l.details, ip: l.ip, location: l.location, timestamp: l.timestamp
               }));
               setActivityLogs(mappedLogs);
           }
-      } catch (e) {
-          console.warn("Log fetch failed");
-      }
+      } catch (e) { console.warn("Log fetch failed"); }
   };
 
-  // --- REAL-TIME VISITOR TRACKING ---
   useEffect(() => {
     const channel = supabase.channel('cj_newsroom_visitors');
-    channel
-      .on('presence', { event: 'sync' }, () => {
+    channel.on('presence', { event: 'sync' }, () => {
         const newState = channel.presenceState();
         const count = Object.keys(newState).length;
         setActiveVisitors(count > 0 ? count : 1);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await channel.track({ 
-            online_at: new Date().toISOString(),
-            device_id: getDeviceId(),
-            role: userRole 
-          });
+          await channel.track({ online_at: new Date().toISOString(), device_id: getDeviceId(), role: userRole });
         }
       });
     return () => { supabase.removeChannel(channel); };
   }, [userRole]);
 
-  // --- DEVICE MANAGEMENT ---
   const mapDbDevice = (d: any): TrustedDevice => {
       const currentId = getDeviceId();
       return {
-          id: d.id,
-          userId: d.user_id,
-          deviceName: d.device_name,
-          deviceType: d.device_type,
-          location: d.location,
-          lastActive: d.last_active,
-          status: d.status,
-          browser: d.browser,
-          isPrimary: d.is_primary,
-          isCurrent: d.id === currentId 
+          id: d.id, userId: d.user_id, deviceName: d.device_name, deviceType: d.device_type, location: d.location, lastActive: d.last_active, status: d.status, browser: d.browser, isPrimary: d.is_primary, isCurrent: d.id === currentId 
       };
   };
 
@@ -176,20 +130,9 @@ function App() {
   };
 
   const handleAddDevice = async (device: TrustedDevice) => {
-      setDevices(prev => {
-          if (prev.some(d => d.id === device.id)) return prev;
-          return [...prev, { ...device, isCurrent: true }];
-      });
+      setDevices(prev => { if (prev.some(d => d.id === device.id)) return prev; return [...prev, { ...device, isCurrent: true }]; });
       const dbDevice = {
-          id: device.id,
-          user_id: device.userId,
-          device_name: device.deviceName,
-          device_type: device.deviceType,
-          location: device.location,
-          last_active: device.lastActive,
-          status: device.status,
-          browser: device.browser,
-          is_primary: device.isPrimary
+          id: device.id, user_id: device.userId, device_name: device.deviceName, device_type: device.deviceType, location: device.location, last_active: device.lastActive, status: device.status, browser: device.browser, is_primary: device.isPrimary
       };
       const { error } = await supabase.from('trusted_devices').upsert(dbDevice);
       if (error) { console.error("Device add failed", error); fetchDevices(device.userId); }
@@ -207,29 +150,17 @@ function App() {
       if (error) { console.error("Status update failed", error); fetchDevices(); }
   };
 
-  // Helper to safely parse tags from various DB formats
   const parseTags = (input: any): string[] => {
       if (!input) return [];
       if (Array.isArray(input)) return input;
       if (typeof input === 'string') {
           let cleaned = input.trim();
-          
-          // Handle Postgres array string format {tag1,tag2}
-          if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
-              cleaned = cleaned.substring(1, cleaned.length - 1);
-          }
-          // Handle JSON array string format [tag1,tag2] (common from some JSONB inputs)
-          else if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
-              cleaned = cleaned.substring(1, cleaned.length - 1);
-          }
-          
-          // Split by comma, remove quotes (both single and double), filter empty
-          return cleaned.split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+          if (cleaned.startsWith('{') && cleaned.endsWith('}')) cleaned = cleaned.substring(1, cleaned.length - 1);
+          return cleaned.split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean);
       }
       return [];
   };
 
-  // --- DATA SYNC ---
   const fetchData = async (force: boolean = false) => {
     try {
       const { data: settingsData } = await supabase.from('articles').select('content, published_at').eq('id', GLOBAL_SETTINGS_ID).maybeSingle();
@@ -255,7 +186,7 @@ function App() {
           id: a.id, userId: a.user_id, slug: a.slug, title: a.title, englishTitle: a.english_title || undefined, subline: a.subline,
           author: a.author, authorAvatar: a.authorAvatar || a.author_avatar, content: a.content,
           categories: a.category ? a.category.split(',').map((s: string) => s.trim()).filter(Boolean) : ['General'],
-          tags: parseTags(a.tags), // Robust parsing for tags
+          tags: parseTags(a.tags),
           imageUrl: a.imageUrl || a.image_url || 'https://placehold.co/800x400?text=No+Image',
           publishedAt: a.publishedAt || a.published_at || new Date().toISOString(),
           status: (a.status as ArticleStatus) || ArticleStatus.PUBLISHED,
@@ -286,19 +217,10 @@ function App() {
     } catch (err) { console.error("Critical error in fetchData:", err); }
   };
 
-  // --- ROUTING LOGIC ---
   const getPathFromHash = () => {
      const hash = window.location.hash;
-     
-     // Auth Callback Handling
      if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('error=')) return '/auth-callback'; 
-     
-     // Fallback for Path-based routing (e.g. /invite?token=... instead of /#/invite?token=...)
-     if ((!hash || hash === '#') && window.location.pathname.length > 1) {
-         // Return pathname + search as the route (e.g. /invite?token=123)
-         return window.location.pathname + window.location.search;
-     }
-
+     if ((!hash || hash === '#') && window.location.pathname.length > 1) return window.location.pathname + window.location.search;
      if (!hash || hash === '#') return '/';
      return hash.startsWith('#') ? hash.slice(1) : hash;
   };
@@ -320,12 +242,9 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Safety Timeout for Auth Callback
   useEffect(() => {
       if (currentPath === '/auth-callback') {
-          const timer = setTimeout(() => {
-              navigate('/');
-          }, 5000);
+          const timer = setTimeout(() => { navigate('/'); }, 5000);
           return () => clearTimeout(timer);
       }
   }, [currentPath]);
@@ -400,15 +319,11 @@ function App() {
       }
   }, [devices, userId]);
 
-  // --- ACTIONS ---
   const handleLogin = (role: UserRole, name: string, avatar?: string) => { setUserRole(role); setUserName(name); if (avatar) setUserAvatar(avatar); };
   
-  // Updated save function to accept override for ads enabled status
   const handleSaveGlobalConfig = async (w?: WatermarkSettings, adsEnabledOverride?: boolean) => { 
       const watermarkToSave = w || watermarkSettings;
       if (w) setWatermarkSettings(w);
-
-      // Use override if provided, otherwise fallback to current state
       const adsEnabledToSave = adsEnabledOverride !== undefined ? adsEnabledOverride : globalAdsEnabled;
 
       const payload = {
@@ -420,7 +335,7 @@ function App() {
               categories: categories,
               tags: tags,
               adCategories: adCategories,
-              adsEnabled: adsEnabledToSave // Use the explicit or current value
+              adsEnabled: adsEnabledToSave
           }),
           author: 'SYSTEM',
           category: 'Config',
@@ -434,24 +349,17 @@ function App() {
       };
 
       const { error } = await supabase.from('articles').upsert(payload);
-      if (error) {
-          alert(`Failed to save settings globally: ${error.message}`);
-      } else {
-          fetchData(true);
-      }
+      if (error) { alert(`Failed to save settings globally: ${error.message}`); } else { fetchData(true); }
   };
   
   const handleToggleGlobalAds = async (e: boolean) => { 
       setGlobalAdsEnabled(e);
-      // Pass the new value explicitly to avoid stale state issues during async save
       handleSaveGlobalConfig(undefined, e); 
   };
 
   const handleSaveArticle = async (article: Article) => {
-    // Generate slug from English title if available (better for SEO), otherwise fallback to regular title
     const slugBase = article.englishTitle || article.title;
     const articleSlug = article.slug || createSlug(slugBase);
-    
     const articleWithSlug = { ...article, slug: articleSlug };
 
     setArticles(prev => {
@@ -462,14 +370,14 @@ function App() {
     const payload = {
         id: article.id,
         title: article.title,
-        english_title: article.englishTitle, // Save English title
+        english_title: article.englishTitle,
         slug: articleSlug,
         subline: article.subline,
         author: article.author,
         author_avatar: article.authorAvatar,
         content: article.content,
         category: article.categories.join(', '),
-        tags: article.tags, // Added tags field
+        tags: article.tags,
         imageUrl: article.imageUrl,
         image_url: article.imageUrl,
         publishedAt: article.publishedAt,
@@ -481,13 +389,7 @@ function App() {
     };
 
     const { error } = await supabase.from('articles').upsert(payload);
-    if (error) {
-      alert("Failed to save article: " + error.message);
-      fetchData(true); 
-    } else {
-        // Log Edit Action
-        handleLogActivity('EDIT', `Article: ${article.title.substring(0, 20)}...`);
-    }
+    if (error) { alert("Failed to save article: " + error.message); fetchData(true); } else { handleLogActivity('EDIT', `Article: ${article.title.substring(0, 20)}...`); }
   };
   
   const handleDeleteArticle = async (id: string) => { 
@@ -496,11 +398,7 @@ function App() {
       try {
           const { error } = await supabase.from('articles').delete().eq('id', id);
           if (error) throw error;
-      } catch (error: any) {
-          alert(`Failed to delete: ${error.message}`);
-          setArticles(previousArticles);
-          fetchData(true);
-      }
+      } catch (error: any) { alert(`Failed to delete: ${error.message}`); setArticles(previousArticles); fetchData(true); }
   };
   
   const handleAddPage = async (p: EPaperPage) => { 
@@ -515,20 +413,14 @@ function App() {
       user_id: userId
     };
     const { error } = await supabase.from('epaper_pages').insert(payload);
-    if (error) {
-      alert("Backend Sync Error: " + error.message);
-      fetchData(true); 
-    }
+    if (error) { alert("Backend Sync Error: " + error.message); fetchData(true); }
   };
   
   const handleDeletePage = async (id: string) => { 
     const prevPages = [...ePaperPages];
     setEPaperPages(prev => prev.filter(p => p.id !== id));
     const { error } = await supabase.from('epaper_pages').delete().eq('id', id);
-    if (error) {
-      alert("Failed to delete page: " + error.message);
-      setEPaperPages(prevPages);
-    }
+    if (error) { alert("Failed to delete page: " + error.message); setEPaperPages(prevPages); }
   };
   
   const handleUpdatePage = async (page: EPaperPage) => { 
@@ -569,7 +461,6 @@ function App() {
   
   let content: React.ReactNode = null;
   
-  // ROUTING ORDER: Invite first to allow registration
   if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path.startsWith('/invite')) {
@@ -585,7 +476,9 @@ function App() {
         onAddCategory={c => setCategories(p => [...p, c])} onDeleteCategory={c => setCategories(p => p.filter(o => o !== c))} onAddTag={t => setTags(p => [...p, t])} onDeleteTag={t => setTags(p => p.filter(o => o !== t))} 
         onAddAdCategory={c => setAdCategories(p => [...p, c])} onDeleteAdCategory={c => setAdCategories(p => p.filter(o => o !== c))} onSaveTaxonomy={() => handleSaveGlobalConfig()} 
         onAddClassified={async (c) => { await supabase.from('classifieds').insert(c); fetchData(true); }} onDeleteClassified={async (id) => { await supabase.from('classifieds').delete().eq('id', id); fetchData(true); }} 
-        onAddAdvertisement={async (ad) => { /* save ad */ fetchData(true); }} onUpdateAdvertisement={async (ad) => { /* update ad */ fetchData(true); }} onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
+        onAddAdvertisement={async (ad) => { await supabase.from('advertisements').insert({ ...ad, is_active: ad.isActive, image_url: ad.imageUrl, link_url: ad.linkUrl, custom_width: ad.customWidth, custom_height: ad.customHeight, target_category: ad.targetCategory }); fetchData(true); }} 
+        onUpdateAdvertisement={async (ad) => { await supabase.from('advertisements').update({ ...ad, is_active: ad.isActive, image_url: ad.imageUrl, link_url: ad.linkUrl, custom_width: ad.customWidth, custom_height: ad.customHeight, target_category: ad.targetCategory }).eq('id', ad.id); fetchData(true); }} 
+        onDeleteAdvertisement={async (id) => { await supabase.from('advertisements').delete().eq('id', id); fetchData(true); }} 
         onNavigate={navigate} userAvatar={userAvatar} userName={userName} userEmail={userEmail} devices={devices.filter(d => d.userId === userId)} onApproveDevice={(id) => handleUpdateDeviceStatus(id, 'approved')} onRejectDevice={(id) => handleRevokeDevice(id)} onRevokeDevice={handleRevokeDevice} userId={userId} activeVisitors={activeVisitors} logs={activityLogs}
     />;
   } else if (path === '/writer' && userRole === UserRole.WRITER && isDeviceAuthorized()) {
@@ -619,7 +512,6 @@ function App() {
     </Layout>
     {isPrimary && pendingDevice && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-           {/* Security Alert Popup Content */}
            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-red-100">
               <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
                  <div className="p-2 bg-white/20 rounded-full animate-pulse"><ShieldAlert className="text-white" size={24} /></div>
