@@ -25,17 +25,35 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     
-    // Check device trust on mount
+    // Check device trust on mount and listen for auth changes
     useEffect(() => {
+        let mounted = true;
+
+        // 1. Initial check (in case session is already ready)
         const checkSession = async () => {
              const { data: { session } } = await supabase.auth.getSession();
-             if (session) {
-                 // If already logged in via magic link, skip check
+             if (mounted && session) {
                  setStep('reset');
                  setEmail(session.user.email || '');
              }
         };
         checkSession();
+
+        // 2. Listen for auth events. This is critical for the "Click Link" flow.
+        // When App.tsx navigates here on 'PASSWORD_RECOVERY', the session might not be
+        // available via getSession() instantly due to async timing. The listener catches it reliably.
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (!mounted) return;
+            if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+                setStep('reset');
+                setEmail(session.user.email || '');
+            }
+        });
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const handleSendResetCode = async (e: React.FormEvent) => {
@@ -50,10 +68,10 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
 
         try {
             // Trigger Supabase to send a recovery email
-            // We redirect to ROOT to avoid hash conflicts (e.g. /#/reset/#token)
-            // The App component will handle the PASSWORD_RECOVERY event and redirect to /reset-password
+            // We use window.location.href split to ensure we return to the app root cleanly
+            const redirectUrl = window.location.href.split('#')[0];
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/`
+                redirectTo: redirectUrl
             });
             if (error) throw error;
             
@@ -161,7 +179,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
             
             setSuccess(true);
         } catch (err: any) {
-            setError(err.message || "Failed to update password.");
+            setError(err.message || "Failed to update password. Session may have expired.");
         } finally {
             setLoading(false);
         }

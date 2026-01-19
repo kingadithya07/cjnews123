@@ -252,9 +252,13 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       try {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user || !user.email) throw new Error("User email not found.");
-          // IMPORTANT: Redirect to root origin. App.tsx will detect the 'type=recovery' in the hash
-          // and correctly route to /reset-password. This avoids double-hash issues like /#/reset-password#access_token
-          const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: `${window.location.origin}/` });
+          
+          // Use origin + path to ensure we hit the app, avoiding double slash issues
+          // If we are at https://site.com/app/index.html, origin is https://site.com
+          // We want to return to the app root.
+          const redirectUrl = window.location.href.split('#')[0]; // Current URL without hash
+          
+          const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: redirectUrl });
           if (error) throw error;
           alert(`Master reset link sent to ${user.email}. Please check your inbox to reset credentials securely.`);
       } catch (e: any) { alert("Error: " + e.message); }
