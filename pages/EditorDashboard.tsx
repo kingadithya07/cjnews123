@@ -178,7 +178,8 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
       setGeneratedLink('');
       try {
           const token = generateId();
-          const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins
+          // Expiration set to 5 minutes
+          const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); 
           
           const { error } = await supabase.from('staff_invitations').insert({
               token,
@@ -762,7 +763,7 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                           <div className="p-5 bg-gray-50 border border-gray-100 rounded-lg">
                               <h3 className="font-bold text-sm text-gray-900 mb-2">Generate Staff Invitation</h3>
                               <p className="text-xs text-gray-500 mb-4">
-                                  Create a one-time secure link to onboard new team members. The link expires automatically in 15 minutes.
+                                  Create a one-time secure link to onboard new team members. The link expires automatically in 5 minutes.
                               </p>
                               
                               <div className="flex flex-col md:flex-row gap-4 items-end">
@@ -796,14 +797,14 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
                                               className="flex-1 bg-news-black text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
                                           >
                                               {isGeneratingInvite ? <Loader2 size={16} className="animate-spin" /> : <Timer size={16} />}
-                                              Generate 15m Link
+                                              Generate 5m Link
                                           </button>
                                       )}
                                   </div>
                               </div>
                               {generatedLink && (
                                   <p className="text-[10px] text-green-600 font-bold mt-2 flex items-center gap-1">
-                                      <Check size={12} /> Link generated. Valid for 15 minutes. Single use only.
+                                      <Check size={12} /> Link generated. Valid for 5 minutes. Single use only.
                                   </p>
                               )}
                           </div>
