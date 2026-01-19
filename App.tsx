@@ -130,7 +130,7 @@ function App() {
   const fetchDevices = async (uidOverride?: string) => {
       const targetUserId = uidOverride || userIdRef.current;
       if (!targetUserId) { setDevices([]); return; }
-      const { data, error } = await supabase.from('trusted_devices').select('*');
+      const { data, error } = await supabase.from('trusted_devices').select('*').eq('user_id', targetUserId);
       
       if (error) { console.error("Error fetching devices:", error); return; }
       if (data) { 
@@ -241,7 +241,7 @@ function App() {
               if (parsedSettings.translationApiKey) setTranslationApiKey(parsedSettings.translationApiKey);
           } catch (e) { console.error("Failed to parse global settings", e); }
       }
-      let { data: artData } = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).order('publishedAt', { ascending: false });
+      let { data: artData } = await supabase.from('articles').select('*').neq('id', GLOBAL_SETTINGS_ID).order('published_at', { ascending: false });
       let { data: pageData } = await supabase.from('epaper_pages').select('*').order('date', { ascending: false }).order('pageNumber', { ascending: true });
       const { data: clsData } = await supabase.from('classifieds').select('*').order('id', { ascending: false });
       const { data: adData } = await supabase.from('advertisements').select('*');
@@ -357,6 +357,7 @@ function App() {
           const duration = Math.round((Date.now() - sessionStartTime.current) / 60000); 
           await handleLogActivity('LOGOUT', `Duration: ${duration} mins`);
           setUserId(null); userIdRef.current = null; setUserName(null); setUserEmail(null); setUserRole(UserRole.READER); setUserAvatar(null); setDevices([]); setActivityLogs([]); setAllStaffUsers([]);
+          navigate('/'); // Instant navigation to home on logout
       }
       if (session) {
         setUserId(session.user.id); userIdRef.current = session.user.id; 
@@ -522,7 +523,11 @@ function App() {
 
   const currentDeviceId = getDeviceId();
   const currentDeviceEntry = devices.find(d => d.id === currentDeviceId);
-  const isPrimary = currentDeviceEntry?.isPrimary ?? false;
+  
+  // FIX: Strict Primary Check. Must be explicitly marked primary AND approved in DB.
+  // This prevents 'pending' devices from acting as Primary even if local logic confused them.
+  const isPrimary = (currentDeviceEntry?.isPrimary === true) && (currentDeviceEntry?.status === 'approved');
+  
   const pendingDevice = devices.find(d => d.status === 'pending');
   const path = currentPath.toLowerCase();
   
@@ -579,7 +584,8 @@ function App() {
     <Layout currentRole={userRole} onRoleChange={setUserRole} currentPath={currentPath} onNavigate={navigate} userName={userName} userAvatar={userAvatar} onForceSync={() => fetchData(true)} lastSync={lastSync} articles={articles} categories={categories} pendingDevices={devices.filter(d => d.status === 'pending' && d.userId === userId)} onApproveDevice={id => handleUpdateDeviceStatus(id, 'approved')} onRejectDevice={id => handleRevokeDevice(id)}>
       {content}
     </Layout>
-    {isPrimary && pendingDevice && (
+    {/* FIX: Ensure modal only shows on PRIMARY devices, and never to the pending device itself */}
+    {isPrimary && pendingDevice && pendingDevice.id !== currentDeviceId && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-red-100">
               <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
