@@ -91,7 +91,7 @@ function App() {
   const fetchLogs = async () => {
       if (!userIdRef.current) return;
       try {
-          const { data, error } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(200); // Increased limit to capture more history
+          const { data, error } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(200);
           if (!error && data) {
               const mappedLogs: ActivityLog[] = data.map((l: any) => ({
                   id: l.id, userId: l.user_id, deviceName: l.device_name, action: l.action, details: l.details, ip: l.ip, location: l.location, timestamp: l.timestamp
@@ -124,20 +124,12 @@ function App() {
   };
 
   const fetchDevices = async (uidOverride?: string) => {
-      // If fetching for current user (standard), filter by ID. If admin, we might want to fetch more in a real app, but here we stick to context.
       const targetUserId = uidOverride || userIdRef.current;
       if (!targetUserId) { setDevices([]); return; }
-      
-      // Note: In a real Supabase RLS setup, users can only see their own devices.
-      // Editors/Admins might need a special RPC or policy to see others.
-      // Here we assume standard RLS unless overridden.
       const { data, error } = await supabase.from('trusted_devices').select('*');
-      
       if (error) { console.error("Error fetching devices:", error); return; }
       if (data) { 
           const mappedDevices = data.map(mapDbDevice);
-          // If we are admin/editor, we might see all devices if RLS allows, or just ours.
-          // For the purpose of this simulation, we filter in memory if needed, but RLS usually handles it.
           if (userRole === UserRole.EDITOR || userRole === UserRole.ADMIN) {
               setDevices(mappedDevices);
           } else {
@@ -146,63 +138,36 @@ function App() {
       }
   };
 
-  // Derive Users from Logs and Devices (Mocking a Users table since we can't access auth.users)
   useEffect(() => {
       if (userRole !== UserRole.EDITOR && userRole !== UserRole.ADMIN) return;
-
       const deriveUsers = () => {
           const userMap = new Map<string, UserProfile>();
-
-          // Process logs to find users
           activityLogs.forEach(log => {
               if (!userMap.has(log.userId)) {
-                  // Attempt to guess name/role from logs/context or placeholder
                   userMap.set(log.userId, {
                       id: log.userId,
-                      name: 'Staff Member', // We don't have name in logs easily, updated below if found
+                      name: 'Staff Member',
                       email: 'Hidden',
-                      role: UserRole.WRITER, // Default assumption
-                      joinedAt: log.timestamp, // Earliest timestamp found becomes join date
+                      role: UserRole.WRITER,
+                      joinedAt: log.timestamp,
                       lastIp: log.ip || 'Unknown',
                       status: 'active'
                   });
               } else {
-                  const existing = userMap.get(log.userId)!;
-                  // Update with earlier timestamp for joinedAt
-                  if (new Date(log.timestamp) < new Date(existing.joinedAt)) {
-                      existing.joinedAt = log.timestamp;
-                  }
-                  // Update IP to most recent
-                  if (new Date(log.timestamp) > new Date(existing.joinedAt)) { // Reuse logic, technically logic flawed for "most recent" vs "earliest", fixing:
-                      // Actually we need to track latest log for IP
+                  const user = userMap.get(log.userId)!;
+                  if (user.lastIp === 'Unknown' || user.lastIp === 'Detected via IP') {
+                      user.lastIp = log.ip || 'Unknown';
                   }
               }
           });
-
-          // Correct IP using latest log
-          activityLogs.forEach(log => {
-             const user = userMap.get(log.userId);
-             if (user) {
-                 // If this log is newer than what we might have tracked (we didn't track latest ts above), update IP
-                 // Simple heuristic: just take the IP of the first log encountered since list is ordered DESC
-                 if (user.lastIp === 'Unknown' || user.lastIp === 'Detected via IP') {
-                     user.lastIp = log.ip || 'Unknown';
-                 }
-             }
-          });
-
-          // Enrich with info if available from current session (self)
           if (userId && userMap.has(userId)) {
               const self = userMap.get(userId)!;
               self.name = userName || 'Me';
               self.email = userEmail || '';
               self.role = userRole;
           }
-
-          // Convert map to array
           setAllStaffUsers(Array.from(userMap.values()));
       };
-
       deriveUsers();
   }, [activityLogs, devices, userRole, userId, userName, userEmail]);
 
@@ -228,20 +193,12 @@ function App() {
       if (error) { console.error("Status update failed", error); fetchDevices(); }
   };
 
-  // Block User Functionality (Revokes all devices for that user)
   const handleBlockUser = async (targetUserId: string) => {
-      // 1. Identify devices
       const userDevices = devices.filter(d => d.userId === targetUserId);
-      
-      // 2. Delete from DB
       for (const device of userDevices) {
           await supabase.from('trusted_devices').delete().eq('id', device.id);
       }
-
-      // 3. Update State
       setDevices(prev => prev.filter(d => d.userId !== targetUserId));
-      
-      // 4. Log
       handleLogActivity('EDIT', `Blocked User ${targetUserId.substring(0, 8)}`);
       alert("User blocked. All trusted devices for this user have been revoked.");
   };
@@ -339,13 +296,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-      if (currentPath === '/auth-callback') {
-          const timer = setTimeout(() => { navigate('/'); }, 5000);
-          return () => clearTimeout(timer);
-      }
-  }, [currentPath]);
-
-  useEffect(() => {
     fetchData();
     const channel = supabase.channel('newsroom_global_sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, () => fetchData(true))
@@ -354,7 +304,6 @@ function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'advertisements' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, (payload) => {
           if (!userIdRef.current) return;
-          // In a real app we might verify if this affects us, but here just fetch all devices again if we are admin
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
               fetchDevices();
           }
@@ -378,7 +327,10 @@ function App() {
     checkInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') { setIsRecovering(true); navigate('/reset-password'); }
+      if (event === 'PASSWORD_RECOVERY') { 
+        setIsRecovering(true); 
+        navigate('/reset-password'); 
+      }
       if (event === 'SIGNED_IN' && session) {
           sessionStartTime.current = Date.now(); setUserId(session.user.id); userIdRef.current = session.user.id;
           handleLogActivity('LOGIN', 'Session Started'); fetchDevices(); fetchLogs();
@@ -526,14 +478,14 @@ function App() {
   const isDeviceAuthorized = () => {
     if (!userId) return false;
     const currentDeviceId = getDeviceId();
-    // In this simulation, devices list is already filtered if not admin, but handle robustly
     const myDevices = devices.filter(d => d.userId === userId);
-    if (myDevices.length === 0) return true; // Fail open for first device if no table sync
+    if (myDevices.length === 0) return true; 
     const currentEntry = myDevices.find(d => d.id === currentDeviceId);
     return currentEntry?.status === 'approved';
   };
 
-  if (loading || currentPath === '/auth-callback') {
+  // Important: Remove blocking /auth-callback loader to allow Supabase events to fire and redirects to occur
+  if (loading) {
       return (
           <div className="h-screen flex items-center justify-center bg-news-paper">
               <div className="flex flex-col items-center gap-4">
@@ -547,13 +499,22 @@ function App() {
   const currentDeviceId = getDeviceId();
   const currentDeviceEntry = devices.find(d => d.id === currentDeviceId);
   const isPrimary = currentDeviceEntry?.isPrimary ?? false;
-  // Admin sees all pending devices from all users
   const pendingDevice = devices.find(d => d.status === 'pending');
   const path = currentPath.toLowerCase();
   
   let content: React.ReactNode = null;
   
-  if (path === '/reset-password') {
+  // Specific catch for the processing state of auth fragments
+  if (path === '/auth-callback') {
+      content = (
+          <div className="h-[70vh] flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                  <div className="w-10 h-10 border-4 border-news-gold border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-gray-500 font-bold uppercase text-[10px] tracking-widest">Processing Secure Session...</p>
+              </div>
+          </div>
+      );
+  } else if (path === '/reset-password') {
     content = <ResetPassword onNavigate={navigate} devices={devices} />;
   } else if (path.startsWith('/invite')) {
     content = <InviteRegistration onNavigate={navigate} />;

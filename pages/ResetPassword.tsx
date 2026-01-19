@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Lock, ArrowRight, CheckCircle, AlertCircle, ShieldCheck, KeyRound, Mail, RefreshCw, Smartphone, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { TrustedDevice } from '../types';
-import { getDeviceId } from '../utils';
+import { getDeviceId, getDeviceMetadata } from '../utils';
 
 interface ResetPasswordProps {
     onNavigate: (path: string) => void;
@@ -25,17 +25,31 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     
-    // Check device trust on mount
+    // Check device trust on mount and listen for session arrival
     useEffect(() => {
+        let mounted = true;
+        
         const checkSession = async () => {
              const { data: { session } } = await supabase.auth.getSession();
-             if (session) {
-                 // If already logged in via magic link, skip check
+             if (mounted && session) {
                  setStep('reset');
                  setEmail(session.user.email || '');
              }
         };
         checkSession();
+
+        // Listen for session arrival (important for magic links)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (mounted && session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN')) {
+                setStep('reset');
+                setEmail(session.user.email || '');
+            }
+        });
+
+        return () => { 
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const handleSendResetCode = async (e: React.FormEvent) => {
@@ -50,8 +64,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
 
         try {
             // Trigger Supabase to send a recovery email
-            // We redirect to ROOT to avoid hash conflicts (e.g. /#/reset/#token)
-            // The App component will handle the PASSWORD_RECOVERY event and redirect to /reset-password
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${window.location.origin}/`
             });
@@ -62,6 +74,34 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
             setError(err.message || "Failed to send verification code.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const promoteCurrentDevice = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const currentId = getDeviceId();
+        const meta = getDeviceMetadata();
+
+        try {
+            await supabase.from('trusted_devices')
+                .update({ is_primary: false })
+                .eq('user_id', user.id);
+
+            await supabase.from('trusted_devices').upsert({
+                id: currentId,
+                user_id: user.id,
+                device_name: meta.name,
+                device_type: meta.type,
+                location: 'Recovery Session',
+                last_active: new Date().toISOString(),
+                status: 'approved',
+                browser: meta.browser,
+                is_primary: true
+            });
+        } catch (e) {
+            console.error("Failed to promote device during recovery", e);
         }
     };
 
@@ -82,7 +122,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
         setError(null);
 
         try {
-            // 1. Verify the OTP
             const { error: verifyError } = await supabase.auth.verifyOtp({
                 email,
                 token: inputCode,
@@ -91,13 +130,13 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
 
             if (verifyError) throw verifyError;
 
-            // 2. Update Password
             const { error: updateError } = await supabase.auth.updateUser({ 
                 password: password 
             });
 
             if (updateError) throw updateError;
 
+            await promoteCurrentDevice();
             setSuccess(true);
         } catch (err: any) {
             setError(err.message || "Invalid code or expired session.");
@@ -121,9 +160,15 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
         try {
             const { error } = await supabase.auth.updateUser({ password });
             if (error) throw error;
+            
+            await promoteCurrentDevice();
             setSuccess(true);
         } catch (err: any) {
-            setError(err.message || "Failed to update password.");
+            if (err.message?.includes('session_id') || err.message?.includes('JWT')) {
+                setError("This password reset link has expired or is invalid. Please request a new one.");
+            } else {
+                setError(err.message || "Failed to update password. Session may have expired.");
+            }
         } finally {
             setLoading(false);
         }
@@ -147,7 +192,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                         <CheckCircle size={48} />
                         <div>
                             <p className="font-black uppercase tracking-widest text-xs mb-2">Success</p>
-                            <p className="text-sm font-medium mb-4">Your password has been updated.</p>
+                            <p className="text-sm font-medium mb-4">Your password has been updated and this device is now authorized as Primary.</p>
                         </div>
                         <button 
                             onClick={() => onNavigate('/login')}
@@ -179,7 +224,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                         />
                                     </div>
                                     <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
-                                        Enter your registered email address. Verification will be sent to your <b>Primary Account</b>.
+                                        Enter your registered email address. This will trigger a system-wide reset and authorize this device.
                                     </p>
                                 </div>
                                 
@@ -188,7 +233,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                     disabled={loading}
                                     className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 disabled:opacity-30 shadow-xl transition-all flex items-center justify-center gap-3"
                                 >
-                                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Send Verification to Primary"}
+                                    {loading ? <RefreshCw className="animate-spin" size={18} /> : "Send Verification Code"}
                                     {!loading && <ArrowRight size={18} />}
                                 </button>
                                 
@@ -210,9 +255,9 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3 items-start">
                                      <div className="bg-blue-100 p-2 rounded-full text-blue-600 mt-1"><Mail size={16} /></div>
                                      <div>
-                                        <p className="text-xs text-blue-900 font-bold mb-1">Check Primary Account</p>
+                                        <p className="text-xs text-blue-900 font-bold mb-1">Check Your Email</p>
                                         <p className="text-[10px] text-blue-700 leading-relaxed">
-                                            We've sent a 6-digit verification code to <b>{email}</b>. Approval from the primary account is required to reset on this device.
+                                            We've sent a 6-digit verification code to <b>{email}</b>. Entering this code will verify your identity and restore access on this device.
                                         </p>
                                      </div>
                                 </div>
@@ -261,7 +306,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                     disabled={loading}
                                     className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 disabled:opacity-30 shadow-xl transition-all flex items-center justify-center gap-3"
                                 >
-                                    {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Reset Credentials"}
+                                    {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Reset & Authorize Device"}
                                     {!loading && <CheckCircle size={18} />}
                                 </button>
                                 
@@ -284,7 +329,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                      <div>
                                         <p className="text-xs text-green-900 font-bold mb-1">Identity Verified</p>
                                         <p className="text-[10px] text-green-700 leading-relaxed">
-                                            You are securely authenticated via the recovery link. Please set your new password below.
+                                            You are securely authenticated. Please set your new password below to regain full access.
                                         </p>
                                      </div>
                                 </div>
@@ -319,7 +364,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, devices = [] 
                                     disabled={loading}
                                     className="w-full py-4 bg-news-black text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-800 disabled:opacity-30 shadow-xl transition-all flex items-center justify-center gap-3"
                                 >
-                                    {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Update Password"}
+                                    {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Update & Authorize"}
                                     {!loading && <CheckCircle size={18} />}
                                 </button>
                             </form>
