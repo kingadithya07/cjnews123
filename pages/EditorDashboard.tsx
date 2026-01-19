@@ -4,7 +4,7 @@ import { EPaperPage, Article, ArticleStatus, ClassifiedAd, Advertisement, Waterm
 import { 
   Trash2, Upload, Plus, FileText, Image as ImageIcon, 
   Settings, X, RotateCcw, ZoomIn, ZoomOut, BarChart3, PenSquare, Tag, Megaphone, Globe, Menu, List, Newspaper, Calendar, Loader2, Library, User as UserIcon, Lock,
-  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, EyeOff, Mail, ShieldAlert, FileClock, UserPlus, Timer
+  Check, Scissors, Camera, Monitor, Smartphone, Tablet, ShieldCheck, AlertTriangle, Code, Copy, RefreshCcw, Type, Star, Save, Award, ChevronDown, Maximize, MapPin, DollarSign, Phone, Filter, Layout as LayoutIcon, Sparkles, Key, Eye, EyeOff, Mail, ShieldAlert, FileClock, UserPlus, Timer, ToggleLeft
 } from 'lucide-react';
 import { format } from 'date-fns';
 import EPaperViewer from '../components/EPaperViewer';
@@ -697,6 +697,65 @@ const EditorDashboard: React.FC<EditorDashboardProps> = ({
 
               {activeTab === 'settings' && (
                   <div className="max-w-4xl mx-auto space-y-12 pb-20 pt-4">
+                      
+                      {/* System Configuration - Restored */}
+                      <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
+                          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><Settings className="text-news-gold" /> System Configuration</h2>
+                          
+                          <div className="space-y-6">
+                              {/* Global Ads Toggle */}
+                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                  <div>
+                                      <h3 className="font-bold text-sm text-gray-900">Global Advertisement System</h3>
+                                      <p className="text-xs text-gray-500 mt-1">Master switch to enable or disable all ad slots across the platform.</p>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                      <input type="checkbox" checked={globalAdsEnabled} onChange={(e) => onToggleGlobalAds(e.target.checked)} className="sr-only peer" />
+                                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-news-black"></div>
+                                  </label>
+                              </div>
+
+                              {/* Watermark Settings */}
+                              <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 space-y-4">
+                                  <h3 className="font-bold text-sm text-gray-900 border-b border-gray-200 pb-2 mb-2">E-Paper Watermark Settings</h3>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div>
+                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Watermark Text</label>
+                                          <input 
+                                              type="text" 
+                                              value={watermarkText} 
+                                              onChange={(e) => setWatermarkText(e.target.value)} 
+                                              onBlur={() => onUpdateWatermarkSettings({...watermarkSettings, text: watermarkText})}
+                                              className="w-full p-2 border rounded text-sm bg-white"
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Logo URL</label>
+                                          <div className="flex gap-2">
+                                              <input 
+                                                  type="text" 
+                                                  value={watermarkLogo} 
+                                                  onChange={(e) => setWatermarkLogo(e.target.value)}
+                                                  onBlur={() => onUpdateWatermarkSettings({...watermarkSettings, logoUrl: watermarkLogo})}
+                                                  className="w-full p-2 border rounded text-sm bg-white"
+                                              />
+                                          </div>
+                                      </div>
+                                      <div>
+                                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Font Size Base (%)</label>
+                                          <input 
+                                              type="number" 
+                                              value={watermarkFontSize} 
+                                              onChange={(e) => setWatermarkFontSize(Number(e.target.value))}
+                                              onBlur={() => onUpdateWatermarkSettings({...watermarkSettings, fontSize: watermarkFontSize})}
+                                              className="w-full p-2 border rounded text-sm bg-white"
+                                          />
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+
                       {/* ... Staff Invitation ... */}
                       <div className="bg-white rounded-xl border p-6 md:p-8 shadow-sm">
                           <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2"><UserPlus className="text-news-gold" /> Team Management</h2>
