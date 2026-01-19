@@ -228,9 +228,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                   </div>
                   <div>
                       <h2 className="text-3xl font-serif font-black text-gray-900 mb-4 uppercase">CJ NEWSHUB Access</h2>
-                      <p className="text-gray-500 leading-relaxed text-sm">
-                          Handshake initiated for <b>{pendingUser?.user_metadata?.full_name || 'User'}</b>. Authorization required from your <b>Primary Device</b>.
-                      </p>
+                      <div className="text-gray-500 leading-relaxed text-sm space-y-2">
+                          <p>Handshake initiated for <b>{pendingUser?.user_metadata?.full_name || 'User'}</b>.</p>
+                          <p>Authorization required from your <b>Primary Device</b>.</p>
+                          <p className="text-red-500 font-bold text-xs bg-red-50 p-2 rounded">
+                              Lost your primary device? Use System Recovery below to override.
+                          </p>
+                      </div>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 space-y-3">
                       <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
@@ -251,7 +255,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigate, existingDevices, onA
                       </button>
                       
                       <div className="pt-4 border-t border-gray-100">
-                        <button onClick={onEmergencyReset} className="text-[10px] font-black text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-red-100 uppercase tracking-widest">
+                        <button onClick={onEmergencyReset} className="text-[10px] font-black text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors border border-red-100 uppercase tracking-widest w-full">
                             Factory Reset: System Recovery
                         </button>
                       </div>
